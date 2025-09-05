@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shoprocket Widget Development</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>Shoprocket Widget Development</h1>
+  
+  <div class="container">
+    <h2>Manual Initialization Example</h2>
+    <div id="products-container"></div>
+  </div>
+
+  <div class="container" style="margin-top: 2rem;">
+    <h2>Auto-render Example</h2>
+    <div data-shoprocket="products"></div>
+  </div>
+
+  <!-- Widget script -->
+  <script type="module" src="/src/index.js"></script>
+  
+  <!-- Configuration and initialization -->
+  <script>
+    // Auto-init configuration
+    window.ShoprocketConfig = {
+      publicKey: 'pk_test_123' // Replace with real key
+    };
+
+    // Manual init example (after widget loads)
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Wait a bit for module to load
+      setTimeout(async () => {
+        if (window.Shoprocket && window.Shoprocket.initialized) {
+          await window.Shoprocket.renderProducts('products-container', {
+            limit: 6
+          });
+        }
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

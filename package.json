@@ -1,0 +1,50 @@
+{
+  "name": "shoprocket-js-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Shoprocket JavaScript SDK and Widget - Lightweight eCommerce tools",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules",
+    "size": "npm run size --workspaces --if-present",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1",
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.0",
+    "vitest": "^1.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shoprocket/shoprocket-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shoprocket/shoprocket-js/issues"
+  },
+  "homepage": "https://github.com/shoprocket/shoprocket-js#readme",
+  "author": "Shoprocket Ltd. <dev@shoprocket.io>",
+  "keywords": [
+    "ecommerce",
+    "shopping-cart",
+    "javascript-sdk",
+    "widget",
+    "shoprocket"
+  ]
+}

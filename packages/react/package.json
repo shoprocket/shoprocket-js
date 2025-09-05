@@ -1,0 +1,60 @@
+{
+  "name": "@shoprocket/react",
+  "version": "0.1.0",
+  "description": "React components and hooks for Shoprocket",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build && tsc --declaration --emitDeclarationOnly",
+    "test": "vitest",
+    "lint": "eslint src",
+    "clean": "rm -rf dist",
+    "size": "npm run build && size-limit",
+    "prepublishOnly": "npm run build"
+  },
+  "size-limit": [
+    {
+      "path": "dist/index.js",
+      "limit": "15 KB"
+    }
+  ],
+  "keywords": [
+    "shoprocket",
+    "react",
+    "ecommerce",
+    "hooks",
+    "components"
+  ],
+  "author": "Shoprocket Ltd. <dev@shoprocket.io>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shoprocket/shoprocket-js.git",
+    "directory": "packages/react"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "dependencies": {
+    "@shoprocket/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@size-limit/preset-small-lib": "^11.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "size-limit": "^11.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
+}

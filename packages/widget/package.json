@@ -1,0 +1,39 @@
+{
+  "name": "@shoprocket/widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shoprocket Widget - Drop-in eCommerce solution",
+  "main": "dist/shoprocket.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "eslint src",
+    "clean": "rm -rf dist",
+    "size": "npm run build && ls -lh dist/"
+  },
+  "keywords": [
+    "shoprocket",
+    "ecommerce",
+    "widget",
+    "shopping-cart",
+    "embed"
+  ],
+  "author": "Shoprocket Ltd. <dev@shoprocket.io>",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shoprocket/shoprocket-js.git",
+    "directory": "packages/widget"
+  },
+  "dependencies": {
+    "@shoprocket/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

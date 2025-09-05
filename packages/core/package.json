@@ -1,0 +1,57 @@
+{
+  "name": "@shoprocket/core",
+  "version": "0.1.0",
+  "description": "Core SDK for Shoprocket - Lightweight API client for eCommerce",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build && tsc --declaration --emitDeclarationOnly",
+    "test": "vitest",
+    "lint": "eslint src",
+    "clean": "rm -rf dist",
+    "size": "npm run build && size-limit",
+    "prepublishOnly": "npm run build"
+  },
+  "size-limit": [
+    {
+      "path": "dist/index.js",
+      "limit": "10 KB"
+    },
+    {
+      "path": "dist/index.mjs",
+      "limit": "10 KB"
+    }
+  ],
+  "keywords": [
+    "shoprocket",
+    "ecommerce",
+    "sdk",
+    "api-client",
+    "shopping-cart"
+  ],
+  "author": "Shoprocket Ltd. <dev@shoprocket.io>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shoprocket/shoprocket-js.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/shoprocket/shoprocket-js/issues"
+  },
+  "homepage": "https://github.com/shoprocket/shoprocket-js/tree/main/packages/core",
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "^11.0.0",
+    "size-limit": "^11.0.0"
+  }
+}
