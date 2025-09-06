@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shoprocket Widget - Modern Embed</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    .example {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 1rem;
+      margin: 1rem 0;
+      font-family: monospace;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Shoprocket Widget - Modern Embed</h1>
+  
+  <div class="container">
+    <h2>Simple One-Line Embed</h2>
+    <div class="example">
+      &lt;script src="https://cdn.shoprocket.io/widget.js?pk=pk_hAWEyUyNBfhvO62wCxMRY"&gt;&lt;/script&gt;
+    </div>
+    <p>That's it! The widget automatically:</p>
+    <ul>
+      <li>Injects required CSS</li>
+      <li>Detects the correct API URL (production/staging/dev)</li>
+      <li>Creates a session</li>
+      <li>Finds and mounts all widgets on the page</li>
+    </ul>
+  </div>
+
+  <div class="container">
+    <h2>Widget Examples</h2>
+    
+    <!-- Product Grid -->
+    <h3>Product Grid</h3>
+    <div data-shoprocket="product-grid" 
+         data-limit="6"
+         data-category="featured">
+    </div>
+
+  </div>
+
+  <!-- Cart Widget -->
+  <div data-shoprocket="cart" 
+       data-position="bottom-right"
+       data-style="bubble">
+  </div>
+  
+  <!-- Single script tag with public key in URL -->
+  <script src="shoprocket.js?pk=pk_hAWEyUyNBfhvO62wCxMRY"></script>
+</body>
+</html>
