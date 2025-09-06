@@ -1,10 +1,13 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+  plugins: [tailwindcss()],
+  publicDir: 'public',
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.js'),
+      entry: resolve(__dirname, 'src/index.ts'),
       name: 'Shoprocket',
       formats: ['iife'], // Single file for CDN
       fileName: () => 'shoprocket.js'

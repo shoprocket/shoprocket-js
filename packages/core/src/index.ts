@@ -3,6 +3,12 @@
  * Lightweight API client for Shoprocket eCommerce platform
  */
 
+import { ApiClient } from './api';
+import { SessionService } from './services/session';
+import { ProductsService } from './services/products';
+import { CartService } from './services/cart';
+import { StoreService } from './services/store';
+
 export interface ShoprocketConfig {
   publicKey: string;
   apiUrl?: string;
@@ -10,61 +16,35 @@ export interface ShoprocketConfig {
   sessionToken?: string;
 }
 
-export interface ApiRequestOptions {
-  method?: string;
-  headers?: Record<string, string>;
-  body?: any;
-  query?: Record<string, string>;
-}
-
 export class ShoprocketCore {
-  private config: Required<ShoprocketConfig>;
+  private config: ShoprocketConfig;
+  private api: ApiClient;
+  
+  public session: SessionService;
+  public products: ProductsService;
+  public cart: CartService;
+  public store: StoreService;
 
   constructor(config: ShoprocketConfig) {
     this.config = {
       apiUrl: 'https://api.shoprocket.io/v3',
       locale: 'en',
-      sessionToken: '',
       ...config
     };
-  }
 
-  /**
-   * Make an API request
-   */
-  private async request<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
-    const url = new URL(`${this.config.apiUrl}/public/${this.config.publicKey}${endpoint}`);
-    
-    // Add query parameters
-    if (options.query) {
-      Object.entries(options.query).forEach(([key, value]) => {
-        url.searchParams.append(key, value);
-      });
-    }
-
-    const headers: Record<string, string> = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Accept-Language': this.config.locale,
-      ...options.headers
-    };
-
-    if (this.config.sessionToken) {
-      headers['X-Session-Token'] = this.config.sessionToken;
-    }
-
-    const response = await fetch(url.toString(), {
-      method: options.method || 'GET',
-      headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
+    // Initialize API client
+    this.api = new ApiClient({
+      apiUrl: this.config.apiUrl!,
+      publishableKey: this.config.publicKey,
+      locale: this.config.locale,
+      sessionToken: this.config.sessionToken
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
-    }
-
-    return response.json();
+    // Initialize services
+    this.session = new SessionService(this.api);
+    this.products = new ProductsService(this.api);
+    this.cart = new CartService(this.api);
+    this.store = new StoreService(this.api);
   }
 
   /**
@@ -72,6 +52,7 @@ export class ShoprocketCore {
    */
   setSessionToken(token: string): void {
     this.config.sessionToken = token;
+    this.api.setSessionToken(token);
   }
 
   /**
@@ -79,76 +60,37 @@ export class ShoprocketCore {
    */
   setLocale(locale: string): void {
     this.config.locale = locale;
+    this.api.setLocale(locale);
   }
 
   /**
-   * Get store information
+   * Get current configuration
+   */
+  getConfig(): ShoprocketConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * Get API URL
+   */
+  getApiUrl(): string {
+    return this.config.apiUrl!;
+  }
+
+  /**
+   * Legacy method for backward compatibility
    */
   async getStore() {
-    return this.request<any>('/');
+    return this.store.get();
   }
-
-  /**
-   * Products API
-   */
-  products = {
-    list: (params?: Record<string, any>) => 
-      this.request<any>('/products', { query: params }),
-    
-    get: (id: string) => 
-      this.request<any>(`/products/${id}`),
-  };
-
-  /**
-   * Cart API
-   */
-  cart = {
-    get: () => 
-      this.request<any>('/cart'),
-    
-    addItem: (productId: string, quantity: number = 1, variantId?: string) =>
-      this.request<any>('/cart/items', {
-        method: 'POST',
-        body: { product_id: productId, quantity, variant_id: variantId }
-      }),
-    
-    updateItem: (itemId: string, quantity: number) =>
-      this.request<any>(`/cart/items/${itemId}`, {
-        method: 'PUT',
-        body: { quantity }
-      }),
-    
-    removeItem: (itemId: string) =>
-      this.request<any>(`/cart/items/${itemId}`, {
-        method: 'DELETE'
-      }),
-  };
-
-  /**
-   * Session API
-   */
-  session = {
-    create: (data?: any) =>
-      this.request<any>('/session', {
-        method: 'POST',
-        body: data || {
-          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-          entry_page: typeof window !== 'undefined' ? window.location.pathname : '',
-          referrer: typeof document !== 'undefined' ? document.referrer : ''
-        }
-      }),
-  };
-
-  /**
-   * SDK Strings API
-   */
-  strings = {
-    get: (locale?: string) =>
-      this.request<any>('/strings', {
-        query: locale ? { locale } : undefined
-      }),
-  };
 }
+
+// Export types
+export * from './api';
+export * from './services/session';
+export * from './services/products';
+export * from './services/cart';
+export * from './services/store';
 
 // Default export for convenience
 export default ShoprocketCore;
