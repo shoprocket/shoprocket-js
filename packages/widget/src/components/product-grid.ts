@@ -548,7 +548,7 @@ export class ProductGrid extends ShoprocketElement {
                 <div class="sr:space-y-6">
                   ${this.selectedProduct!.options!.map((option: any) => html`
                     <div>
-                      <label class="sr:block sr:font-medium sr:text-gray-900 sr:mb-3 sr:text-sm sr:uppercase sr:tracking-wide">${option.name}</label>
+                      <label class="sr:block sr:font-medium sr:text-gray-900 sr:mb-3 sr:text-sm sr:capitalize sr:tracking-wide">${option.name}</label>
                       <div class="sr:flex sr:flex-wrap sr:gap-3">
                         ${option.values.map((value: any) => html`
                           <button 
