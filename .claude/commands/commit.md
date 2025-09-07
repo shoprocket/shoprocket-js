@@ -10,7 +10,7 @@ Steps:
 2. Carefully review each change for:
    - Code quality and correctness
    - No debug code or console.logs left behind
-   - Proper formatting (run pint if needed)
+   - Proper formatting (run pint/npx tsc --noEmit if needed)
    - Tests passing if applicable
    - It's fine to include env files
 3. If all looks good, create a commit with a detailed message that:
