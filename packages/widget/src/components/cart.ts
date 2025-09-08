@@ -601,23 +601,6 @@ export class CartWidget extends ShoprocketElement {
     return 'sr:w-full sr:h-[70vh] sr:translate-y-full sr:md:w-[440px] sr:md:max-w-[calc(100vw-40px)] sr:md:h-[625px] sr:md:max-h-[calc(100vh-40px)] sr:md:translate-x-full';
   }
 
-  private getTriggerClasses(): string {
-    const isMiddle = this.position.includes('middle');
-    const opacityClass = this.isOpen ? 'sr:opacity-0 sr:pointer-events-none' : 'sr:opacity-100';
-    
-    if (isMiddle) {
-      // Tab style for middle positions
-      const baseClasses = 'sr:bg-white sr:text-black sr:border-none sr:cursor-pointer sr:relative sr:shadow-lg sr:transition-all sr:duration-200 sr:flex sr:items-center sr:justify-center sr:hover:shadow-xl';
-      const sizeClasses = 'sr:w-24 sr:h-14';
-      const roundingClasses = this.position === 'middle-right' 
-        ? 'sr:rounded-l-sm sr:rounded-r-none' 
-        : 'sr:rounded-r-sm sr:rounded-l-none';
-      return `${baseClasses} ${sizeClasses} ${roundingClasses} sr:flex-col sr:gap-1 ${opacityClass}`;
-    }
-    
-    // Regular cart button
-    return `sr:bg-white sr:text-black sr:border-none sr:rounded-sm sr:w-16 sr:h-16 sr:flex sr:items-center sr:justify-center sr:cursor-pointer sr:relative sr:shadow-lg sr:hover:shadow-xl sr:transition-all sr:duration-200 sr:transform sr:hover:scale-105 ${opacityClass}`;
-  }
 
   private renderTriggerContent(itemCount: number): TemplateResult {
     const isMiddle = this.position.includes('middle');
