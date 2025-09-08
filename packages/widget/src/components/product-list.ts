@@ -57,7 +57,7 @@ export class ProductList extends ShoprocketElement {
     return html`
       ${renderErrorNotification(this.errorMessage)}
       ${renderSuccessNotification(this.successMessage)}
-      <div class="sr sr:grid sr:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] sr:gap-4 md:sr:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] sm:sr:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:sr:gap-2" data-sr-product-list>
+      <div class="sr sr:grid sr:grid-cols-2 sr:gap-x-4 sr:gap-y-8 sr:md:grid-cols-3 sr:lg:grid-cols-4" data-sr-product-list>
         ${this.products.map(product => this.renderProduct(product))}
       </div>
     `;
@@ -97,20 +97,24 @@ export class ProductList extends ShoprocketElement {
     const isAdded = this.addedToCartProducts.has(product.id);
     
     return html`
-      <article class="sr:border sr:border-gray-200 sr:rounded-lg sr:p-4 sr:text-center sm:sr:p-3">
-        <div class="sr:relative sr:w-full sr:h-[200px] sm:sr:h-[150px] sr:rounded sr:mb-2 sr:overflow-hidden sr:bg-gray-100 sr:cursor-pointer sr:group"
+      <article class="sr:group sr:cursor-pointer sr:text-left sr:flex sr:flex-col sr:h-full">
+        <div class="sr:relative sr:w-full sr:aspect-[3/4] sr:mb-4 sr:overflow-hidden sr:bg-gray-50 sr:cursor-pointer sr:flex-shrink-0"
              @click="${() => this.handleProductClick(product)}">
           <!-- Skeleton for list image -->
-          <div class="sr-skeleton sr:absolute sr:inset-0"></div>
+          <div class="sr-skeleton sr:absolute sr:inset-0" data-skeleton></div>
+          <!-- Sale Badge - placeholder for future API -->
           <!-- First image -->
           <img 
             src="${this.getMediaUrl(product.media?.[0])}" 
             alt="${product.name}" 
-            class="sr:absolute sr:inset-0 sr:w-full sr:h-full sr:object-cover sr:transition-all sr:duration-300 sr:group-hover:scale-110 sr:opacity-0 ${product.media?.[1] ? 'sr:group-hover:opacity-0' : ''}"
+            class="sr:absolute sr:inset-0 sr:w-full sr:h-full sr:object-cover sr:transition-all sr:duration-500 sr:group-hover:scale-105 sr:opacity-0 ${product.media?.[1] ? 'sr:group-hover:opacity-0' : ''}"
             @load="${(e: Event) => {
               const img = e.target as HTMLImageElement;
               img.classList.remove('sr:opacity-0');
               img.classList.add('sr:opacity-100');
+              // Hide skeleton
+              const skeleton = img.parentElement?.querySelector('[data-skeleton]');
+              if (skeleton) skeleton.remove();
             }}"
             @error="${(e: Event) => this.handleImageError(e)}"
           >
@@ -124,33 +128,35 @@ export class ProductList extends ShoprocketElement {
             >
           ` : ''}
         </div>
-        <h3 class="sr:text-lg sr:my-2 sr:cursor-pointer sr:hover:underline"
-            @click="${() => this.handleProductClick(product)}">${product.name}</h3>
-        <p class="sr:text-xl sr:font-bold sr:text-gray-800 sr:my-2">${this.formatPrice(product.price)}</p>
         
-        <div class="sr:flex sr:gap-2 sr:mt-3">
-          <button 
-            class="${isAdded ? 'sr:bg-green-600 sr:hover:bg-green-700' : isLoading ? 'sr:bg-gray-300 sr:cursor-wait' : 'sr:bg-black sr:hover:bg-gray-800'} sr:text-white sr:border-none sr:py-2 sr:px-4 sr:rounded sr:cursor-pointer sr:text-sm sr:flex-1 sr:transition-colors sr:duration-200 sr:flex sr:items-center sr:justify-center sr:gap-2"
-            @click="${() => this.handleAddToCart(product)}"
-            ?disabled="${isLoading || isAdded}"
-          >
-            ${isAdded ? html`
-              <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-              </svg>
-              Added to Cart
-            ` : isLoading ? loadingSpinner('sm') : (needsOptions ? 'Select Options' : 'Add to Cart')}
-          </button>
-          <button
-            class="sr:bg-white sr:text-black sr:border sr:border-gray-300 sr:hover:bg-gray-50 sr:py-2 sr:px-3 sr:rounded sr:cursor-pointer sr:text-sm sr:transition-colors sr:duration-200"
-            @click="${() => this.handleProductClick(product)}"
-            title="View Product"
-          >
-            <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-            </svg>
-          </button>
+        <!-- Product Info -->
+        <div class="sr:flex sr:flex-col sr:flex-1">
+          <div class="sr:flex-1">
+            <h3 class="sr:text-sm sr:font-medium sr:text-gray-900 sr:leading-tight sr:group-hover:text-gray-600 sr:transition-colors sr:cursor-pointer sr:mb-2"
+                @click="${() => this.handleProductClick(product)}">${product.name}</h3>
+            
+            <div class="sr:flex sr:items-center sr:gap-2">
+              <span class="sr:text-sm sr:font-medium sr:text-gray-900">${this.formatPrice(product.price)}</span>
+            </div>
+          </div>
+          
+          <!-- Quick Actions -->
+          <div class="sr:pt-3">
+            <button 
+              class="${isAdded ? 'sr:bg-green-600 sr:hover:bg-green-700' : 'sr:bg-gray-900 sr:hover:bg-black'} sr:text-white sr:w-full sr:py-2.5 sr:px-4 sr:text-sm sr:font-medium sr:rounded-sm sr:transition-all sr:duration-200 sr:transform sr:hover:scale-[1.02] sr:cursor-pointer ${isLoading || isAdded ? 'sr:cursor-not-allowed sr:opacity-75' : ''}"
+              @click="${(e: Event) => { e.stopPropagation(); this.handleAddToCart(product); }}"
+              ?disabled="${isLoading || isAdded}"
+            >
+              ${isAdded ? html`
+                <span class="sr:flex sr:items-center sr:justify-center sr:gap-2">
+                  <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                  Added
+                </span>
+              ` : isLoading ? loadingSpinner('sm') : (needsOptions ? 'Select Options' : 'Add to Cart')}
+            </button>
+          </div>
         </div>
       </article>
     `;

@@ -97,7 +97,6 @@ export class ProductGrid extends ShoprocketElement {
   private showProductDetail(product: Product): void {
     // Save current scroll position
     this.savedScrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-    console.log('Saving scroll position:', this.savedScrollPosition);
     
     this.selectedProduct = product;
     this.currentView = 'product';
@@ -121,7 +120,6 @@ export class ProductGrid extends ShoprocketElement {
     // Restore scroll position after DOM updates
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        console.log('Restoring scroll position:', this.savedScrollPosition);
         window.scrollTo({
           top: this.savedScrollPosition,
           left: 0,
