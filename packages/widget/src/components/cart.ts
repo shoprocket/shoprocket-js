@@ -36,14 +36,13 @@ export class CartWidget extends ShoprocketElement {
   private notificationSliding: 'in' | 'out' | null = null;
   
   @state()
-  private updatingItems: Set<string> = new Set();
+  private updatingItems: Map<string, 'increase' | 'decrease'> = new Map();
   
   private overlayClickHandler: (() => void) | null = null;
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
-    await this.loadCart();
-
+    
     // Listen for cart updates
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener('shoprocket:cart:updated', this.handleCartUpdate);
@@ -60,7 +59,33 @@ export class CartWidget extends ShoprocketElement {
     this.handlePopState = this.handlePopState.bind(this);
     window.addEventListener('popstate', this.handlePopState);
     
-    // Check if cart should be open on initial load
+    // Handle cart control events
+    this.handleOpenCart = this.handleOpenCart.bind(this);
+    this.handleCloseCart = this.handleCloseCart.bind(this);
+    this.handleToggleCart = this.handleToggleCart.bind(this);
+    window.addEventListener('open-cart', this.handleOpenCart as EventListener);
+    window.addEventListener('close-cart', this.handleCloseCart as EventListener);
+    window.addEventListener('toggle-cart', this.handleToggleCart as EventListener);
+    
+    // Listen for hash changes to detect manual URL updates
+    this.handleHashChange = this.handleHashChange.bind(this);
+    window.addEventListener('hashchange', this.handleHashChange);
+    
+    // Register global cart toggle function
+    if (!(window as any).ShoprocketWidget) {
+      (window as any).ShoprocketWidget = {};
+    }
+    (window as any).ShoprocketWidget.cart = {
+      toggle: this.toggleCart.bind(this),
+      open: this.openCart.bind(this),
+      close: this.closeCart.bind(this)
+    };
+    
+    
+    // Load cart data
+    await this.loadCart();
+    
+    // Check if cart should be open on initial load AFTER loading cart
     if (window.location.hash.includes('/~/cart')) {
       this.openCart();
     }
@@ -72,10 +97,39 @@ export class CartWidget extends ShoprocketElement {
     window.removeEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
     window.removeEventListener('click', this.handleClickOutside);
     window.removeEventListener('popstate', this.handlePopState);
+    window.removeEventListener('open-cart', this.handleOpenCart as EventListener);
+    window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
+    window.removeEventListener('toggle-cart', this.handleToggleCart as EventListener);
+    window.removeEventListener('hashchange', this.handleHashChange);
+    
+    // Clean up global references
+    if ((window as any).ShoprocketWidget?.cart) {
+      delete (window as any).ShoprocketWidget.cart;
+    }
   }
 
   private handleCartUpdate = async (): Promise<void> => {
     await this.loadCart();
+  }
+  
+  private handleOpenCart = (): void => {
+    this.openCart();
+  }
+  
+  private handleCloseCart = (): void => {
+    this.closeCart();
+  }
+  
+  private handleToggleCart = (): void => {
+    this.toggleCart();
+  }
+  
+  private handleHashChange = (): void => {
+    if (window.location.hash.includes('/~/cart')) {
+      this.openCart();
+    } else {
+      this.closeCart();
+    }
   }
   
   private handleProductAdded = (event: CustomEvent): void => {
@@ -99,8 +153,7 @@ export class CartWidget extends ShoprocketElement {
     // Update cart state based on URL hash
     if (window.location.hash.includes('/~/cart')) {
       if (!this.isOpen) {
-        this.isOpen = true;
-        this.showOverlay(() => this.closeCart());
+        this.openCart();
       }
     } else {
       if (this.isOpen) {
@@ -159,6 +212,7 @@ export class CartWidget extends ShoprocketElement {
   
   private openCart(): void {
     this.isOpen = true;
+    this.requestUpdate(); // Force re-render
     this.showOverlay(() => this.closeCart());
     // Add cart to URL hash, preserving any existing path
     const currentHash = window.location.hash;
@@ -202,7 +256,7 @@ export class CartWidget extends ShoprocketElement {
       <!-- Cart Toggle Button -->
       <div class="sr:fixed sr:z-[9999] ${this.getPositionClasses()}" data-sr>
         <button 
-          class="${this.getTriggerClasses()}"
+          class="sr:bg-white sr:text-black sr:border-none sr:rounded-sm sr:w-16 sr:h-16 sr:flex sr:items-center sr:justify-center sr:cursor-pointer sr:relative sr:shadow-lg sr:hover:shadow-xl sr:transition-all sr:duration-200 sr:transform sr:hover:scale-105 ${this.isOpen ? 'sr:opacity-0 sr:pointer-events-none' : 'sr:opacity-100'}"
           @click="${() => this.toggleCart()}"
         >
           ${this.renderTriggerContent(totalQuantity)}
@@ -212,21 +266,29 @@ export class CartWidget extends ShoprocketElement {
       </div>
       
       <!-- Cart Panel - SEPARATE from toggle button -->
-      <div class="sr:fixed sr:bg-white sr:shadow-lg sr:flex sr:flex-col sr:z-[9999] ${this.getPanelPositionClasses()} sr:transition-all sr:duration-300 sr:ease-out ${this.getCartPanelClasses()}">
-        <div class="${this.getContentAnimationClasses('header')} sr:p-4 sr:border-b sr:border-gray-200 sr:flex sr:justify-between sr:items-center">
-          <h3 class="sr:m-0 sr:text-xl">Your Cart</h3>
-          <button class="sr:bg-transparent sr:border-none sr:text-2xl sr:cursor-pointer sr:text-gray-600 sr:p-0 sr:w-8 sr:h-8 sr:flex sr:items-center sr:justify-center sr:hover:bg-gray-100 sr:rounded sr:transition-colors sr:duration-200" @click="${() => this.closeCart()}">×</button>
+      <div class="sr:fixed sr:bg-white sr:shadow-2xl sr:flex sr:flex-col sr:z-[9999] ${this.getPanelPositionClasses()} sr:transition-all sr:duration-300 sr:ease-out ${this.getCartPanelClasses()}">
+        <div class="${this.getContentAnimationClasses('header')} sr:px-6 sr:py-5 sr:border-b sr:border-gray-100 sr:flex sr:justify-between sr:items-center">
+          <h2 class="sr:m-0 sr:text-base sr:font-semibold sr:text-gray-900">Cart</h2>
+          <button class="sr:bg-transparent sr:border-none sr:text-gray-400 sr:hover:text-gray-600 sr:p-0 sr:w-8 sr:h-8 sr:flex sr:items-center sr:justify-center sr:rounded-full sr:hover:bg-gray-100 sr:transition-all sr:duration-200 sr:cursor-pointer" @click="${() => this.closeCart()}">
+            <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
         </div>
-        <div class="${this.getContentAnimationClasses('items')} sr:flex-1 sr:overflow-y-auto sr:p-4">
+        <div class="${this.getContentAnimationClasses('items')} sr:flex-1 sr:overflow-y-auto sr:px-6 sr:py-4">
           ${this.renderCartItems()}
         </div>
-        <div class="${this.getContentAnimationClasses('footer')} sr:p-4 sr:border-t sr:border-gray-200">
-          <div class="sr:text-lg sr:font-bold sr:mb-4">
-            Total: ${this.formatPrice(this.cart?.totals?.total || 0)}
+        <div class="${this.getContentAnimationClasses('footer')} sr:px-6 sr:py-5 sr:border-t sr:border-gray-100 sr:space-y-4">
+          <div class="sr:flex sr:justify-between sr:items-center">
+            <span class="sr:text-sm sr:text-gray-600">Subtotal</span>
+            <span class="sr:text-base sr:font-medium sr:text-gray-900">${this.formatPrice(this.cart?.totals?.total || 0)}</span>
           </div>
-          <button class="sr:bg-black sr:text-white sr:border-none sr:py-3 sr:px-6 sr:rounded sr:w-full sr:cursor-pointer sr:text-base sr:font-medium sr:transition-opacity sr:duration-200">
+          <button class="sr:bg-gray-900 sr:hover:bg-black sr:text-white sr:border-none sr:py-3 sr:px-6 sr:rounded-sm sr:w-full sr:cursor-pointer sr:text-sm sr:font-medium sr:transition-all sr:duration-200 sr:transform sr:hover:scale-[1.01] sr:active:scale-[0.99]">
             Checkout
           </button>
+          <p class="sr:text-xs sr:text-center sr:text-gray-500 sr:m-0">
+            Taxes and shipping calculated at checkout
+          </p>
         </div>
       </div>
     `;
@@ -234,14 +296,27 @@ export class CartWidget extends ShoprocketElement {
 
   private renderCartItems(): TemplateResult {
     if (!this.cart?.items?.length) {
-      return html`<p class="sr:text-center sr:text-gray-600 sr:py-8">Your cart is empty</p>`;
+      return html`
+        <div class="sr:flex sr:flex-col sr:items-center sr:justify-center sr:h-full sr:py-12 sr:text-center">
+          <svg class="sr:w-16 sr:h-16 sr:text-gray-300 sr:mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+          </svg>
+          <p class="sr:text-gray-600 sr:text-base sr:mb-6">Your cart is empty</p>
+          <button 
+            class="sr:text-sm sr:text-gray-900 sr:underline sr:underline-offset-2 sr:bg-transparent sr:border-none sr:cursor-pointer sr:hover:text-black sr:transition-colors"
+            @click="${() => this.closeCart()}"
+          >
+            Continue shopping
+          </button>
+        </div>
+      `;
     }
 
     return html`
       ${this.cart.items.map((item: any) => html`
-        <div class="sr:flex sr:gap-3 sr:py-3 sr:border-b sr:border-gray-100 last:sr:border-b-0">
+        <div class="sr:flex sr:gap-4 sr:py-4 sr:border-b sr:border-gray-100 last:sr:border-b-0">
           <!-- Product Image -->
-          <div class="sr:w-16 sr:h-16 sr:flex-shrink-0 sr:rounded sr:overflow-hidden sr:bg-gray-100">
+          <div class="sr:w-16 sr:h-16 sr:flex-shrink-0 sr:rounded sr:overflow-hidden sr:bg-gray-50">
             <img 
               src="${this.getMediaUrl(item.media?.[0], 'w=128,h=128,fit=cover')}" 
               alt="${item.product_name}"
@@ -252,35 +327,49 @@ export class CartWidget extends ShoprocketElement {
           
           <!-- Product Details -->
           <div class="sr:flex-1 sr:min-w-0">
-            <div class="sr:font-medium sr:text-sm sr:mb-1 sr:truncate">${item.product_name}</div>
-            <div class="sr:text-gray-600 sr:text-sm">${this.formatPrice(item.price)}</div>
-            ${item.variant_name ? html`
-              <div class="sr:text-gray-500 sr:text-xs">${item.variant_name}</div>
-            ` : ''}
-          </div>
-          
-          <!-- Quantity Controls -->
-          <div class="sr:flex sr:flex-col sr:items-end sr:gap-2">
-            <button 
-              class="sr:text-gray-400 sr:text-sm sr:p-0 sr:bg-transparent sr:border-none sr:cursor-pointer sr:transition-colors sr:duration-200 sr:hover:text-red-600"
-              @click="${() => this.removeItem(item.id)}"
-              aria-label="Remove item"
-            >✕</button>
+            <div class="sr:flex sr:items-start sr:justify-between sr:gap-2">
+              <div class="sr:flex-1">
+                <h4 class="sr:font-medium sr:text-sm sr:text-gray-900 sr:mb-0.5 sr:leading-tight">${item.product_name}</h4>
+                ${item.variant_name ? html`
+                  <div class="sr:text-gray-500 sr:text-xs sr:mb-2">${item.variant_name}</div>
+                ` : ''}
+              </div>
+              
+              <!-- Remove Button -->
+              <button 
+                class="sr:text-gray-400 sr:hover:text-gray-600 sr:p-1 sr:-mt-1 sr:-mr-1 sr:bg-transparent sr:border-none sr:cursor-pointer sr:transition-colors sr:duration-200"
+                @click="${() => this.removeItem(item.id)}"
+                aria-label="Remove item"
+              >
+                <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+              </button>
+            </div>
             
-            <div class="sr:flex sr:items-center sr:gap-1 sr:bg-gray-100 sr:rounded sr:px-1">
-              <button 
-                class="sr:w-6 sr:h-6 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:text-black ${item.quantity === 1 || this.updatingItems.has(item.id) ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
-                @click="${() => this.updateQuantity(item.id, item.quantity - 1)}"
-                ?disabled="${item.quantity === 1 || this.updatingItems.has(item.id)}"
-                aria-label="Decrease quantity"
-              >${this.updatingItems.has(item.id) ? loadingSpinner(12) : '−'}</button>
-              <span class="sr:text-sm sr:font-medium sr:w-8 sr:text-center">${item.quantity}</span>
-              <button 
-                class="sr:w-6 sr:h-6 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:text-black ${this.updatingItems.has(item.id) ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
-                @click="${() => this.updateQuantity(item.id, item.quantity + 1)}"
-                ?disabled="${this.updatingItems.has(item.id)}"
-                aria-label="Increase quantity"
-              >${this.updatingItems.has(item.id) ? loadingSpinner(12) : '+'}</button>
+            <div class="sr:flex sr:items-center sr:justify-between sr:mt-2">
+              <div class="sr:text-sm sr:font-medium sr:text-gray-900">${this.formatPrice(item.price)}</div>
+              
+              <!-- Quantity Controls -->
+              <div class="sr:flex sr:items-center sr:gap-0 sr:border sr:border-gray-200 sr:rounded-sm">
+                <button 
+                  class="sr:w-8 sr:h-8 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:bg-gray-50 ${item.quantity === 1 || this.updatingItems.has(item.id) ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
+                  @click="${() => this.updateQuantity(item.id, item.quantity - 1, 'decrease')}"
+                  ?disabled="${item.quantity === 1 || this.updatingItems.has(item.id)}"
+                  aria-label="Decrease quantity"
+                >
+                  ${this.updatingItems.get(item.id) === 'decrease' ? html`<span class="sr:text-gray-700">${loadingSpinner(12)}</span>` : '−'}
+                </button>
+                <span class="sr:text-sm sr:font-medium sr:w-8 sr:text-center sr:border-x sr:border-gray-200">${item.quantity}</span>
+                <button 
+                  class="sr:w-8 sr:h-8 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:bg-gray-50 ${this.updatingItems.has(item.id) ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
+                  @click="${() => this.updateQuantity(item.id, item.quantity + 1, 'increase')}"
+                  ?disabled="${this.updatingItems.has(item.id)}"
+                  aria-label="Increase quantity"
+                >
+                  ${this.updatingItems.get(item.id) === 'increase' ? html`<span class="sr:text-gray-700">${loadingSpinner(12)}</span>` : '+'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -288,10 +377,10 @@ export class CartWidget extends ShoprocketElement {
     `;
   }
 
-  private async updateQuantity(itemId: string, quantity: number): Promise<void> {
+  private async updateQuantity(itemId: string, quantity: number, action: 'increase' | 'decrease'): Promise<void> {
     if (quantity < 1) return;
     
-    this.updatingItems.add(itemId);
+    this.updatingItems.set(itemId, action);
     this.requestUpdate();
     
     try {
@@ -307,7 +396,7 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private async removeItem(itemId: string): Promise<void> {
-    this.updatingItems.add(itemId);
+    this.updatingItems.set(itemId, 'decrease');
     this.requestUpdate();
     
     try {
@@ -484,7 +573,7 @@ export class CartWidget extends ShoprocketElement {
 
   private getSidebarSlideClasses(): string {
     // Sidebar style - full height, slides from the side based on position
-    const width = 'sr:w-[100dvw] sr:md:max-w-[440px]';
+    const width = 'sr:w-[100dvw] sr:md:w-[400px] sr:md:max-w-[calc(100vw-40px)]';
     const height = 'sr:h-[100dvh]';
     const rounded = 'sr:rounded-none';
     
@@ -514,19 +603,20 @@ export class CartWidget extends ShoprocketElement {
 
   private getTriggerClasses(): string {
     const isMiddle = this.position.includes('middle');
-    const opacityClass = this.isOpen ? 'sr:opacity-0' : 'sr:opacity-100';
+    const opacityClass = this.isOpen ? 'sr:opacity-0 sr:pointer-events-none' : 'sr:opacity-100';
     
     if (isMiddle) {
-      const baseClasses = 'sr:bg-white sr:text-black sr:border-none sr:cursor-pointer sr:relative sr:shadow-sm sr:hover:shadow-lg sr:transition-all sr:duration-200 sr:flex sr:items-center sr:justify-center';
-      const sizeClasses = 'sr:w-[var(--sr-cart-tab-width)] sr:h-[var(--sr-cart-tab-height)]';
+      // Tab style for middle positions
+      const baseClasses = 'sr:bg-white sr:text-black sr:border-none sr:cursor-pointer sr:relative sr:shadow-lg sr:transition-all sr:duration-200 sr:flex sr:items-center sr:justify-center sr:hover:shadow-xl';
+      const sizeClasses = 'sr:w-24 sr:h-14';
       const roundingClasses = this.position === 'middle-right' 
-        ? 'sr:rounded-s sr:rounded-e-none' 
-        : 'sr:rounded-e sr:rounded-s-none';
-      return `${baseClasses} ${sizeClasses} ${roundingClasses} sr:flex-col sr:py-2 sr:gap-1 ${opacityClass}`;
+        ? 'sr:rounded-l-sm sr:rounded-r-none' 
+        : 'sr:rounded-r-sm sr:rounded-l-none';
+      return `${baseClasses} ${sizeClasses} ${roundingClasses} sr:flex-col sr:gap-1 ${opacityClass}`;
     }
     
-    // Bottom positions - bubble style (mobile first: small size, then larger)
-    return `sr:bg-white sr:text-black sr:border-none sr:rounded sr:w-[var(--sr-cart-size-sm)] sr:h-[var(--sr-cart-size-sm)] sr:flex sr:items-center sr:justify-center sr:cursor-pointer sr:relative sr:shadow-md sr:hover:shadow-xl sr:transition-all sr:duration-200 sr:sm:w-[var(--sr-cart-size)] sr:sm:h-[var(--sr-cart-size)] ${opacityClass}`;
+    // Regular cart button
+    return `sr:bg-white sr:text-black sr:border-none sr:rounded-sm sr:w-16 sr:h-16 sr:flex sr:items-center sr:justify-center sr:cursor-pointer sr:relative sr:shadow-lg sr:hover:shadow-xl sr:transition-all sr:duration-200 sr:transform sr:hover:scale-105 ${opacityClass}`;
   }
 
   private renderTriggerContent(itemCount: number): TemplateResult {
@@ -547,10 +637,9 @@ export class CartWidget extends ShoprocketElement {
     return html`
       <span class="sr:w-6 sr:h-6 sr-icon sr:flex sr:items-center sr:justify-center" aria-hidden="true">${unsafeHTML(shoppingBasketIcon)}</span>
       ${itemCount > 0 ? html`
-        <span class="sr:absolute sr:-top-2 sr:-end-2 sr:bg-black sr:text-white sr:rounded-full 
+        <span class="sr:absolute sr:-top-2 sr:-right-2 sr:bg-black sr:text-white sr:rounded-full 
                sr:min-w-[20px] sr:h-5 sr:px-1.5 sr:text-xs sr:font-bold
-               sr:flex sr:items-center sr:justify-center sr:transition-all sr:duration-300
-               ${this.isOpen && this.widgetStyle === 'bubble' ? 'sr:scale-0 sr:opacity-0' : 'sr:scale-100 sr:opacity-100'}">
+               sr:flex sr:items-center sr:justify-center sr:transition-all sr:duration-300">
           ${itemCount > 99 ? '99+' : itemCount}
         </span>
       ` : ''}
@@ -573,10 +662,10 @@ export class CartWidget extends ShoprocketElement {
     }
     
     return html`
-      <div class="sr:absolute ${notificationClasses} sr:bg-white sr:rounded sr:shadow-md sr:px-3 sr:py-2 sr:min-w-[240px] sr:max-w-[300px] sr:border sr:border-gray-100 ${animationClass} sr:z-[-1] sr:h-[var(--sr-cart-size)] sm:sr:h-[var(--sr-cart-size-sm)] sr:flex sr:items-center">
+      <div class="sr:absolute ${notificationClasses} sr:bg-white sr:rounded-sm sr:shadow-md sr:px-3 sr:py-3 sr:min-w-[260px] sr:max-w-[320px] sr:border sr:border-gray-100 ${animationClass} sr:z-[-1]">
         <!-- Triangle arrow -->
         ${this.renderNotificationArrow()}
-        <div class="sr:flex sr:items-center sr:gap-3 sr:w-full">
+        <div class="sr:flex sr:items-start sr:gap-3 sr:w-full">
           ${product.media ? html`
             <div class="sr:w-10 sr:h-10 sr:flex-shrink-0 sr:rounded sr:overflow-hidden sr:bg-gray-100">
               <img 
@@ -587,16 +676,15 @@ export class CartWidget extends ShoprocketElement {
               >
             </div>
           ` : ''}
-          <div class="sr:flex-1 sr:min-w-0 sr:space-y-0.5">
-            <p class="sr:text-sm sr:font-medium sr:text-gray-900 sr:truncate sr:leading-tight">${product.name}</p>
-            <p class="sr:text-xs sr:text-gray-600 sr:leading-tight">${this.formatPrice(product.price)}</p>
-            ${product.variantText ? html`
-              <p class="sr:text-xs sr:text-gray-500 sr:truncate sr:leading-tight">${product.variantText}</p>
-            ` : ''}
+          <div class="sr:flex-1 sr:min-w-0">
+            <p class="sr:text-sm sr:font-medium sr:text-gray-900 sr:leading-tight sr:mb-0.5 sr:truncate">${product.name}</p>
+            <div class="sr:flex sr:items-center sr:gap-2">
+              <span class="sr:text-xs sr:text-gray-700 sr:flex-shrink-0">${this.formatPrice(product.price)}</span>
+              ${product.variantText ? html`
+                <span class="sr:text-xs sr:text-gray-500 sr:truncate">• ${product.variantText}</span>
+              ` : ''}
+            </div>
           </div>
-          <svg class="sr:w-5 sr:h-5 sr:text-green-500 sr:flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
         </div>
       </div>
     `;
