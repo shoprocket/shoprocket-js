@@ -11,6 +11,22 @@ import { loadingSpinner } from './loading-spinner';
  */
 @customElement('shoprocket-product-detail')
 export class ProductDetail extends ShoprocketElement {
+  override connectedCallback(): void {
+    super.connectedCallback();
+    // Listen for cart updates to refresh cart state
+    this.handleCartUpdate = this.handleCartUpdate.bind(this);
+    window.addEventListener('shoprocket:cart:updated', this.handleCartUpdate);
+  }
+  
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate);
+  }
+  
+  private handleCartUpdate = async (): Promise<void> => {
+    await this.checkIfInCart();
+  }
+
   @property({ type: Object })
   product?: Product;
 
@@ -34,6 +50,9 @@ export class ProductDetail extends ShoprocketElement {
 
   @state()
   private addedToCart: boolean = false;
+  
+  @state()
+  private isInCart: boolean = false;
 
   protected override async updated(changedProperties: Map<string, any>): Promise<void> {
     super.updated(changedProperties);
@@ -46,7 +65,9 @@ export class ProductDetail extends ShoprocketElement {
       this.selectedMediaIndex = 0;
       this.zoomActive = false;
       this.addedToCart = false;
+      this.isInCart = false;
       await this.loadFullDetails();
+      await this.checkIfInCart();
     }
   }
 
@@ -87,10 +108,13 @@ export class ProductDetail extends ShoprocketElement {
       <div class="sr" data-sr-product-detail>
         <!-- Back Button -->
         <button 
-          class="sr:mb-6 sr:text-blue-600 sr:hover:text-blue-800 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-base sr:font-medium" 
+          class="sr:mb-6 sr:text-gray-600 sr:hover:text-gray-900 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-sm sr:font-medium sr:inline-flex sr:items-center sr:gap-1 sr:transition-colors" 
           @click="${() => this.dispatchEvent(new CustomEvent('back-to-list', { bubbles: true }))}"
         >
-          ← Back to Products
+          <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+          </svg>
+          Back to Products
         </button>
         
         <!-- Product Details -->
@@ -100,18 +124,23 @@ export class ProductDetail extends ShoprocketElement {
             <div>
               <div class="sr:sticky sr:top-6">
                 <!-- Main image with skeleton and zoom -->
-                <div class="sr:relative sr:w-full sr:aspect-square sr:rounded-lg sr:mb-4 sr:overflow-hidden sr:cursor-zoom-in"
+                <div class="sr:relative sr:w-full sr:aspect-square sr:rounded sr:mb-4 sr:overflow-hidden sr:cursor-zoom-in sr:bg-gray-50"
                      @mouseenter="${() => this.handleMouseEnterZoom()}"
                      @mouseleave="${() => this.handleMouseLeaveZoom()}"
                      @mousemove="${(e: MouseEvent) => this.handleMouseMoveZoom(e)}">
                   <!-- Skeleton loader -->
-                  <div class="sr-skeleton sr:absolute sr:inset-0 sr:w-full sr:h-full"></div>
+                  <div class="sr-skeleton sr:absolute sr:inset-0 sr:w-full sr:h-full" data-skeleton></div>
                   
                   <!-- Regular display image -->
                   <img 
                     src="${this.getMediaUrl(this.getSelectedMedia(), 'w=800,h=800,fit=cover')}" 
                     alt="${displayProduct.name}"
                     class="sr:absolute sr:inset-0 sr:w-full sr:h-full sr:object-cover ${this.zoomActive ? 'sr:opacity-0' : 'sr:opacity-100'} sr:bg-white"
+                    @load="${(e: Event) => {
+                      // Hide skeleton when main image loads
+                      const skeleton = (e.target as HTMLImageElement).parentElement?.querySelector('[data-skeleton]');
+                      if (skeleton) skeleton.remove();
+                    }}"
                     @error="${(e: Event) => this.handleImageError(e)}"
                   >
                   <!-- High-res image for zoom -->
@@ -138,14 +167,14 @@ export class ProductDetail extends ShoprocketElement {
             
             <!-- Product Info - Right side -->
             <div>
-              <h1 class="sr:text-3xl sr:font-bold sr:mb-4 sr:m-0">${displayProduct.name}</h1>
+              <h1 class="sr:text-2xl sr:font-medium sr:mb-2 sr:m-0 sr:text-gray-900">${displayProduct.name}</h1>
               
-              <div class="sr:text-3xl sr:font-bold sr:mb-6 sr:text-gray-900">
+              <div class="sr:text-2xl sr:font-medium sr:mb-6 sr:text-gray-900">
                 ${this.formatPrice({ amount: this.getSelectedPrice() })}
               </div>
               
               ${displayProduct.summary ? html`
-                <p class="sr:text-gray-600 sr:mb-6 sr:text-base sr:leading-relaxed">${displayProduct.summary}</p>
+                <p class="sr:text-gray-600 sr:mb-6 sr:text-sm sr:leading-relaxed">${displayProduct.summary}</p>
               ` : ''}
               
               <!-- Variant Options -->
@@ -153,13 +182,16 @@ export class ProductDetail extends ShoprocketElement {
               
               <!-- Add to Cart Section -->
               <div class="sr:mt-8 sr:space-y-4">
-                ${this.renderAddToCartButton()}
+                <div class="sr:space-y-2">
+                  ${this.renderAddToCartButton()}
+                  ${this.renderViewCartButton()}
+                </div>
                 
                 <!-- Product Description -->
                 ${this.renderDescription(displayProduct, isLoading)}
                 
                 <!-- Additional info -->
-                <div class="sr:text-sm sr:text-gray-500 sr:text-center sr:mt-6">
+                <div class="sr:text-xs sr:text-gray-500 sr:text-center sr:mt-6">
                   Free shipping on orders over $50
                 </div>
               </div>
@@ -189,10 +221,10 @@ export class ProductDetail extends ShoprocketElement {
       <div class="sr:grid sr:grid-cols-4 sr:gap-2">
         ${product.media.map((media: any, index: number) => html`
           <button
-            class="sr:relative sr:aspect-square sr:rounded-lg sr:overflow-hidden sr:border-2 ${index === this.selectedMediaIndex ? 'sr:border-black' : 'sr:border-transparent'} sr:p-0 sr:cursor-pointer"
+            class="sr:relative sr:aspect-square sr:rounded sr:overflow-hidden sr:border-2 ${index === this.selectedMediaIndex ? 'sr:border-gray-900' : 'sr:border-transparent'} sr:p-0 sr:cursor-pointer sr:bg-gray-50 sr:transition-all sr:duration-200 sr:hover:border-gray-300"
             @click="${() => { this.selectedMediaIndex = index; this.zoomActive = false; }}"
           >
-            <div class="sr-skeleton sr:absolute sr:inset-0"></div>
+            <div class="sr-skeleton sr:absolute sr:inset-0" data-skeleton></div>
             <img 
               src="${this.getMediaUrl(media, 'w=150,h=150,fit=cover')}" 
               alt="${product.name} ${index + 1}"
@@ -201,6 +233,9 @@ export class ProductDetail extends ShoprocketElement {
                 const img = e.target as HTMLImageElement;
                 img.classList.remove('sr:opacity-0');
                 img.classList.add('sr:opacity-100');
+                // Hide skeleton
+                const skeleton = img.parentElement?.querySelector('[data-skeleton]');
+                if (skeleton) skeleton.remove();
               }}"
               @error="${(e: Event) => this.handleImageError(e)}"
             >
@@ -239,7 +274,7 @@ export class ProductDetail extends ShoprocketElement {
             <div class="sr:flex sr:flex-wrap sr:gap-3">
               ${option.values?.map((value: any) => html`
                 <button 
-                  class="${this.selectedOptions[option.id] === value.id ? 'sr:bg-black sr:text-white sr:border-black' : 'sr:bg-white sr:text-gray-900 sr:border-gray-300 sr:hover:border-gray-400'} sr:px-3 sr:py-1 sr:rounded sr:border sr:cursor-pointer sr:font-medium sr:transition-colors sr:duration-200 sr:text-sm"
+                  class="${this.selectedOptions[option.id] === value.id ? 'sr:bg-gray-900 sr:text-white sr:border-gray-900' : 'sr:bg-white sr:text-gray-700 sr:border-gray-300 sr:hover:border-gray-400'} sr:px-4 sr:py-2 sr:rounded-sm sr:border sr:cursor-pointer sr:font-medium sr:transition-all sr:duration-200 sr:text-sm"
                   @click="${() => this.selectOption(option.id, value.id)}"
                 >
                   ${value.value}
@@ -262,18 +297,40 @@ export class ProductDetail extends ShoprocketElement {
 
     return html`
       <button 
-        class="${this.addedToCart ? 'sr:bg-green-600 sr:hover:bg-green-700' : canAdd && !isLoading ? 'sr:bg-black sr:hover:bg-gray-800' : 'sr:bg-gray-300 sr:cursor-not-allowed'} sr:text-white sr:border-none sr:py-4 sr:px-8 sr:rounded-lg sr:cursor-pointer sr:w-full sr:text-base sr:font-semibold sr:transition-colors sr:duration-200 sr:flex sr:items-center sr:justify-center sr:gap-3 ${isLoading ? 'sr:opacity-75' : ''}"
+        class="${this.addedToCart ? 'sr:bg-green-600 sr:hover:bg-green-700' : canAdd && !isLoading ? 'sr:bg-gray-900 sr:hover:bg-black' : 'sr:bg-gray-300 sr:cursor-not-allowed'} sr:text-white sr:border-none sr:py-3 sr:px-6 sr:rounded-sm sr:cursor-pointer sr:w-full sr:text-sm sr:font-medium sr:transition-all sr:duration-200 sr:flex sr:items-center sr:justify-center sr:gap-2 sr:transform ${canAdd && !isLoading && !this.addedToCart ? 'sr:hover:scale-[1.02]' : ''}"
         @click="${() => this.handleAddToCart()}"
         ?disabled="${!canAdd || isLoading || this.addedToCart}"
       >
         ${this.addedToCart ? html`
-          <svg class="sr:w-5 sr:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+          <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
           </svg>
           Added to Cart
         ` : isLoading ? loadingSpinner('sm') : canAdd ? 'Add to Cart' : 'Select All Options'}
       </button>
     `;
+  }
+  
+  private renderViewCartButton = (): TemplateResult => {
+    if (!this.isInCart) return html``;
+    
+    return html`
+      <button
+        class="sr:bg-transparent sr:border sr:border-gray-300 sr:text-gray-700 sr:w-full sr:py-2.5 sr:px-6 sr:text-sm sr:font-medium sr:rounded-sm sr:transition-all sr:duration-200 sr:hover:bg-gray-50 sr:cursor-pointer"
+        @click=${() => this.handleViewCart()}
+      >
+        View Cart
+      </button>
+    `;
+  }
+  
+  private handleViewCart(): void {
+    // setTimeout is required here due to web component event propagation timing.
+    // Without it, the event may be dispatched before other components are ready to receive it.
+    // This is a known pattern when communicating between independent web components.
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-cart', { bubbles: true }));
+    }, 0);
   }
 
   private renderDescription = (product: Product, isLoading: boolean): TemplateResult => {
@@ -296,8 +353,8 @@ export class ProductDetail extends ShoprocketElement {
 
     return html`
       <div class="sr:mt-8 sr:pt-8 sr:border-t sr:border-gray-200">
-        <h3 class="sr:text-lg sr:font-semibold sr:mb-4 sr:m-0">Description</h3>
-        <div class="sr:text-gray-600 sr:leading-relaxed sr:text-base sr:[&_p]:mb-4 sr:[&_p:last-child]:mb-0 sr:[&_ul]:list-disc sr:[&_ul]:pl-6 sr:[&_ul]:mb-4 sr:[&_ol]:list-decimal sr:[&_ol]:pl-6 sr:[&_ol]:mb-4 sr:[&_li]:mb-1">
+        <h3 class="sr:text-base sr:font-medium sr:mb-3 sr:m-0">Description</h3>
+        <div class="sr:text-gray-600 sr:leading-relaxed sr:text-sm sr:[&_p]:mb-3 sr:[&_p:last-child]:mb-0 sr:[&_ul]:list-disc sr:[&_ul]:pl-5 sr:[&_ul]:mb-3 sr:[&_ol]:list-decimal sr:[&_ol]:pl-5 sr:[&_ol]:mb-3 sr:[&_li]:mb-1">
           ${unsafeHTML(displayProduct.description)}
         </div>
       </div>
@@ -344,6 +401,7 @@ export class ProductDetail extends ShoprocketElement {
         
         // Show success state
         this.addedToCart = true;
+        this.isInCart = true;
         setTimeout(() => {
           this.addedToCart = false;
         }, 2000);
@@ -424,6 +482,20 @@ export class ProductDetail extends ShoprocketElement {
     return variantParts.length > 0 ? variantParts.join(' / ') : null;
   }
 
+  private async checkIfInCart(): Promise<void> {
+    const product = this.fullProduct || this.product;
+    if (!product) return;
+    
+    try {
+      const cart = await this.sdk.cart.get();
+      if (cart && cart.items) {
+        this.isInCart = cart.items.some((item: any) => item.product_id === product.id);
+      }
+    } catch (error) {
+      // Silently fail - not critical
+    }
+  }
+  
   private handleMouseEnterZoom(): void {
     this.zoomActive = true;
   }
@@ -449,10 +521,13 @@ export class ProductDetail extends ShoprocketElement {
       <div class="sr" data-sr-product-detail>
         <!-- Back Button -->
         <button 
-          class="sr:mb-6 sr:text-blue-600 sr:hover:text-blue-800 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-base sr:font-medium" 
+          class="sr:mb-6 sr:text-gray-600 sr:hover:text-gray-900 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-sm sr:font-medium sr:inline-flex sr:items-center sr:gap-1 sr:transition-colors" 
           @click="${() => this.dispatchEvent(new CustomEvent('back-to-list', { bubbles: true }))}"
         >
-          ← Back to Products
+          <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+          </svg>
+          Back to Products
         </button>
         
         <!-- Product Details Skeleton -->

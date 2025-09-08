@@ -51,9 +51,25 @@ const shoprocket = new WidgetManager();
 declare global {
   interface Window {
     Shoprocket: WidgetManager;
+    ShoprocketSDK: {
+      cart: {
+        open: () => void;
+        close: () => void;
+        toggle: () => void;
+      };
+    };
   }
 }
 window.Shoprocket = shoprocket;
+
+// Create SDK object using events for clean component communication
+window.ShoprocketSDK = {
+  cart: {
+    open: () => window.dispatchEvent(new CustomEvent('open-cart', { bubbles: true })),
+    close: () => window.dispatchEvent(new CustomEvent('close-cart', { bubbles: true })),
+    toggle: () => window.dispatchEvent(new CustomEvent('toggle-cart', { bubbles: true }))
+  }
+};
 
 /**
  * Get public key from script URL
