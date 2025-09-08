@@ -23,6 +23,10 @@ build/
 *.sln
 *.sw?
 
+# Claude
+.claude/
+.playwright-mcp/
+
 # Testing
 coverage/
 .nyc_output/
