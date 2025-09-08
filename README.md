@@ -16,20 +16,44 @@ Add eCommerce to any website with our embed system:
 
 ```html
 <!-- Buy Button -->
-<div data-shoprocket="buy-button" data-product="123"></div>
+<div data-shoprocket="buy-button" data-product="{prod_id}"></div>
 
-<!-- Single Product -->
-<div data-shoprocket="product" data-id="123" data-style="card"></div>
+<!-- Single Product Display -->
+<div data-shoprocket="product" data-id="{prod_id}" data-style="card"></div>
 
 <!-- Product Collection -->
-<div data-shoprocket="products" data-category="plants"></div>
+<div data-shoprocket="products" data-category="{category_id}"></div>
 
-<!-- Shopping Cart -->
-<div data-shoprocket="cart" data-style="mini"></div>
+<!-- Multiple Categories (comma-separated) -->
+<div data-shoprocket="products" data-category="{category_id1},{category_id2}"></div>
+
+<!-- Shopping Cart - Multiple Styles & Positions -->
+<!-- Bubble style (mobile: sidebar, desktop: bubble) -->
+<div data-shoprocket="cart" data-position="bottom-right" data-style="bubble"></div>
+
+<!-- Sidebar style (slides from edge) -->
+<div data-shoprocket="cart" data-position="bottom-left" data-style="sidebar"></div>
 
 <!-- Include loader (each embed works standalone) -->
-<script src="https://cdn.shoprocket.io/v3/loader.js" async></script>
+<script src="https://cdn.shoprocket.io/v3/loader.js?pk={public_key}" async></script>
 ```
+
+### Available Cart Positions
+- `bottom-right` (default)
+- `bottom-left`
+- `top-right` 
+- `top-left`
+- `middle-right`
+- `middle-left`
+
+### Available Cart Styles
+- `bubble` - Responsive: sidebar on mobile, bubble on desktop
+- `sidebar` - Always slides from screen edge
+
+### Product Collection Options
+- **Single category**: `data-category="{category_id}"`
+- **Multiple categories**: `data-category="{cat1},{cat2},{cat3}"` (comma-separated)
+- **All products**: Omit `data-category` attribute
 
 ## 👩‍💻 For Developers
 
