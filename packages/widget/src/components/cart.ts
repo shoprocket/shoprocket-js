@@ -4,6 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Cart, ApiResponse } from '../types/api';
 import { renderErrorNotification } from './error-notification';
+import { loadingSpinner } from './loading-spinner';
 
 // Import SVG as string - Vite will inline it at build time
 import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
@@ -34,6 +35,9 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private notificationSliding: 'in' | 'out' | null = null;
   
+  @state()
+  private updatingItems: Set<string> = new Set();
+  
   private overlayClickHandler: (() => void) | null = null;
 
   override async connectedCallback(): Promise<void> {
@@ -57,7 +61,7 @@ export class CartWidget extends ShoprocketElement {
     window.addEventListener('popstate', this.handlePopState);
     
     // Check if cart should be open on initial load
-    if (window.location.hash === '#/~/cart') {
+    if (window.location.hash.includes('/~/cart')) {
       this.openCart();
     }
   }
@@ -93,7 +97,7 @@ export class CartWidget extends ShoprocketElement {
   
   private handlePopState = (): void => {
     // Update cart state based on URL hash
-    if (window.location.hash === '#/~/cart') {
+    if (window.location.hash.includes('/~/cart')) {
       if (!this.isOpen) {
         this.isOpen = true;
         this.showOverlay(() => this.closeCart());
@@ -156,9 +160,18 @@ export class CartWidget extends ShoprocketElement {
   private openCart(): void {
     this.isOpen = true;
     this.showOverlay(() => this.closeCart());
-    // Add cart to URL hash like v2
-    if (window.location.hash !== '#/~/cart') {
-      window.history.pushState(null, '', '#/~/cart');
+    // Add cart to URL hash, preserving any existing path
+    const currentHash = window.location.hash;
+    if (!currentHash.includes('/~/cart')) {
+      let newHash: string;
+      if (currentHash && currentHash !== '#' && currentHash !== '#/') {
+        // If there's an existing path (like a product), append cart to it
+        newHash = currentHash + '/~/cart';
+      } else {
+        // If no existing path, use the cart-only format
+        newHash = '#/~/cart';
+      }
+      window.history.pushState(null, '', newHash);
     }
   }
   
@@ -166,13 +179,11 @@ export class CartWidget extends ShoprocketElement {
     this.isOpen = false;
     this.hideOverlay();
     // Remove cart from URL hash
-    if (window.location.hash === '#/~/cart') {
-      // Go back if we added the hash, otherwise just clear it
-      if (window.history.state === null) {
-        window.history.back();
-      } else {
-        window.location.hash = '';
-      }
+    const currentHash = window.location.hash;
+    if (currentHash.includes('/~/cart')) {
+      // Remove the /~/cart part, preserving the rest of the path
+      const newHash = currentHash.replace('/~/cart', '');
+      window.location.hash = newHash;
     }
   }
 
@@ -184,10 +195,11 @@ export class CartWidget extends ShoprocketElement {
       ${renderErrorNotification(this.errorMessage)}
       <!-- Generic Overlay -->
       <div 
-        class="sr:fixed sr:inset-0 sr:bg-black/50 sr:z-[9998] sr:transition-opacity sr:duration-300 ${this.overlayVisible ? 'sr:opacity-100 sr:pointer-events-auto' : 'sr:opacity-0 sr:pointer-events-none'}"
+        class="sr:fixed sr:inset-0 sr:bg-black/50 sr:z-[9998] sr:transition-opacity ${this.overlayVisible ? 'sr:duration-200 sr:opacity-100 sr:pointer-events-auto' : 'sr:duration-150 sr:opacity-0 sr:pointer-events-none'}"
         @click="${() => this.overlayClickHandler?.()}"
       ></div>
       
+      <!-- Cart Toggle Button -->
       <div class="sr:fixed sr:z-[9999] ${this.getPositionClasses()}" data-sr>
         <button 
           class="${this.getTriggerClasses()}"
@@ -197,25 +209,25 @@ export class CartWidget extends ShoprocketElement {
         </button>
         
         ${this.renderProductNotification()}
-        
-        <!-- Cart Panel with morph animation for bubble style -->
-        <div class="sr:fixed sr:bg-white sr:rounded sr:shadow-lg sr:flex sr:flex-col sr:z-[9999] ${this.getPanelPositionClasses()} sr:transition-all ${this.widgetStyle === 'bubble' ? 'sr:duration-200' : 'sr:duration-300'} sr:ease-out ${this.widgetStyle === 'bubble' ? this.getBubbleMorphClasses() : this.getTabSlideClasses()}">
-            <div class="sr:p-4 sr:border-b sr:border-gray-200 sr:flex sr:justify-between sr:items-center">
-              <h3 class="sr:m-0 sr:text-xl">Your Cart</h3>
-              <button class="sr:bg-transparent sr:border-none sr:text-2xl sr:cursor-pointer sr:text-gray-600 sr:p-0 sr:w-8 sr:h-8 sr:flex sr:items-center sr:justify-center sr:hover:bg-gray-100 sr:rounded sr:transition-colors sr:duration-200" @click="${() => this.closeCart()}">×</button>
-            </div>
-            <div class="sr:flex-1 sr:overflow-y-auto sr:p-4">
-              ${this.renderCartItems()}
-            </div>
-            <div class="sr:p-4 sr:border-t sr:border-gray-200">
-              <div class="sr:text-lg sr:font-bold sr:mb-4">
-                Total: ${this.formatPrice(this.cart?.totals?.total || 0)}
-              </div>
-              <button class="sr:bg-black sr:text-white sr:border-none sr:py-3 sr:px-6 sr:rounded sr:w-full sr:cursor-pointer sr:text-base sr:font-medium sr:transition-opacity sr:duration-200">
-                Checkout
-              </button>
-            </div>
+      </div>
+      
+      <!-- Cart Panel - SEPARATE from toggle button -->
+      <div class="sr:fixed sr:bg-white sr:shadow-lg sr:flex sr:flex-col sr:z-[9999] ${this.getPanelPositionClasses()} sr:transition-all sr:duration-300 sr:ease-out ${this.getCartPanelClasses()}">
+        <div class="${this.getContentAnimationClasses('header')} sr:p-4 sr:border-b sr:border-gray-200 sr:flex sr:justify-between sr:items-center">
+          <h3 class="sr:m-0 sr:text-xl">Your Cart</h3>
+          <button class="sr:bg-transparent sr:border-none sr:text-2xl sr:cursor-pointer sr:text-gray-600 sr:p-0 sr:w-8 sr:h-8 sr:flex sr:items-center sr:justify-center sr:hover:bg-gray-100 sr:rounded sr:transition-colors sr:duration-200" @click="${() => this.closeCart()}">×</button>
+        </div>
+        <div class="${this.getContentAnimationClasses('items')} sr:flex-1 sr:overflow-y-auto sr:p-4">
+          ${this.renderCartItems()}
+        </div>
+        <div class="${this.getContentAnimationClasses('footer')} sr:p-4 sr:border-t sr:border-gray-200">
+          <div class="sr:text-lg sr:font-bold sr:mb-4">
+            Total: ${this.formatPrice(this.cart?.totals?.total || 0)}
           </div>
+          <button class="sr:bg-black sr:text-white sr:border-none sr:py-3 sr:px-6 sr:rounded sr:w-full sr:cursor-pointer sr:text-base sr:font-medium sr:transition-opacity sr:duration-200">
+            Checkout
+          </button>
+        </div>
       </div>
     `;
   }
@@ -257,17 +269,18 @@ export class CartWidget extends ShoprocketElement {
             
             <div class="sr:flex sr:items-center sr:gap-1 sr:bg-gray-100 sr:rounded sr:px-1">
               <button 
-                class="sr:w-6 sr:h-6 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:text-black ${item.quantity === 1 ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
+                class="sr:w-6 sr:h-6 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:text-black ${item.quantity === 1 || this.updatingItems.has(item.id) ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
                 @click="${() => this.updateQuantity(item.id, item.quantity - 1)}"
-                ?disabled="${item.quantity === 1}"
+                ?disabled="${item.quantity === 1 || this.updatingItems.has(item.id)}"
                 aria-label="Decrease quantity"
-              >−</button>
+              >${this.updatingItems.has(item.id) ? loadingSpinner(12) : '−'}</button>
               <span class="sr:text-sm sr:font-medium sr:w-8 sr:text-center">${item.quantity}</span>
               <button 
-                class="sr:w-6 sr:h-6 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:text-black"
+                class="sr:w-6 sr:h-6 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:text-black ${this.updatingItems.has(item.id) ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
                 @click="${() => this.updateQuantity(item.id, item.quantity + 1)}"
+                ?disabled="${this.updatingItems.has(item.id)}"
                 aria-label="Increase quantity"
-              >+</button>
+              >${this.updatingItems.has(item.id) ? loadingSpinner(12) : '+'}</button>
             </div>
           </div>
         </div>
@@ -278,22 +291,34 @@ export class CartWidget extends ShoprocketElement {
   private async updateQuantity(itemId: string, quantity: number): Promise<void> {
     if (quantity < 1) return;
     
+    this.updatingItems.add(itemId);
+    this.requestUpdate();
+    
     try {
       await this.sdk.cart.updateItem(itemId, quantity);
       await this.loadCart();
     } catch (error) {
       console.error('Failed to update quantity:', error);
       this.showError('Failed to update item quantity');
+    } finally {
+      this.updatingItems.delete(itemId);
+      this.requestUpdate();
     }
   }
 
   private async removeItem(itemId: string): Promise<void> {
+    this.updatingItems.add(itemId);
+    this.requestUpdate();
+    
     try {
       await this.sdk.cart.removeItem(itemId);
       await this.loadCart();
     } catch (error) {
       console.error('Failed to remove item:', error);
       this.showError('Failed to remove item from cart');
+    } finally {
+      this.updatingItems.delete(itemId);
+      this.requestUpdate();
     }
   }
 
@@ -301,6 +326,10 @@ export class CartWidget extends ShoprocketElement {
     switch (this.position) {
       case 'bottom-left':
         return 'sr:bottom-5 sr:start-5';
+      case 'top-left':
+        return 'sr:top-5 sr:start-5';
+      case 'top-right':
+        return 'sr:top-5 sr:end-5';
       case 'middle-right':
         return 'sr:top-1/2 sr:end-0 sr:-translate-y-1/2';
       case 'middle-left':
@@ -311,24 +340,39 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private getPanelPositionClasses(): string {
-    // For bubble style, position relative to bubble button
+    // For sidebar/drawer style, always position at screen edge
+    if (this.widgetStyle === 'sidebar' || this.widgetStyle === 'drawer') {
+      return this.getSidebarPanelPosition();
+    }
+    
+    // For bubble style, position relative to bubble button (but only for valid positions)
     if (this.widgetStyle === 'bubble') {
+      // Middle positions should not use bubble style - force sidebar behavior
+      if (this.position.includes('middle')) {
+        return this.getSidebarPanelPosition();
+      }
+      
+      // Mobile: edge positioned like sidebar, Desktop: positioned near button
       switch (this.position) {
         case 'bottom-left':
-          return 'sr:bottom-5 sr:start-5';
-        case 'middle-right':
-          return 'sr:top-1/2 sr:end-5 sr:-translate-y-1/2';
-        case 'middle-left':
-          return 'sr:top-1/2 sr:start-5 sr:-translate-y-1/2';
+          return 'sr:top-0 sr:start-0 sr:md:top-auto sr:md:bottom-5 sr:md:start-5';
+        case 'top-left':
+          return 'sr:top-0 sr:start-0 sr:md:top-5 sr:md:start-5';
+        case 'top-right':
+          return 'sr:top-0 sr:end-0 sr:md:top-5 sr:md:end-5';
         default: // bottom-right
-          return 'sr:bottom-5 sr:end-5';
+          return 'sr:top-0 sr:end-0 sr:md:top-auto sr:md:bottom-5 sr:md:end-5';
       }
     }
     
-    // For tab style, position at edge
+    // For tab style, position at edge with offset for tab button
     switch (this.position) {
       case 'bottom-left':
         return 'sr:bottom-[100px] sr:start-0';
+      case 'top-left':
+        return 'sr:top-[100px] sr:start-0';
+      case 'top-right':
+        return 'sr:top-[100px] sr:end-0';
       case 'middle-right':
         return 'sr:top-1/2 sr:end-0 sr:-translate-y-1/2';
       case 'middle-left':
@@ -338,18 +382,67 @@ export class CartWidget extends ShoprocketElement {
     }
   }
   
-  private getBubbleMorphClasses(): string {
-    // Set transform origin based on position
+  private getSidebarPanelPosition(): string {
+    // Sidebar/drawer panels always stick to screen edges
+    switch (this.position) {
+      case 'bottom-left':
+      case 'top-left':
+      case 'middle-left':
+        return 'sr:top-0 sr:start-0';
+      case 'bottom-right':
+      case 'top-right': 
+      case 'middle-right':
+      default: // right positions
+        return 'sr:top-0 sr:end-0';
+    }
+  }
+  
+  private getCartPanelClasses(): string {
+    // Force sidebar style for middle positions
+    if (this.position.includes('middle')) {
+      return this.getSidebarSlideClasses();
+    }
+    
+    switch (this.widgetStyle) {
+      case 'bubble':
+        // Use sidebar behavior on mobile, bubble on desktop
+        return this.getResponsiveBubbleClasses();
+      case 'sidebar':
+      case 'drawer': // Allow both names
+        return this.getSidebarSlideClasses();
+      case 'tab':
+        return this.getTabSlideClasses();
+      default:
+        return this.getResponsiveBubbleClasses();
+    }
+  }
+
+  
+  private getResponsiveBubbleClasses(): string {
+    // Mobile: sidebar behavior, Desktop: bubble behavior
+    const mobileWidth = 'sr:w-[100dvw]';
+    const mobileHeight = 'sr:h-[100dvh]';
+    const mobileRounded = 'sr:rounded-none';
+    
+    // Get transform origin for desktop bubble
     let transformOrigin = '';
     let maxHeightCalc = '';
     switch (this.position) {
       case 'bottom-left':
         transformOrigin = 'sr:origin-bottom-left';
-        maxHeightCalc = 'sr:max-h-[calc(100vh-var(--sr-cart-size)-40px)]';
+        maxHeightCalc = 'sr:max-h-[calc(100vh-40px)]'; // 20px top + 20px bottom spacing
         break;
       case 'bottom-right':
         transformOrigin = 'sr:origin-bottom-right';
-        maxHeightCalc = 'sr:max-h-[calc(100vh-var(--sr-cart-size)-40px)]';
+        maxHeightCalc = 'sr:max-h-[calc(100vh-40px)]'; // 20px top + 20px bottom spacing
+        break;
+      case 'top-left':
+        transformOrigin = 'sr:origin-top-left';
+        maxHeightCalc = 'sr:max-h-[calc(100vh-40px)]'; // 20px top + 20px bottom spacing
+        break;
+      case 'top-right':
+        transformOrigin = 'sr:origin-top-right';
+        maxHeightCalc = 'sr:max-h-[calc(100vh-40px)]'; // 20px top + 20px bottom spacing
         break;
       case 'middle-left':
         transformOrigin = 'sr:origin-left';
@@ -362,24 +455,66 @@ export class CartWidget extends ShoprocketElement {
     }
     
     if (this.isOpen) {
-      // Full size cart panel - 440x625 like v2
-      return `sr:w-[440px] sr:max-w-[calc(100vw-40px)] sr:h-[625px] ${maxHeightCalc} sr:opacity-100 sr:scale-100 ${transformOrigin} sm:sr:w-[100dvw] sm:sr:h-[100dvh] sm:sr:max-h-[100dvh] sm:sr:rounded-none`;
+      // Mobile: full sidebar, Desktop: scaled bubble
+      const mobileTranslate = 'sr:translate-x-0 sr:translate-y-0 sr:opacity-100';
+      const desktopSize = `sr:md:w-[440px] sr:md:max-w-[calc(100vw-40px)] sr:md:h-[625px] ${maxHeightCalc.replace('sr:', 'sr:md:')}`;
+      const desktopTransform = 'sr:md:scale-100 sr:md:opacity-100';
+      // Add slight translate adjustment to keep edge aligned during scale
+      const alignmentAdjust = (this.position === 'bottom-right' || this.position === 'top-right' || this.position === 'bottom-left' || this.position === 'top-left') ? 'sr:md:translate-x-0 sr:md:translate-y-0' : '';
+      return `${mobileWidth} ${mobileHeight} ${mobileRounded} ${mobileTranslate} ${desktopSize} ${desktopTransform} ${alignmentAdjust} sr:md:rounded ${transformOrigin}`;
     }
-    // Collapsed to bubble size
-    return `sr:w-[var(--sr-cart-size)] sr:h-[var(--sr-cart-size)] sr:opacity-0 sr:scale-0 ${transformOrigin} sm:sr:w-[var(--sr-cart-size-sm)] sm:sr:h-[var(--sr-cart-size-sm)]`;
+    
+    // Closed state
+    // Mobile: slide out with opacity, Desktop: scale down to bubble
+    let mobileTranslate = '';
+    switch (this.position) {
+      case 'bottom-left':
+      case 'top-left':
+      case 'middle-left':
+        mobileTranslate = 'sr:-translate-x-full sr:opacity-0';
+        break;
+      default: // right positions
+        mobileTranslate = 'sr:translate-x-full sr:opacity-0';
+    }
+    
+    const desktopSize = 'sr:md:w-[var(--sr-cart-size)] sr:md:h-[var(--sr-cart-size)]';
+    const desktopTransform = 'sr:md:translate-x-0 sr:md:translate-y-0 sr:md:scale-0 sr:md:opacity-0';
+    return `${mobileWidth} ${mobileHeight} ${mobileTranslate} ${desktopSize} ${desktopTransform} ${transformOrigin}`;
+  }
+
+  private getSidebarSlideClasses(): string {
+    // Sidebar style - full height, slides from the side based on position
+    const width = 'sr:w-[100dvw] sr:md:max-w-[440px]';
+    const height = 'sr:h-[100dvh]';
+    const rounded = 'sr:rounded-none';
+    
+    if (this.isOpen) {
+      return `${width} ${height} ${rounded} sr:translate-x-0`;
+    }
+    
+    // Slide out based on position
+    switch (this.position) {
+      case 'bottom-left':
+      case 'top-left':
+      case 'middle-left':
+        return `${width} ${height} ${rounded} sr:-translate-x-full`;
+      default: // right positions
+        return `${width} ${height} ${rounded} sr:translate-x-full`;
+    }
   }
   
   private getTabSlideClasses(): string {
     if (this.isOpen) {
-      // Slide in from side
-      return 'sr:w-[440px] sr:max-w-[calc(100vw-40px)] sr:h-[625px] sr:max-h-[calc(100vh-40px)] sr:translate-x-0 sm:sr:w-full sm:sr:h-[70vh] sm:sr:translate-y-0';
+      // Mobile first: fullscreen slide in from bottom on mobile, side slide on desktop
+      return 'sr:w-full sr:h-[70vh] sr:translate-y-0 sr:md:w-[440px] sr:md:max-w-[calc(100vw-40px)] sr:md:h-[625px] sr:md:max-h-[calc(100vh-40px)] sr:md:translate-x-0';
     }
     // Slide out
-    return 'sr:w-[440px] sr:max-w-[calc(100vw-40px)] sr:h-[625px] sr:max-h-[calc(100vh-40px)] sr:translate-x-full sm:sr:w-full sm:sr:h-[70vh] sm:sr:translate-y-full';
+    return 'sr:w-full sr:h-[70vh] sr:translate-y-full sr:md:w-[440px] sr:md:max-w-[calc(100vw-40px)] sr:md:h-[625px] sr:md:max-h-[calc(100vh-40px)] sr:md:translate-x-full';
   }
 
   private getTriggerClasses(): string {
     const isMiddle = this.position.includes('middle');
+    const opacityClass = this.isOpen ? 'sr:opacity-0' : 'sr:opacity-100';
     
     if (isMiddle) {
       const baseClasses = 'sr:bg-white sr:text-black sr:border-none sr:cursor-pointer sr:relative sr:shadow-sm sr:hover:shadow-lg sr:transition-all sr:duration-200 sr:flex sr:items-center sr:justify-center';
@@ -387,11 +522,11 @@ export class CartWidget extends ShoprocketElement {
       const roundingClasses = this.position === 'middle-right' 
         ? 'sr:rounded-s sr:rounded-e-none' 
         : 'sr:rounded-e sr:rounded-s-none';
-      return `${baseClasses} ${sizeClasses} ${roundingClasses} sr:flex-col sr:py-2 sr:gap-1`;
+      return `${baseClasses} ${sizeClasses} ${roundingClasses} sr:flex-col sr:py-2 sr:gap-1 ${opacityClass}`;
     }
     
-    // Bottom positions - bubble style
-    return 'sr:bg-white sr:text-black sr:border-none sr:rounded sr:w-[var(--sr-cart-size)] sr:h-[var(--sr-cart-size)] sr:flex sr:items-center sr:justify-center sr:cursor-pointer sr:relative sr:shadow-md sr:hover:shadow-xl sr:transition-all sr:duration-200 sm:sr:w-[var(--sr-cart-size-sm)] sm:sr:h-[var(--sr-cart-size-sm)]';
+    // Bottom positions - bubble style (mobile first: small size, then larger)
+    return `sr:bg-white sr:text-black sr:border-none sr:rounded sr:w-[var(--sr-cart-size-sm)] sr:h-[var(--sr-cart-size-sm)] sr:flex sr:items-center sr:justify-center sr:cursor-pointer sr:relative sr:shadow-md sr:hover:shadow-xl sr:transition-all sr:duration-200 sr:sm:w-[var(--sr-cart-size)] sr:sm:h-[var(--sr-cart-size)] ${opacityClass}`;
   }
 
   private renderTriggerContent(itemCount: number): TemplateResult {
@@ -472,6 +607,10 @@ export class CartWidget extends ShoprocketElement {
     switch (this.position) {
       case 'bottom-left':
         return 'sr:bottom-0 sr:left-full sr:ml-2';
+      case 'top-left':
+        return 'sr:top-0 sr:left-full sr:ml-2';
+      case 'top-right':
+        return 'sr:top-0 sr:right-full sr:mr-2';
       case 'middle-right':
         return 'sr:right-full sr:top-0 sr:mr-2';
       case 'middle-left':
@@ -481,6 +620,34 @@ export class CartWidget extends ShoprocketElement {
     }
   }
   
+  private getContentAnimationClasses(section: 'header' | 'items' | 'footer'): string {
+    // Only apply animation on desktop bubble style
+    if (this.widgetStyle !== 'bubble') {
+      return '';
+    }
+    
+    // Special handling for the footer/checkout section
+    if (section === 'footer') {
+      if (this.isOpen) {
+        // Delay fade in significantly for footer
+        return 'sr:md:opacity-0 sr:md:animate-[fadeIn_200ms_ease-out_300ms_forwards]';
+      } else {
+        // Fade out immediately
+        return 'sr:md:opacity-0 sr:md:animate-[fadeOut_50ms_ease-out_forwards]';
+      }
+    }
+    
+    // Regular animations for other sections
+    const animations = {
+      header: this.isOpen ? 'sr:md:animate-[fadeIn_200ms_ease-out_100ms_forwards]' : 'sr:md:animate-[fadeOut_100ms_ease-out_forwards]',
+      items: this.isOpen ? 'sr:md:animate-[fadeIn_200ms_ease-out_150ms_forwards]' : 'sr:md:animate-[fadeOut_100ms_ease-out_forwards]',
+      footer: '' // handled above
+    };
+    
+    // Start with opacity-0 on desktop for bubble style
+    return `sr:md:opacity-0 ${animations[section]}`;
+  }
+
   private renderNotificationArrow(): TemplateResult {
     // Arrow styles based on cart position
     let arrowClasses = '';
