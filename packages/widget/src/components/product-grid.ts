@@ -55,8 +55,10 @@ export class ProductGrid extends ShoprocketElement {
       // Extract just the product slug (before /~/cart if present)
       const slug = hashPath.split('/~/')[0];
       
-      // Try to load the product directly by slug
-      await this.loadProductBySlug(slug);
+      // Try to load the product directly by slug if we have one
+      if (slug) {
+        await this.loadProductBySlug(slug);
+      }
     }
     
     // Listen for hash changes
