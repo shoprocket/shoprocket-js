@@ -26,6 +26,7 @@ build/
 # Claude
 .claude/
 .playwright-mcp/
+CLAUDE.md
 
 # Testing
 coverage/
