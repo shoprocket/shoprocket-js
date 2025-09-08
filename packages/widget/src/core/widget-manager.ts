@@ -46,7 +46,7 @@ export class WidgetManager {
         this.sdk.setSessionToken(storedToken);
       } else {
         // Create new session
-        const session = await this.sdk.session.create() as Session | ApiResponse<Session>;
+        const session = await this.sdk.session.create() as unknown as Session | ApiResponse<Session>;
         const sessionToken = 'data' in session ? session.data.session_token : session.session_token;
         if (sessionToken) {
           this.sdk.setSessionToken(sessionToken);
