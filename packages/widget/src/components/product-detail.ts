@@ -306,7 +306,7 @@ export class ProductDetail extends ShoprocketElement {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
           </svg>
           Added to Cart
-        ` : isLoading ? loadingSpinner('sm') : canAdd ? 'Add to Cart' : 'Select All Options'}
+        ` : isLoading ? html`<span class="sr:flex sr:items-center sr:justify-center sr:h-5">${loadingSpinner('sm')}</span>` : canAdd ? 'Add to Cart' : 'Select All Options'}
       </button>
     `;
   }
@@ -377,7 +377,8 @@ export class ProductDetail extends ShoprocketElement {
         await this.sdk.cart.addItem({
           product_id: product.id,
           variant_id: variantId,
-          quantity: 1
+          quantity: 1,
+          source_url: window.location.href
         });
         
         // Dispatch events
