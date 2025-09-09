@@ -3,7 +3,184 @@
  * Using Tailwind v4 with sr: prefix to avoid conflicts
  */
 
-@import "tailwindcss" prefix(sr);
+/* Define CSS layers for proper cascade control */
+@layer shoprocket-reset, shoprocket-base, shoprocket-components;
+
+/* CSS Reset Layer - comprehensive reset to prevent CSS bleed */
+@layer shoprocket-reset {
+  /* Reset all shoprocket components and their children */
+  shoprocket-widget,
+  shoprocket-cart,
+  shoprocket-product-list,
+  shoprocket-product-grid,
+  shoprocket-product-detail,
+  shoprocket-widget *,
+  shoprocket-cart *,
+  shoprocket-product-list *,
+  shoprocket-product-grid *,
+  shoprocket-product-detail *,
+  [data-shoprocket],
+  [data-shoprocket] * {
+    /* Animation */
+    animation: unset;
+    animation-delay: unset;
+    animation-direction: unset;
+    animation-duration: unset;
+    animation-fill-mode: unset;
+    animation-iteration-count: 1;
+    animation-name: none;
+    animation-play-state: running;
+    animation-timing-function: ease;
+    
+    /* Appearance */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    
+    /* Background */
+    background: 0;
+    background-attachment: scroll;
+    background-clip: border-box;
+    background-color: transparent;
+    background-image: none;
+    background-origin: padding-box;
+    background-position: 0 0;
+    background-repeat: repeat;
+    background-size: auto auto;
+    
+    /* Border */
+    border: 0;
+    border-radius: 0;
+    border-collapse: separate;
+    border-image: none;
+    border-spacing: 0;
+    border-color: inherit;
+    border-style: none;
+    border-width: medium;
+    
+    /* Box Model */
+    box-sizing: border-box;
+    width: auto;
+    height: auto;
+    max-height: none;
+    max-width: none;
+    min-height: 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    
+    /* Positioning */
+    position: static;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    z-index: auto;
+    
+    /* Flexbox */
+    flex: 0 1 auto;
+    flex-grow: 0;
+    flex-shrink: 1;
+    flex-basis: auto;
+    
+    /* Grid */
+    grid-area: auto;
+    
+    /* Typography */
+    font: normal;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    font-style: normal;
+    font-variant: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: normal;
+    text-align: left;
+    text-decoration: none;
+    text-indent: 0;
+    text-shadow: none;
+    text-transform: none;
+    vertical-align: baseline;
+    white-space: normal;
+    word-spacing: normal;
+    
+    /* Color */
+    color: inherit;
+    opacity: 1;
+    
+    /* Display */
+    display: revert;
+    visibility: visible;
+    float: none;
+    clear: none;
+    overflow: visible;
+    clip: auto;
+    
+    /* Transform */
+    transform: none;
+    transform-origin: 50% 50% 0;
+    transform-style: flat;
+    perspective: none;
+    perspective-origin: 50% 50%;
+    backface-visibility: visible;
+    
+    /* Transition */
+    transition: none;
+    transition-delay: 0s;
+    transition-duration: 0s;
+    transition-property: none;
+    transition-timing-function: ease;
+    
+    /* Other */
+    cursor: auto;
+    outline: 0;
+    list-style: none;
+    quotes: """ """ "'" "'";
+    counter-increment: none;
+    counter-reset: none;
+    resize: none;
+    user-select: auto;
+    -webkit-user-select: auto;
+    -moz-user-select: auto;
+    -ms-user-select: auto;
+  }
+  
+  /* Keep box-sizing for all elements */
+  shoprocket-widget *,
+  shoprocket-cart *,
+  shoprocket-product-list *,
+  shoprocket-product-grid *,
+  shoprocket-product-detail *,
+  [data-shoprocket] * {
+    box-sizing: border-box;
+  }
+}
+
+/* Base layer for component-specific fixes */
+@layer shoprocket-base {
+  /* Fix cart toggle size specifically */
+  shoprocket-cart [data-shoprocket="cart-toggle"] button {
+    width: var(--sr-cart-size, 64px);
+    height: var(--sr-cart-size, 64px);
+    max-width: var(--sr-cart-size, 64px);
+    max-height: var(--sr-cart-size, 64px);
+    font-size: 16px; /* Reset font size for the button */
+  }
+
+  @media (max-width: 640px) {
+    shoprocket-cart [data-shoprocket="cart-toggle"] button {
+      width: var(--sr-cart-size-sm, 48px);
+      height: var(--sr-cart-size-sm, 48px);
+      max-width: var(--sr-cart-size-sm, 48px);
+      max-height: var(--sr-cart-size-sm, 48px);
+    }
+  }
+}
+
+/* Import Tailwind into the components layer so it overrides the reset */
+@layer shoprocket-components {
+  @import "tailwindcss" prefix(sr);
+}
 
 /* Tell Tailwind where to look for classes */
 @source "./index.ts";
@@ -17,9 +194,8 @@
 }
 
 @layer components {
+  /* Icon wrapper should respect Tailwind size classes, not fill parent */
   .sr-icon {
-    width: 100%;
-    height: 100%;
     display: block;
   }
   .sr-icon svg {

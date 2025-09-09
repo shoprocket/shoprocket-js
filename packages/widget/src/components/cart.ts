@@ -260,7 +260,7 @@ export class CartWidget extends ShoprocketElement {
       ></div>
       
       <!-- Cart Toggle Button -->
-      <div class="sr:fixed sr:z-[9999] ${this.getPositionClasses()}" data-sr>
+      <div class="sr:fixed sr:z-[9999] ${this.getPositionClasses()}" data-shoprocket="cart-toggle">
         <button 
           class="sr:bg-white sr:text-black sr:border-none sr:rounded-sm sr:w-16 sr:h-16 sr:flex sr:items-center sr:justify-center sr:cursor-pointer sr:relative sr:shadow-lg sr:hover:shadow-xl sr:transition-all sr:duration-200 sr:transform sr:hover:scale-105 ${this.isOpen ? 'sr:opacity-0 sr:pointer-events-none' : 'sr:opacity-100'}"
           @click="${() => this.toggleCart()}"

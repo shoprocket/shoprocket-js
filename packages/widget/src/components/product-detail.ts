@@ -105,7 +105,7 @@ export class ProductDetail extends ShoprocketElement {
     return html`
       ${renderErrorNotification(this.errorMessage)}
       ${renderSuccessNotification(this.successMessage)}
-      <div class="sr" data-sr-product-detail>
+      <div class="sr" data-shoprocket="product-detail">
         <!-- Back Button -->
         <button 
           class="sr:mb-6 sr:text-gray-600 sr:hover:text-gray-900 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-sm sr:font-medium sr:inline-flex sr:items-center sr:gap-1 sr:transition-colors" 
@@ -316,7 +316,7 @@ export class ProductDetail extends ShoprocketElement {
     
     return html`
       <button
-        class="sr:bg-transparent sr:border sr:border-gray-300 sr:text-gray-700 sr:w-full sr:py-2.5 sr:px-6 sr:text-sm sr:font-medium sr:rounded-sm sr:transition-all sr:duration-200 sr:hover:bg-gray-50 sr:cursor-pointer"
+        class="sr:flex sr:items-center sr:justify-center sr:bg-transparent sr:border sr:border-gray-300 sr:text-gray-700 sr:w-full sr:py-2.5 sr:px-6 sr:text-sm sr:font-medium sr:rounded-sm sr:transition-all sr:duration-200 sr:hover:bg-gray-50 sr:cursor-pointer"
         @click=${() => this.handleViewCart()}
       >
         View Cart
@@ -519,7 +519,7 @@ export class ProductDetail extends ShoprocketElement {
 
   private renderSkeleton(): TemplateResult {
     return html`
-      <div class="sr" data-sr-product-detail>
+      <div class="sr" data-shoprocket="product-detail-skeleton">
         <!-- Back Button -->
         <button 
           class="sr:mb-6 sr:text-gray-600 sr:hover:text-gray-900 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-sm sr:font-medium sr:inline-flex sr:items-center sr:gap-1 sr:transition-colors" 
