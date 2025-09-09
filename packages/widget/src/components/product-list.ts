@@ -57,7 +57,7 @@ export class ProductList extends ShoprocketElement {
     return html`
       ${renderErrorNotification(this.errorMessage)}
       ${renderSuccessNotification(this.successMessage)}
-      <div class="sr sr:grid sr:grid-cols-2 sr:gap-x-4 sr:gap-y-8 sr:md:grid-cols-3 sr:lg:grid-cols-4" data-sr-product-list>
+      <div class="sr sr:grid sr:grid-cols-2 sr:gap-x-4 sr:gap-y-8 sr:md:grid-cols-3 sr:lg:grid-cols-4" data-shoprocket="product-list">
         ${this.products.map(product => this.renderProduct(product))}
       </div>
     `;
@@ -67,7 +67,7 @@ export class ProductList extends ShoprocketElement {
     const skeletonCount = this.limit ? Math.min(this.limit, 8) : 6;
     
     return html`
-      <div class="sr sr:grid sr:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] sr:gap-4 md:sr:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] sm:sr:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:sr:gap-2">
+      <div class="sr sr:grid sr:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] sr:gap-4 md:sr:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] sm:sr:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:sr:gap-2" data-shoprocket="product-list-skeleton">
         ${Array(skeletonCount).fill(0).map(() => html`
           <div class="sr:bg-white sr:rounded-lg sr:shadow-md sr:overflow-hidden">
             <!-- Image skeleton -->

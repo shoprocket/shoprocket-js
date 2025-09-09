@@ -72,7 +72,7 @@ export class ProductGrid extends ShoprocketElement {
 
   protected override render(): TemplateResult {
     return html`
-      <div class="sr" data-sr>
+      <div class="sr" data-shoprocket="product-grid">
         <!-- Product List View -->
         <div style="${this.currentView === 'list' ? '' : 'display: none;'}">
           <shoprocket-product-list
