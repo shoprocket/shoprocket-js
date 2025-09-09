@@ -4,6 +4,7 @@ export interface CartItem {
   id: string;
   product_id: string;
   variant_id?: string;
+  variant_name?: string;
   product_name?: string;
   price: number;
   quantity: number;
@@ -33,6 +34,7 @@ export interface AddToCartData {
   product_id: string;
   quantity: number;
   variant_id?: string;
+  source_url?: string;
 }
 
 export interface CustomerData {
