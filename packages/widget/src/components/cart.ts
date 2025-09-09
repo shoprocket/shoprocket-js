@@ -38,6 +38,18 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private updatingItems: Map<string, 'increase' | 'decrease'> = new Map();
   
+  // Track pending API calls for debouncing
+  private pendingUpdates: Map<string, NodeJS.Timeout> = new Map();
+  
+  @state()
+  private priceChangedItems: Set<string> = new Set();
+  
+  @state()
+  private removingItems: Set<string> = new Set();
+  
+  @state()
+  private showEmptyState = false;
+  
   private overlayClickHandler: (() => void) | null = null;
 
   override async connectedCallback(): Promise<void> {
@@ -67,9 +79,7 @@ export class CartWidget extends ShoprocketElement {
     window.addEventListener('close-cart', this.handleCloseCart as EventListener);
     window.addEventListener('toggle-cart', this.handleToggleCart as EventListener);
     
-    // Listen for hash changes to detect manual URL updates
-    this.handleHashChange = this.handleHashChange.bind(this);
-    window.addEventListener('hashchange', this.handleHashChange);
+    // Note: We use popstate instead of hashchange to avoid double-handling
     
     // Register global cart toggle function
     if (!(window as any).ShoprocketWidget) {
@@ -100,7 +110,6 @@ export class CartWidget extends ShoprocketElement {
     window.removeEventListener('open-cart', this.handleOpenCart as EventListener);
     window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
     window.removeEventListener('toggle-cart', this.handleToggleCart as EventListener);
-    window.removeEventListener('hashchange', this.handleHashChange);
     
     // Clean up global references
     if ((window as any).ShoprocketWidget?.cart) {
@@ -124,13 +133,6 @@ export class CartWidget extends ShoprocketElement {
     this.toggleCart();
   }
   
-  private handleHashChange = (): void => {
-    if (window.location.hash.includes('/~/cart')) {
-      this.openCart();
-    } else {
-      this.closeCart();
-    }
-  }
   
   private handleProductAdded = (event: CustomEvent): void => {
     const { product } = event.detail;
@@ -181,6 +183,10 @@ export class CartWidget extends ShoprocketElement {
         // Handle both wrapped and unwrapped responses
         if (response && typeof response === 'object') {
           this.cart = 'data' in response ? (response as ApiResponse<Cart>).data : (response as Cart);
+          // Reset empty state if cart has items
+          if (this.cart?.items?.length > 0) {
+            this.showEmptyState = false;
+          }
         } else {
           this.cart = null;
         }
@@ -275,13 +281,15 @@ export class CartWidget extends ShoprocketElement {
             </svg>
           </button>
         </div>
-        <div class="${this.getContentAnimationClasses('items')} sr:flex-1 sr:overflow-y-auto sr:px-6 sr:py-4">
+        <div class="${this.getContentAnimationClasses('items')} sr:flex-1 sr:overflow-y-auto sr:px-6 sr:py-4 sr:transition-all sr:duration-300">
           ${this.renderCartItems()}
         </div>
         <div class="${this.getContentAnimationClasses('footer')} sr:px-6 sr:py-5 sr:border-t sr:border-gray-100 sr:space-y-4">
           <div class="sr:flex sr:justify-between sr:items-center">
             <span class="sr:text-sm sr:text-gray-600">Subtotal</span>
-            <span class="sr:text-base sr:font-medium sr:text-gray-900">${this.formatPrice(this.cart?.totals?.total || 0)}</span>
+            <span class="sr:text-base sr:font-medium sr:text-gray-900">
+              <span class="sr:inline-block sr:px-1 sr:-mx-1 sr:rounded ${this.priceChangedItems.size > 0 ? 'sr:animate-[priceFlash_600ms_ease-out]' : ''}">${this.formatPrice(this.cart?.totals?.total || 0)}</span>
+            </span>
           </div>
           <button class="sr:bg-gray-900 sr:hover:bg-black sr:text-white sr:border-none sr:py-3 sr:px-6 sr:rounded-sm sr:w-full sr:cursor-pointer sr:text-sm sr:font-medium sr:transition-all sr:duration-200 sr:transform sr:hover:scale-[1.01] sr:active:scale-[0.99]">
             Checkout
@@ -295,9 +303,9 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private renderCartItems(): TemplateResult {
-    if (!this.cart?.items?.length) {
+    if (!this.cart?.items?.length || this.showEmptyState) {
       return html`
-        <div class="sr:flex sr:flex-col sr:items-center sr:justify-center sr:h-full sr:py-12 sr:text-center">
+        <div class="sr:flex sr:flex-col sr:items-center sr:justify-center sr:h-full sr:py-12 sr:text-center sr:animate-[fadeInScale_300ms_ease-out]">
           <svg class="sr:w-16 sr:h-16 sr:text-gray-300 sr:mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
           </svg>
@@ -314,9 +322,11 @@ export class CartWidget extends ShoprocketElement {
 
     return html`
       ${this.cart.items.map((item: any) => html`
-        <div class="sr:flex sr:gap-4 sr:py-4 sr:border-b sr:border-gray-100 last:sr:border-b-0">
+        <div class="sr:overflow-hidden ${this.removingItems.has(item.id) ? 'sr:animate-[slideOutRight_300ms_ease-in_forwards]' : ''}">
+          <div class="sr:flex sr:gap-4 sr:py-4 sr:border-b sr:border-gray-100 last:sr:border-b-0">
           <!-- Product Image -->
-          <div class="sr:w-16 sr:h-16 sr:flex-shrink-0 sr:rounded sr:overflow-hidden sr:bg-gray-50">
+          <div class="sr:w-16 sr:h-16 sr:flex-shrink-0 sr:rounded sr:overflow-hidden sr:bg-gray-50 sr:cursor-pointer"
+               @click="${() => this.navigateToProduct(item)}">
             <img 
               src="${this.getMediaUrl(item.media?.[0], 'w=128,h=128,fit=cover')}" 
               alt="${item.product_name}"
@@ -329,50 +339,54 @@ export class CartWidget extends ShoprocketElement {
           <div class="sr:flex-1 sr:min-w-0">
             <div class="sr:flex sr:items-start sr:justify-between sr:gap-2">
               <div class="sr:flex-1">
-                <h4 class="sr:font-medium sr:text-sm sr:text-gray-900 sr:mb-0.5 sr:leading-tight">${item.product_name}</h4>
+                <h4 class="sr:font-medium sr:text-sm sr:text-gray-900 sr:mb-0.5 sr:leading-tight sr:cursor-pointer sr:hover:text-gray-600 sr:transition-colors"
+                    @click="${() => this.navigateToProduct(item)}">${item.product_name}</h4>
                 ${item.variant_name ? html`
-                  <div class="sr:text-gray-500 sr:text-xs sr:mb-2">${item.variant_name}</div>
+                  <div class="sr:text-gray-500 sr:text-xs sr:mb-0">${item.variant_name}</div>
                 ` : ''}
               </div>
-              
-              <!-- Remove Button -->
-              <button 
-                class="sr:text-gray-400 sr:hover:text-gray-600 sr:p-1 sr:-mt-1 sr:-mr-1 sr:bg-transparent sr:border-none sr:cursor-pointer sr:transition-colors sr:duration-200"
-                @click="${() => this.removeItem(item.id)}"
-                aria-label="Remove item"
-              >
-                <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-              </button>
             </div>
             
-            <div class="sr:flex sr:items-center sr:justify-between sr:mt-2">
-              <div class="sr:text-sm sr:font-medium sr:text-gray-900">${this.formatPrice(item.price)}</div>
+            <div class="sr:flex sr:items-center sr:justify-between sr:mt-1">
+              <div class="sr:text-sm sr:font-medium sr:text-gray-900 sr:relative">
+                <span class="sr:inline-block sr:px-1 sr:-mx-1 sr:rounded ${this.priceChangedItems.has(item.id) ? 'sr:animate-[priceFlash_600ms_ease-out]' : ''}">${this.formatPrice(item.subtotal)}</span>
+              </div>
               
-              <!-- Quantity Controls -->
-              <div class="sr:flex sr:items-center sr:gap-0 sr:border sr:border-gray-200 sr:rounded-sm">
+              <!-- Quantity Controls with Remove Button -->
+              <div class="sr:flex sr:items-center sr:gap-2">
+                <div class="sr:flex sr:items-center sr:gap-0 sr:border sr:border-gray-200 sr:rounded-sm">
                 <button 
-                  class="sr:w-8 sr:h-8 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:bg-gray-50 ${item.quantity === 1 || this.updatingItems.has(item.id) ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
+                  class="sr:w-8 sr:h-8 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:bg-gray-50 ${item.quantity === 1 ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
                   @click="${() => this.updateQuantity(item.id, item.quantity - 1, 'decrease')}"
-                  ?disabled="${item.quantity === 1 || this.updatingItems.has(item.id)}"
+                  ?disabled="${item.quantity === 1}"
                   aria-label="Decrease quantity"
                 >
-                  ${this.updatingItems.get(item.id) === 'decrease' ? html`<span class="sr:text-gray-700">${loadingSpinner(12)}</span>` : '−'}
+                  −
                 </button>
                 <span class="sr:text-sm sr:font-medium sr:w-8 sr:text-center sr:border-x sr:border-gray-200">${item.quantity}</span>
                 <button 
-                  class="sr:w-8 sr:h-8 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:bg-gray-50 ${this.updatingItems.has(item.id) ? 'sr:opacity-50 sr:cursor-not-allowed' : ''}"
+                  class="sr:w-8 sr:h-8 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-gray-600 sr:flex sr:items-center sr:justify-center sr:transition-colors sr:duration-200 sr:hover:bg-gray-50"
                   @click="${() => this.updateQuantity(item.id, item.quantity + 1, 'increase')}"
-                  ?disabled="${this.updatingItems.has(item.id)}"
                   aria-label="Increase quantity"
                 >
-                  ${this.updatingItems.get(item.id) === 'increase' ? html`<span class="sr:text-gray-700">${loadingSpinner(12)}</span>` : '+'}
+                  +
                 </button>
               </div>
+              <!-- Remove Button -->
+              <button 
+                class="sr:text-gray-400 sr:hover:text-red-500 sr:p-2 sr:bg-transparent sr:border-none sr:cursor-pointer sr:transition-colors sr:duration-200"
+                @click="${() => this.removeItem(item.id)}"
+                aria-label="Remove item"
+                title="Remove item"
+              >
+                <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
+      </div>
       `)}
     `;
   }
@@ -380,34 +394,146 @@ export class CartWidget extends ShoprocketElement {
   private async updateQuantity(itemId: string, quantity: number, action: 'increase' | 'decrease'): Promise<void> {
     if (quantity < 1) return;
     
-    this.updatingItems.set(itemId, action);
+    // Store original state for rollback
+    const originalCart = JSON.parse(JSON.stringify(this.cart));
+    const item = this.cart?.items.find((i: any) => i.id === itemId);
+    if (!item) return;
+    
+    // Optimistic update - immediately update UI
+    item.quantity = quantity;
+    item.subtotal = item.price * quantity;
+    
+    // Update cart total
+    if (this.cart) {
+      const newSubtotal = this.cart.items.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
+      this.cart.totals.subtotal = newSubtotal;
+      this.cart.totals.total = newSubtotal; // Simplified - doesn't account for tax/shipping
+    }
+    
+    // Trigger animations immediately
+    this.priceChangedItems.add(itemId);
     this.requestUpdate();
     
-    try {
-      await this.sdk.cart.updateItem(itemId, quantity);
-      await this.loadCart();
-    } catch (error) {
-      console.error('Failed to update quantity:', error);
-      this.showError('Failed to update item quantity');
-    } finally {
-      this.updatingItems.delete(itemId);
-      this.requestUpdate();
+    // Cancel any pending update for this item
+    if (this.pendingUpdates.has(itemId)) {
+      clearTimeout(this.pendingUpdates.get(itemId));
     }
+    
+    // Debounce the API call - wait 300ms after last click
+    const timeoutId = setTimeout(async () => {
+      try {
+        // Make API call with final quantity
+        const updatedCart = await this.sdk.cart.updateItem(itemId, quantity);
+        
+        // Use the response directly
+        if (updatedCart && typeof updatedCart === 'object') {
+          this.cart = 'data' in updatedCart ? updatedCart.data : updatedCart;
+        }
+        
+        // Remove animation class after animation completes
+        setTimeout(() => {
+          this.priceChangedItems.delete(itemId);
+          this.requestUpdate();
+        }, 600);
+      } catch (error) {
+        console.error('Failed to update quantity:', error);
+        // Rollback on error
+        this.cart = originalCart;
+        this.showError('Failed to update item quantity');
+      } finally {
+        // Clean up
+        this.pendingUpdates.delete(itemId);
+      }
+    }, 300); // Wait 300ms after last click
+    
+    this.pendingUpdates.set(itemId, timeoutId);
   }
 
   private async removeItem(itemId: string): Promise<void> {
-    this.updatingItems.set(itemId, 'decrease');
+    // Store original state for rollback
+    const originalCart = JSON.parse(JSON.stringify(this.cart));
+    const itemIndex = this.cart?.items.findIndex((i: any) => i.id === itemId);
+    if (itemIndex === undefined || itemIndex < 0) return;
+    
+    // Store current open state
+    const wasOpen = this.isOpen;
+    
+    // Mark item as being removed for animation
+    this.removingItems.add(itemId);
     this.requestUpdate();
     
-    try {
-      await this.sdk.cart.removeItem(itemId);
-      await this.loadCart();
-    } catch (error) {
-      console.error('Failed to remove item:', error);
-      this.showError('Failed to remove item from cart');
-    } finally {
-      this.updatingItems.delete(itemId);
+    // Wait for animation to complete
+    setTimeout(async () => {
+      // Optimistic update - remove from UI after animation
+      const removedItem = this.cart.items[itemIndex];
+      this.cart.items.splice(itemIndex, 1);
+      
+      // Check if cart is now empty
+      if (this.cart.items.length === 0) {
+        this.showEmptyState = true;
+      }
+    
+      // Update cart totals
+      if (this.cart) {
+        const newSubtotal = this.cart.items.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
+        this.cart.totals.subtotal = newSubtotal;
+        this.cart.totals.total = newSubtotal; // Simplified - doesn't account for tax/shipping
+        this.cart.item_count = this.cart.items.reduce((sum: number, i: any) => sum + i.quantity, 0);
+      }
+      
+      // Trigger animation for cart total
+      this.priceChangedItems.add('cart-total');
+      this.removingItems.delete(itemId);
       this.requestUpdate();
+      
+      try {
+        // Make API call asynchronously
+        const updatedCart = await this.sdk.cart.removeItem(itemId);
+        
+        // Update with the response
+        if (updatedCart && typeof updatedCart === 'object') {
+          const newCart = 'data' in updatedCart ? updatedCart.data : updatedCart;
+          if (newCart) {
+            this.cart = newCart;
+          }
+        }
+        
+        // Force cart to stay open after update
+        this.isOpen = wasOpen;
+        
+        // If cart should be open, ensure URL has cart hash
+        if (wasOpen && !window.location.hash.includes('/~/cart')) {
+          const currentHash = window.location.hash;
+          const newHash = currentHash ? currentHash + '/~/cart' : '#/~/cart';
+          window.history.replaceState(null, '', newHash);
+        }
+        
+        // Remove animation class after animation completes
+        setTimeout(() => {
+          this.priceChangedItems.delete('cart-total');
+          this.requestUpdate();
+        }, 600);
+      } catch (error) {
+        console.error('Failed to remove item:', error);
+        // Rollback on error
+        this.cart = originalCart;
+        this.showError('Failed to remove item from cart');
+        // Force cart to stay open
+        this.isOpen = wasOpen;
+        this.requestUpdate();
+      }
+    }, 300); // Wait for slide out animation
+  }
+
+  private navigateToProduct(item: any): void {
+    // Use source URL if available, otherwise fallback to hash navigation
+    if (item.source_url) {
+      // Navigate to the original page where item was added
+      window.location.href = item.source_url;
+    } else if (item.product_slug) {
+      // Fallback to hash navigation on current page
+      this.closeCart();
+      window.location.hash = `!/${item.product_slug}`;
     }
   }
 
