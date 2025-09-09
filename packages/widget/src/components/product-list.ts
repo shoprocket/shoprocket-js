@@ -154,7 +154,7 @@ export class ProductList extends ShoprocketElement {
                   </svg>
                   Added
                 </span>
-              ` : isLoading ? loadingSpinner('sm') : (needsOptions ? 'Select Options' : 'Add to Cart')}
+              ` : isLoading ? html`<span class="sr:flex sr:items-center sr:justify-center sr:h-5">${loadingSpinner('sm')}</span>` : (needsOptions ? 'Select Options' : 'Add to Cart')}
             </button>
           </div>
         </div>
@@ -185,7 +185,8 @@ export class ProductList extends ShoprocketElement {
         await this.sdk.cart.addItem({
           product_id: product.id,
           variant_id: product.default_variant_id,
-          quantity: 1
+          quantity: 1,
+          source_url: window.location.href
         });
         
         // Dispatch events

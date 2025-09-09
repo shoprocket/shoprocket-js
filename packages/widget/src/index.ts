@@ -31,10 +31,10 @@ function injectStyles(): void {
     // Get base URL from captured script URL
     if (scriptUrl) {
       const url = new URL(scriptUrl);
-      link.href = url.origin + url.pathname.replace('shoprocket.js', 'style.css');
+      link.href = url.origin + url.pathname.replace('shoprocket.js', 'widget.css');
     } else {
       // Fallback to relative path
-      link.href = 'style.css';
+      link.href = 'widget.css';
     }
     
     document.head.appendChild(link);
