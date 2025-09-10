@@ -4,7 +4,7 @@ export default {
     "./src/**/*.{js,ts,html}",
     "./public/**/*.html"
   ],
-  prefix: 'sr:',
+  // No prefix needed - Shadow DOM provides isolation and we use CSS variables
   theme: {
     extend: {}
   },

@@ -135,8 +135,19 @@ export class WidgetManager {
       (component as BaseComponent).sdk = this.sdk;
     }
 
-    // Mount to element
-    element.appendChild(component);
-    this.mountedWidgets.set(element, component);
+    // Replace the mount point with our component to avoid unnecessary wrapper
+    // Copy over any custom CSS variables or styles from the mount point
+    if (element instanceof HTMLElement && component instanceof HTMLElement) {
+      // Copy inline styles (including CSS variables)
+      component.setAttribute('style', element.getAttribute('style') || '');
+      // Copy classes if any
+      if (element.className) {
+        component.className = element.className;
+      }
+    }
+    
+    // Replace the element with our component
+    element.replaceWith(component);
+    this.mountedWidgets.set(component, component);
   }
 }

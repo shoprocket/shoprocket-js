@@ -19,9 +19,9 @@ export function loadingSpinner(
   const borderWidth = Math.max(2, sizeInPx / 8);
   
   return html`
-    <span class="sr:inline-flex sr:items-center sr:justify-center" aria-label="Loading">
+    <span class="sr-spinner-container" aria-label="Loading">
       <span 
-        class="sr:animate-spin sr:inline-block sr:rounded-full"
+        class="sr-spinner"
         style="
           width: ${sizeInPx}px; 
           height: ${sizeInPx}px;
@@ -39,9 +39,9 @@ export function loadingSpinner(
  */
 export function loadingOverlay(message?: string): TemplateResult {
   return html`
-    <div class="sr:flex sr:flex-col sr:items-center sr:justify-center sr:gap-4 sr:py-8">
+    <div class="sr-loading-overlay">
       ${loadingSpinner('lg')}
-      ${message ? html`<p class="sr:text-sm sr:text-gray-600">${message}</p>` : ''}
+      ${message ? html`<p class="sr-loading-message">${message}</p>` : ''}
     </div>
   `;
 }

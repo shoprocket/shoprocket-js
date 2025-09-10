@@ -64,5 +64,45 @@ export function handleImageError(sdk: ShoprocketCore, e: Event): void {
   const img = e.target as HTMLImageElement;
   const apiUrl = sdk.getApiUrl();
   const baseUrl = apiUrl.replace('/api/v3', '');
-  img.src = `${baseUrl}/img/placeholder.svg`;
+  const placeholderUrl = `${baseUrl}/img/placeholder.svg`;
+  
+  // Prevent infinite loop if placeholder also fails
+  if (img.src !== placeholderUrl) {
+    img.src = placeholderUrl;
+  }
+}
+
+/**
+ * Dispatch cart updated events after adding to cart
+ */
+export function dispatchCartEvents(
+  element: EventTarget,
+  product: {
+    id: string;
+    name: string;
+    price?: number;
+    media?: any;
+  },
+  variantId?: string,
+  variantText?: string | null
+): void {
+  // Dispatch cart updated event
+  element.dispatchEvent(new CustomEvent('shoprocket:cart:updated', {
+    bubbles: true,
+    composed: true,
+    detail: { productId: product.id, variantId }
+  }));
+
+  // Dispatch product added event
+  window.dispatchEvent(new CustomEvent('shoprocket:product:added', {
+    detail: { 
+      product: {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        media: product.media,
+        variantText
+      }
+    }
+  }));
 }

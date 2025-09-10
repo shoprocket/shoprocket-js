@@ -1,12 +1,29 @@
-import { LitElement } from 'lit';
+import { LitElement, CSSResultGroup } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketCore } from '@shoprocket/core';
-import { formatPrice, getMediaUrl, handleImageError } from '../utils/formatters';
+import { formatPrice, getMediaUrl, handleImageError, dispatchCartEvents } from '../utils/formatters';
+import { sharedStyles, sharedStylesheet } from './shared-styles';
+import { baseStyles } from './base-styles';
 
 /**
- * Base class for Shoprocket components with Light DOM
+ * Base class for Shoprocket components with Shadow DOM
  */
 export class BaseComponent extends LitElement {
+  // Apply shared styles to all components
+  // Base styles reset font-size to prevent parent page scaling
+  static override styles: CSSResultGroup = [baseStyles, sharedStyles];
+  
+  // Use constructable stylesheets for better performance
+  protected override createRenderRoot(): HTMLElement | ShadowRoot {
+    const root = super.createRenderRoot() as HTMLElement | ShadowRoot;
+    
+    // Adopt the shared stylesheet if the browser supports it
+    if ('adoptedStyleSheets' in root) {
+      (root as any).adoptedStyleSheets = [sharedStylesheet];
+    }
+    
+    return root;
+  }
   @property({ attribute: false })
   sdk!: ShoprocketCore;
 
@@ -19,10 +36,8 @@ export class BaseComponent extends LitElement {
   @state()
   protected successMessage: string | null = null;
 
-  // Use Light DOM instead of Shadow DOM
-  protected override createRenderRoot(): HTMLElement {
-    return this;
-  }
+  // Shadow DOM is enabled by default in Lit
+  // To use Light DOM, override createRenderRoot() to return this
 
   protected async withLoading(key: string, fn: () => Promise<unknown>): Promise<void> {
     this.loadingStates.set(key, true);
@@ -46,6 +61,10 @@ export class BaseComponent extends LitElement {
 
   protected handleImageError(e: Event): void {
     handleImageError(this.sdk, e);
+  }
+  
+  protected dispatchCartEvents(product: any, variantId?: string, variantText?: string | null): void {
+    dispatchCartEvents(this, product, variantId, variantText);
   }
 
   protected formatPrice(price: Parameters<typeof formatPrice>[0]): string {
