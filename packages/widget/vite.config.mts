@@ -40,7 +40,7 @@ export default defineConfig({
     minifySyntax: true,
     treeShaking: true,
     drop: ['debugger'], // Keep console.error for error handling
-    pure: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+    // Removed pure console statements so we can debug
     target: 'es2020'
   },
   server: {

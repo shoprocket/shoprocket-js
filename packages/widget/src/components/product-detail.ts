@@ -8,19 +8,31 @@ import { loadingSpinner } from './loading-spinner';
 
 /**
  * Product Detail Component
+ * Uses Light DOM to avoid nested Shadow DOM
  */
 @customElement('shoprocket-product-detail')
 export class ProductDetail extends ShoprocketElement {
+  // Use Light DOM instead of Shadow DOM
+  protected override createRenderRoot(): HTMLElement {
+    return this;
+  }
+
   override connectedCallback(): void {
     super.connectedCallback();
     // Listen for cart updates to refresh cart state
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener('shoprocket:cart:updated', this.handleCartUpdate);
+    window.addEventListener('shoprocket:cart:loaded', this.handleCartUpdate);
   }
   
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate);
+    window.removeEventListener('shoprocket:cart:loaded', this.handleCartUpdate);
+    // Clean up zoom timeout if any
+    if (this.zoomTimeout) {
+      clearTimeout(this.zoomTimeout);
+    }
   }
   
   private handleCartUpdate = async (): Promise<void> => {
@@ -29,6 +41,12 @@ export class ProductDetail extends ShoprocketElement {
 
   @property({ type: Object })
   product?: Product;
+
+  @property({ type: String, attribute: 'product-id' })
+  productId?: string;
+
+  @property({ type: String, attribute: 'product-slug' })
+  productSlug?: string;
 
   @state()
   private fullProduct?: Product;
@@ -54,45 +72,66 @@ export class ProductDetail extends ShoprocketElement {
   @state()
   private isInCart: boolean = false;
 
+  @state()
+  private loadedImages: Set<string> = new Set();
+
+  private zoomTimeout?: number;
+
   protected override async updated(changedProperties: Map<string, any>): Promise<void> {
     super.updated(changedProperties);
     
-    // Load details whenever product changes (including first time)
-    if (changedProperties.has('product') && this.product) {
-      // Reset state when product changes
+    
+    // Only load if we don't already have the full product details
+    const identifier = this.productId || this.productSlug;
+    const needsLoad = (changedProperties.has('productId') || changedProperties.has('productSlug')) && 
+                     identifier &&
+                     (!this.fullProduct || (this.fullProduct.id !== identifier && this.fullProduct.slug !== identifier));
+    
+    if (needsLoad) {
+      // Reset state when loading new product
       this.selectedOptions = {};
       this.selectedVariant = undefined;
       this.selectedMediaIndex = 0;
       this.zoomActive = false;
       this.addedToCart = false;
       this.isInCart = false;
-      await this.loadFullDetails();
-      await this.checkIfInCart();
+      this.loadedImages.clear();
+      
+      await this.loadProductById(identifier);
     }
   }
 
-  private async loadFullDetails(): Promise<void> {
-    if (!this.product) return;
-    
-    await this.withLoading(`productDetail-${this.product.id}`, async () => {
+  private async loadProductById(identifier: string): Promise<void> {
+    await this.withLoading('product', async () => {
       try {
-        // Load full product details with variants and options
-        const response = await this.sdk.products.get(this.product!.id);
-        
-        this.fullProduct = response;
+        const response = await this.sdk.products.get(identifier);
+        const productData = response.data || response;
+        this.fullProduct = productData;
         
         // If single variant, pre-select it
-        if (response.variants?.length === 1) {
-          this.selectedVariant = response.variants[0];
+        if (productData.variants?.length === 1) {
+          this.selectedVariant = productData.variants[0];
         }
-      } catch (error) {
-        console.error('Failed to load product details:', error);
-        this.showError('Failed to load product details. Please try again.');
+        
+        this.clearError();
+        
+        // Scroll to top after full product loads to avoid layout shift
+        requestAnimationFrame(() => {
+          this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      } catch (err) {
+        console.error('Failed to load product:', err);
+        this.showError('Unable to load product details. Please try again later.');
       }
     });
+    
+    // Check if in cart after loading
+    await this.checkIfInCart();
   }
 
+
   protected override render(): TemplateResult {
+    // Use full product if available, otherwise use basic product data
     const displayProduct = this.fullProduct || this.product;
     
     // Show skeleton if no product data yet
@@ -100,46 +139,41 @@ export class ProductDetail extends ShoprocketElement {
       return this.renderSkeleton();
     }
 
-    const isLoading = this.isLoading(`productDetail-${displayProduct.id}`);
+    // We're loading if we don't have full product yet but we need it (for variants/options)
+    const isLoadingFull = this.isLoading('product') && !this.fullProduct;
 
     return html`
       ${renderErrorNotification(this.errorMessage)}
       ${renderSuccessNotification(this.successMessage)}
-      <div class="sr" data-shoprocket="product-detail">
+      <div class="sr-product-detail" data-shoprocket="product-detail">
         <!-- Back Button -->
-        <button 
-          class="sr:mb-6 sr:text-gray-600 sr:hover:text-gray-900 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-sm sr:font-medium sr:inline-flex sr:items-center sr:gap-1 sr:transition-colors" 
-          @click="${() => this.dispatchEvent(new CustomEvent('back-to-list', { bubbles: true }))}"
-        >
-          <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-          </svg>
-          Back to Products
-        </button>
+        ${this.renderBackButton()}
         
         <!-- Product Details -->
-        <div class="sr:w-full">
-          <div class="sr:grid sr:grid-cols-1 sr:lg:grid-cols-2 sr:gap-4 sr:lg:gap-8">
+        <div class="sr-product-detail-content">
+          <div class="sr-product-detail-grid">
             <!-- Product Images - Left side -->
-            <div>
-              <div class="sr:sticky sr:top-6">
+            <div class="sr-product-detail-media">
+              <div class="sr-product-detail-media-sticky">
                 <!-- Main image with skeleton and zoom -->
-                <div class="sr:relative sr:w-full sr:aspect-square sr:rounded sr:mb-4 sr:overflow-hidden sr:cursor-zoom-in sr:bg-gray-50"
+                <div class="sr-product-detail-image-main"
                      @mouseenter="${() => this.handleMouseEnterZoom()}"
                      @mouseleave="${() => this.handleMouseLeaveZoom()}"
                      @mousemove="${(e: MouseEvent) => this.handleMouseMoveZoom(e)}">
                   <!-- Skeleton loader -->
-                  <div class="sr-skeleton sr:absolute sr:inset-0 sr:w-full sr:h-full" data-skeleton></div>
+                  ${!this.loadedImages.has(this.getMediaUrl(this.getSelectedMedia(), 'w=800,h=800,fit=cover')) ? html`
+                    <div class="sr-skeleton sr-product-image-skeleton"></div>
+                  ` : ''}
                   
                   <!-- Regular display image -->
                   <img 
                     src="${this.getMediaUrl(this.getSelectedMedia(), 'w=800,h=800,fit=cover')}" 
                     alt="${displayProduct.name}"
-                    class="sr:absolute sr:inset-0 sr:w-full sr:h-full sr:object-cover ${this.zoomActive ? 'sr:opacity-0' : 'sr:opacity-100'} sr:bg-white"
+                    class="sr-product-detail-image ${this.zoomActive ? 'zoom-hidden' : 'zoom-visible'}"
                     @load="${(e: Event) => {
-                      // Hide skeleton when main image loads
-                      const skeleton = (e.target as HTMLImageElement).parentElement?.querySelector('[data-skeleton]');
-                      if (skeleton) skeleton.remove();
+                      const img = e.target as HTMLImageElement;
+                      this.loadedImages.add(img.src);
+                      this.requestUpdate();
                     }}"
                     @error="${(e: Event) => this.handleImageError(e)}"
                   >
@@ -147,51 +181,51 @@ export class ProductDetail extends ShoprocketElement {
                   <img 
                     src="${this.getMediaUrl(this.getSelectedMedia(), 'w=1600,h=1600,fit=cover')}" 
                     alt="${displayProduct.name}"
-                    class="sr:absolute sr:inset-0 sr:w-full sr:h-full sr:object-cover ${this.zoomActive ? 'sr:opacity-100' : 'sr:opacity-0'}"
+                    class="sr-product-detail-image-zoom ${this.zoomActive ? 'zoom-active' : 'zoom-inactive'}"
                     style="${this.zoomActive ? `transform: scale(2); transform-origin: ${this.zoomPosition.x}% ${this.zoomPosition.y}%;` : ''}"
                     loading="lazy"
                     @error="${(e: Event) => this.handleImageError(e)}"
                   >
                   <!-- Zoom lens indicator -->
                   ${this.zoomActive ? html`
-                    <div class="sr:absolute sr:pointer-events-none sr:border sr:border-white/50 sr:rounded-full sr:w-24 sr:h-24 sr:shadow-2xl sr:bg-white/10"
+                    <div class="sr-zoom-lens"
                          style="left: ${this.zoomPosition.x}%; top: ${this.zoomPosition.y}%; transform: translate(-50%, -50%);">
                     </div>
                   ` : ''}
                 </div>
                 
                 <!-- Thumbnail gallery -->
-                ${this.renderThumbnails(displayProduct, isLoading)}
+                ${this.renderThumbnails(displayProduct)}
               </div>
             </div>
             
             <!-- Product Info - Right side -->
-            <div>
-              <h1 class="sr:text-2xl sr:font-medium sr:mb-2 sr:m-0 sr:text-gray-900">${displayProduct.name}</h1>
+            <div class="sr-product-detail-info">
+              <h1 class="sr-product-detail-title">${displayProduct.name}</h1>
               
-              <div class="sr:text-2xl sr:font-medium sr:mb-6 sr:text-gray-900">
+              <div class="sr-product-detail-price">
                 ${this.formatPrice({ amount: this.getSelectedPrice() })}
               </div>
               
               ${displayProduct.summary ? html`
-                <p class="sr:text-gray-600 sr:mb-6 sr:text-sm sr:leading-relaxed">${displayProduct.summary}</p>
+                <p class="sr-product-detail-summary">${displayProduct.summary}</p>
               ` : ''}
               
               <!-- Variant Options -->
-              ${this.renderProductOptions(displayProduct, isLoading)}
+              ${this.renderProductOptions(displayProduct, isLoadingFull)}
               
               <!-- Add to Cart Section -->
-              <div class="sr:mt-8 sr:space-y-4">
-                <div class="sr:space-y-2">
+              <div class="sr-product-detail-actions">
+                <div class="sr-product-detail-buttons">
                   ${this.renderAddToCartButton()}
                   ${this.renderViewCartButton()}
                 </div>
                 
                 <!-- Product Description -->
-                ${this.renderDescription(displayProduct, isLoading)}
+                ${this.renderDescription(displayProduct, isLoadingFull)}
                 
                 <!-- Additional info -->
-                <div class="sr:text-xs sr:text-gray-500 sr:text-center sr:mt-6">
+                <div class="sr-product-detail-info-text">
                   Free shipping on orders over $50
                 </div>
               </div>
@@ -202,40 +236,29 @@ export class ProductDetail extends ShoprocketElement {
     `;
   }
 
-  private renderThumbnails = (product: Product, isLoading: boolean): TemplateResult => {
-    if (isLoading && !this.fullProduct?.options) {
-      return html`
-        <div class="sr:grid sr:grid-cols-4 sr:gap-2">
-          ${[1, 2, 3, 4].map(() => html`
-            <div class="sr:relative sr:aspect-square sr:rounded-lg sr:overflow-hidden">
-              <div class="sr-skeleton sr:absolute sr:inset-0"></div>
-            </div>
-          `)}
-        </div>
-      `;
-    }
-
+  private renderThumbnails = (product: Product): TemplateResult => {
+    // Don't show thumbnails if no media or only one image
     if (!product.media || product.media.length <= 1) return html``;
 
     return html`
-      <div class="sr:grid sr:grid-cols-4 sr:gap-2">
+      <div class="sr-product-thumbnails">
         ${product.media.map((media: any, index: number) => html`
           <button
-            class="sr:relative sr:aspect-square sr:rounded sr:overflow-hidden sr:border-2 ${index === this.selectedMediaIndex ? 'sr:border-gray-900' : 'sr:border-transparent'} sr:p-0 sr:cursor-pointer sr:bg-gray-50 sr:transition-all sr:duration-200 sr:hover:border-gray-300"
+            class="sr-product-thumbnail ${index === this.selectedMediaIndex ? 'active' : ''}"
             @click="${() => { this.selectedMediaIndex = index; this.zoomActive = false; }}"
           >
-            <div class="sr-skeleton sr:absolute sr:inset-0" data-skeleton></div>
+            ${!this.loadedImages.has(this.getMediaUrl(media, 'w=150,h=150,fit=cover')) ? html`
+              <div class="sr-skeleton sr-thumbnail-skeleton"></div>
+            ` : ''}
             <img 
               src="${this.getMediaUrl(media, 'w=150,h=150,fit=cover')}" 
               alt="${product.name} ${index + 1}"
-              class="sr:relative sr:w-full sr:h-full sr:object-cover sr:opacity-0 sr:transition-opacity sr:duration-200"
+              class="sr-product-thumbnail-image"
               @load="${(e: Event) => {
                 const img = e.target as HTMLImageElement;
-                img.classList.remove('sr:opacity-0');
-                img.classList.add('sr:opacity-100');
-                // Hide skeleton
-                const skeleton = img.parentElement?.querySelector('[data-skeleton]');
-                if (skeleton) skeleton.remove();
+                img.classList.add('loaded');
+                this.loadedImages.add(img.src);
+                this.requestUpdate();
               }}"
               @error="${(e: Event) => this.handleImageError(e)}"
             >
@@ -248,13 +271,13 @@ export class ProductDetail extends ShoprocketElement {
   private renderProductOptions = (product: Product, isLoading: boolean): TemplateResult => {
     if (isLoading && !this.fullProduct?.options) {
       return html`
-        <div class="sr:space-y-6">
+        <div class="sr-product-options-skeleton">
           <div>
-            <div class="sr-skeleton sr:h-4 sr:w-20 sr:rounded sr:mb-3"></div>
-            <div class="sr:flex sr:flex-wrap sr:gap-3">
-              <div class="sr-skeleton sr:h-12 sr:w-20 sr:rounded"></div>
-              <div class="sr-skeleton sr:h-12 sr:w-20 sr:rounded"></div>
-              <div class="sr-skeleton sr:h-12 sr:w-20 sr:rounded"></div>
+            <div class="sr-skeleton sr-skeleton-option-label"></div>
+            <div class="sr-product-option-values">
+              <div class="sr-skeleton sr-skeleton-option"></div>
+              <div class="sr-skeleton sr-skeleton-option"></div>
+              <div class="sr-skeleton sr-skeleton-option"></div>
             </div>
           </div>
         </div>
@@ -265,16 +288,16 @@ export class ProductDetail extends ShoprocketElement {
     if (!displayProduct.options || displayProduct.options.length === 0) return html``;
 
     return html`
-      <div class="sr:space-y-6">
+      <div class="sr-product-options">
         ${displayProduct.options.map((option: ProductOption) => html`
-          <div>
-            <label class="sr:block sr:font-medium sr:text-gray-900 sr:mb-3 sr:text-sm sr:capitalize sr:tracking-wide">
+          <div class="sr-product-option">
+            <label class="sr-product-option-label">
               ${option.name}
             </label>
-            <div class="sr:flex sr:flex-wrap sr:gap-3">
+            <div class="sr-product-option-values">
               ${option.values?.map((value: any) => html`
                 <button 
-                  class="${this.selectedOptions[option.id] === value.id ? 'sr:bg-gray-900 sr:text-white sr:border-gray-900' : 'sr:bg-white sr:text-gray-700 sr:border-gray-300 sr:hover:border-gray-400'} sr:px-4 sr:py-2 sr:rounded-sm sr:border sr:cursor-pointer sr:font-medium sr:transition-all sr:duration-200 sr:text-sm"
+                  class="sr-variant-option ${this.selectedOptions[option.id] === value.id ? 'selected' : ''}"
                   @click="${() => this.selectOption(option.id, value.id)}"
                 >
                   ${value.value}
@@ -297,16 +320,18 @@ export class ProductDetail extends ShoprocketElement {
 
     return html`
       <button 
-        class="${this.addedToCart ? 'sr:bg-green-600 sr:hover:bg-green-700' : canAdd && !isLoading ? 'sr:bg-gray-900 sr:hover:bg-black' : 'sr:bg-gray-300 sr:cursor-not-allowed'} sr:text-white sr:border-none sr:py-3 sr:px-6 sr:rounded-sm sr:cursor-pointer sr:w-full sr:text-sm sr:font-medium sr:transition-all sr:duration-200 sr:flex sr:items-center sr:justify-center sr:gap-2 sr:transform ${canAdd && !isLoading && !this.addedToCart ? 'sr:hover:scale-[1.02]' : ''}"
+        class="sr-button sr-add-to-cart-button ${this.addedToCart ? 'success' : canAdd && !isLoading ? '' : 'disabled'}"
         @click="${() => this.handleAddToCart()}"
-        ?disabled="${!canAdd || isLoading || this.addedToCart}"
+        ?disabled="${!canAdd || isLoading}"
       >
         ${this.addedToCart ? html`
-          <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-          Added to Cart
-        ` : isLoading ? html`<span class="sr:flex sr:items-center sr:justify-center sr:h-5">${loadingSpinner('sm')}</span>` : canAdd ? 'Add to Cart' : 'Select All Options'}
+          <span class="sr-button-content">
+            <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            Added to Cart
+          </span>
+        ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` : canAdd ? 'Add to Cart' : 'Select All Options'}
       </button>
     `;
   }
@@ -316,7 +341,7 @@ export class ProductDetail extends ShoprocketElement {
     
     return html`
       <button
-        class="sr:flex sr:items-center sr:justify-center sr:bg-transparent sr:border sr:border-gray-300 sr:text-gray-700 sr:w-full sr:py-2.5 sr:px-6 sr:text-sm sr:font-medium sr:rounded-sm sr:transition-all sr:duration-200 sr:hover:bg-gray-50 sr:cursor-pointer"
+        class="sr-button sr-view-cart-button"
         @click=${() => this.handleViewCart()}
       >
         View Cart
@@ -336,13 +361,13 @@ export class ProductDetail extends ShoprocketElement {
   private renderDescription = (product: Product, isLoading: boolean): TemplateResult => {
     if (isLoading && !this.fullProduct?.description) {
       return html`
-        <div class="sr:mt-8 sr:pt-8 sr:border-t sr:border-gray-200">
-          <h3 class="sr:text-lg sr:font-semibold sr:mb-4 sr:m-0">Description</h3>
-          <div class="sr:space-y-2">
-            <div class="sr-skeleton sr:h-4 sr:w-full sr:rounded"></div>
-            <div class="sr-skeleton sr:h-4 sr:w-full sr:rounded"></div>
-            <div class="sr-skeleton sr:h-4 sr:w-full sr:rounded"></div>
-            <div class="sr-skeleton sr:h-4 sr:w-3/4 sr:rounded"></div>
+        <div class="sr-product-description">
+          <h3 class="sr-product-description-title">Description</h3>
+          <div class="sr-description-skeleton">
+            <div class="sr-skeleton"></div>
+            <div class="sr-skeleton"></div>
+            <div class="sr-skeleton"></div>
+            <div class="sr-skeleton short"></div>
           </div>
         </div>
       `;
@@ -352,9 +377,9 @@ export class ProductDetail extends ShoprocketElement {
     if (!displayProduct.description) return html``;
 
     return html`
-      <div class="sr:mt-8 sr:pt-8 sr:border-t sr:border-gray-200">
-        <h3 class="sr:text-base sr:font-medium sr:mb-3 sr:m-0">Description</h3>
-        <div class="sr:text-gray-600 sr:leading-relaxed sr:text-sm sr:[&_p]:mb-3 sr:[&_p:last-child]:mb-0 sr:[&_ul]:list-disc sr:[&_ul]:pl-5 sr:[&_ul]:mb-3 sr:[&_ol]:list-decimal sr:[&_ol]:pl-5 sr:[&_ol]:mb-3 sr:[&_li]:mb-1">
+      <div class="sr-product-description">
+        <h3 class="sr-product-description-title">Description</h3>
+        <div class="sr-product-description-content">
           ${unsafeHTML(displayProduct.description)}
         </div>
       </div>
@@ -377,28 +402,20 @@ export class ProductDetail extends ShoprocketElement {
         await this.sdk.cart.addItem({
           product_id: product.id,
           variant_id: variantId,
-          quantity: 1,
-          source_url: window.location.href
-        });
+          quantity: 1
+        } as any);
         
         // Dispatch events
-        this.dispatchEvent(new CustomEvent('shoprocket:cart:updated', {
-          bubbles: true,
-          composed: true,
-          detail: { productId: product.id, variantId }
-        }));
-
-        window.dispatchEvent(new CustomEvent('shoprocket:product:added', {
-          detail: { 
-            product: {
-              id: product.id,
-              name: product.name,
-              price: this.getSelectedPrice(),
-              media: this.getSelectedMedia(),
-              variantText: this.getSelectedVariantText()
-            }
-          }
-        }));
+        this.dispatchCartEvents(
+          {
+            id: product.id,
+            name: product.name,
+            price: this.getSelectedPrice(),
+            media: this.getSelectedMedia()
+          },
+          variantId,
+          this.getSelectedVariantText()
+        );
         
         // Show success state
         this.addedToCart = true;
@@ -487,27 +504,31 @@ export class ProductDetail extends ShoprocketElement {
     const product = this.fullProduct || this.product;
     if (!product) return;
     
-    try {
-      const cart = await this.sdk.cart.get();
-      if (cart && cart.items) {
-        this.isInCart = cart.items.some((item: any) => item.product_id === product.id);
-      }
-    } catch (error) {
-      // Silently fail - not critical
+    // Use global cart data instead of making API call
+    const cart = (window as any).ShoprocketWidget?.cart?.data;
+    if (cart && cart.items) {
+      this.isInCart = cart.items.some((item: any) => item.product_id === product.id);
     }
   }
   
   private handleMouseEnterZoom(): void {
-    this.zoomActive = true;
+    // Delay zoom activation by 300ms to prevent accidental triggers
+    this.zoomTimeout = window.setTimeout(() => {
+      this.zoomActive = true;
+    }, 300);
   }
   
   private handleMouseLeaveZoom(): void {
+    // Clear any pending zoom activation
+    if (this.zoomTimeout) {
+      clearTimeout(this.zoomTimeout);
+      this.zoomTimeout = undefined;
+    }
     this.zoomActive = false;
   }
   
   private handleMouseMoveZoom(e: MouseEvent): void {
-    if (!this.zoomActive) return;
-    
+    // Always track mouse position, even before zoom is active
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     
@@ -517,80 +538,77 @@ export class ProductDetail extends ShoprocketElement {
     this.zoomPosition = { x, y };
   }
 
+  private renderBackButton(): TemplateResult {
+    return html`
+      <button 
+        class="sr-back-button" 
+        @click="${() => this.dispatchEvent(new CustomEvent('back-to-list', { bubbles: true }))}"
+      >
+        ←
+        Back 
+      </button>
+    `;
+  }
+
   private renderSkeleton(): TemplateResult {
     return html`
-      <div class="sr" data-shoprocket="product-detail-skeleton">
+      <div class="sr-product-detail sr-skeleton-container" data-shoprocket="product-detail-skeleton">
         <!-- Back Button -->
-        <button 
-          class="sr:mb-6 sr:text-gray-600 sr:hover:text-gray-900 sr:bg-transparent sr:border-none sr:cursor-pointer sr:text-sm sr:font-medium sr:inline-flex sr:items-center sr:gap-1 sr:transition-colors" 
-          @click="${() => this.dispatchEvent(new CustomEvent('back-to-list', { bubbles: true }))}"
-        >
-          <svg class="sr:w-4 sr:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-          </svg>
-          Back to Products
-        </button>
+        ${this.renderBackButton()}
         
         <!-- Product Details Skeleton -->
-        <div class="sr:w-full">
-          <div class="sr:grid sr:grid-cols-1 sr:lg:grid-cols-2 sr:gap-4 sr:lg:gap-8">
+        <div class="sr-product-detail-content">
+          <div class="sr-product-detail-grid">
             <!-- Product Images Skeleton - Left side -->
             <div>
-              <div class="sr:sticky sr:top-6">
+              <div class="sr-product-detail-media-sticky">
                 <!-- Main image skeleton -->
-                <div class="sr:relative sr:w-full sr:aspect-square sr:rounded-lg sr:mb-4 sr:overflow-hidden">
-                  <div class="sr-skeleton sr:absolute sr:inset-0 sr:w-full sr:h-full"></div>
+                <div class="sr-product-detail-image-main">
+                  <div class="sr-skeleton w-full h-full rounded-lg"></div>
                 </div>
                 
-                <!-- Thumbnail gallery skeleton -->
-                <div class="sr:grid sr:grid-cols-4 sr:gap-2">
-                  ${[1, 2, 3, 4].map(() => html`
-                    <div class="sr:relative sr:aspect-square sr:rounded-lg sr:overflow-hidden">
-                      <div class="sr-skeleton sr:absolute sr:inset-0"></div>
-                    </div>
-                  `)}
-                </div>
+                <!-- No thumbnail skeleton - will show real thumbnails when available -->
               </div>
             </div>
             
             <!-- Product Info Skeleton - Right side -->
             <div>
               <!-- Title -->
-              <div class="sr-skeleton sr:h-8 sr:w-3/4 sr:rounded sr:mb-4"></div>
+              <div class="sr-skeleton sr-skeleton-title"></div>
               
               <!-- Price -->
-              <div class="sr-skeleton sr:h-8 sr:w-32 sr:rounded sr:mb-6"></div>
+              <div class="sr-skeleton sr-skeleton-price"></div>
               
               <!-- Summary -->
-              <div class="sr:space-y-2 sr:mb-6">
-                <div class="sr-skeleton sr:h-4 sr:w-full sr:rounded"></div>
-                <div class="sr-skeleton sr:h-4 sr:w-full sr:rounded"></div>
-                <div class="sr-skeleton sr:h-4 sr:w-3/4 sr:rounded"></div>
+              <div class="sr-skeleton-summary">
+                <div class="sr-skeleton"></div>
+                <div class="sr-skeleton"></div>
+                <div class="sr-skeleton short"></div>
               </div>
               
               <!-- Options -->
-              <div class="sr:space-y-6 sr:mb-8">
+              <div class="sr-skeleton-options">
                 <div>
-                  <div class="sr-skeleton sr:h-4 sr:w-20 sr:rounded sr:mb-3"></div>
-                  <div class="sr:flex sr:flex-wrap sr:gap-3">
-                    <div class="sr-skeleton sr:h-12 sr:w-20 sr:rounded"></div>
-                    <div class="sr-skeleton sr:h-12 sr:w-20 sr:rounded"></div>
-                    <div class="sr-skeleton sr:h-12 sr:w-20 sr:rounded"></div>
+                  <div class="sr-skeleton sr-skeleton-option-label"></div>
+                  <div class="sr-product-option-values">
+                    <div class="sr-skeleton sr-skeleton-option"></div>
+                    <div class="sr-skeleton sr-skeleton-option"></div>
+                    <div class="sr-skeleton sr-skeleton-option"></div>
                   </div>
                 </div>
               </div>
               
               <!-- Add to Cart Button -->
-              <div class="sr-skeleton sr:h-14 sr:w-full sr:rounded-lg"></div>
+              <div class="sr-skeleton sr-skeleton-button"></div>
               
               <!-- Description -->
-              <div class="sr:mt-8 sr:pt-8 sr:border-t sr:border-gray-200">
-                <div class="sr-skeleton sr:h-6 sr:w-32 sr:rounded sr:mb-4"></div>
-                <div class="sr:space-y-2">
-                  <div class="sr-skeleton sr:h-4 sr:w-full sr:rounded"></div>
-                  <div class="sr-skeleton sr:h-4 sr:w-full sr:rounded"></div>
-                  <div class="sr-skeleton sr:h-4 sr:w-full sr:rounded"></div>
-                  <div class="sr-skeleton sr:h-4 sr:w-3/4 sr:rounded"></div>
+              <div class="sr-product-description">
+                <div class="sr-skeleton sr-skeleton-description-title"></div>
+                <div class="sr-description-skeleton">
+                  <div class="sr-skeleton"></div>
+                  <div class="sr-skeleton"></div>
+                  <div class="sr-skeleton"></div>
+                  <div class="sr-skeleton short"></div>
                 </div>
               </div>
             </div>

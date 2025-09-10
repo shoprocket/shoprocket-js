@@ -9,37 +9,17 @@
  * @license Proprietary
  */
 
-import './styles.css';
-
+// CSS is imported via shared-styles.ts with ?inline for Shadow DOM injection
+// import './styles.css'; // Removed - we don't need a separate CSS file
 
 // Import the widget manager and components
 import { WidgetManager } from './core/widget-manager';
 import { ShoprocketElement } from './core/base-component';
-import { ProductGrid } from './components/product-grid';
+import { ProductCatalog } from './components/product-catalog';
+import { ProductDetail } from './components/product-detail';
 import { CartWidget } from './components/cart';
 
 // ProductGrid and CartWidget are now imported from their respective files
-
-// Inject stylesheet link
-function injectStyles(): void {
-  const linkId = 'shoprocket-widget-styles';
-  if (!document.getElementById(linkId)) {
-    const link = document.createElement('link');
-    link.id = linkId;
-    link.rel = 'stylesheet';
-    
-    // Get base URL from captured script URL
-    if (scriptUrl) {
-      const url = new URL(scriptUrl);
-      link.href = url.origin + url.pathname.replace('shoprocket.js', 'widget.css');
-    } else {
-      // Fallback to relative path
-      link.href = 'widget.css';
-    }
-    
-    document.head.appendChild(link);
-  }
-}
 
 // Capture script info immediately while currentScript is available
 const scriptUrl = (document.currentScript as HTMLScriptElement)?.src || '';
@@ -105,8 +85,6 @@ function getApiUrl(): string {
  * Initialize when DOM is ready
  */
 function autoInit(): void {
-  // Inject styles first
-  injectStyles();
   
   const publicKey = getPublicKey();
   
@@ -123,12 +101,15 @@ function autoInit(): void {
 // Register components globally for the widget manager
 declare global {
   interface Window {
-    __shoprocketComponents: Record<string, typeof ProductGrid | typeof CartWidget>;
+    __shoprocketComponents: Record<string, typeof ShoprocketElement>;
   }
 }
 window.__shoprocketComponents = {
-  'product-grid': ProductGrid,
-  'products': ProductGrid,
+  'catalog': ProductCatalog,      // Full browsable catalog
+  'products': ProductCatalog,      // Alias for backward compatibility
+  'product-catalog': ProductCatalog,
+  'product': ProductDetail,       // Single product detail
+  'product-detail': ProductDetail,
   'cart': CartWidget
 };
 
@@ -140,4 +121,4 @@ if (document.readyState === 'loading') {
 }
 
 // Export for module usage
-export { WidgetManager, ShoprocketElement, ProductGrid, CartWidget };
+export { WidgetManager, ShoprocketElement, ProductCatalog, ProductDetail, CartWidget };
