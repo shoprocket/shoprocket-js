@@ -1,5 +1,6 @@
 import type { Money, Media } from '../types/api';
 import type { ShoprocketCore } from '@shoprocket/core';
+import { getConfig } from '../core/config';
 
 /**
  * Format price for display
@@ -33,9 +34,9 @@ export function formatDate(date: string | Date): string {
 /**
  * Build media URL with transformations
  */
-export function getMediaUrl(sdk: ShoprocketCore, media: Media | null | undefined, transformations?: string, cdnUrl?: string): string {
-  // Use CDN URL if provided, otherwise fallback to extracting from API URL
-  const baseUrl = cdnUrl || sdk.getApiUrl().replace('/api/v3', '');
+export function getMediaUrl(_sdk: ShoprocketCore, media: Media | null | undefined, transformations?: string): string {
+  const config = getConfig();
+  const baseUrl = config.cdnUrl;
   
   // Return placeholder if no media provided
   if (!media) {
@@ -59,11 +60,10 @@ export function getMediaUrl(sdk: ShoprocketCore, media: Media | null | undefined
 /**
  * Handle image error by showing placeholder
  */
-export function handleImageError(sdk: ShoprocketCore, e: Event, cdnUrl?: string): void {
+export function handleImageError(_sdk: ShoprocketCore, e: Event): void {
   const img = e.target as HTMLImageElement;
-  // Use CDN URL if provided, otherwise fallback to extracting from API URL
-  const baseUrl = cdnUrl || sdk.getApiUrl().replace('/api/v3', '');
-  const placeholderUrl = `${baseUrl}/img/placeholder.svg`;
+  const config = getConfig();
+  const placeholderUrl = `${config.cdnUrl}/img/placeholder.svg`;
   
   // Prevent infinite loop if placeholder also fails
   if (img.src !== placeholderUrl) {

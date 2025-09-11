@@ -18,6 +18,7 @@ import { ShoprocketElement } from './core/base-component';
 import { ProductCatalog } from './components/product-catalog';
 import { ProductDetail } from './components/product-detail';
 import { CartWidget } from './components/cart';
+import { setConfig } from './core/config';
 
 // ProductGrid and CartWidget are now imported from their respective files
 
@@ -95,9 +96,11 @@ function autoInit(): void {
     return;
   }
   
+  // Set config early, before any components are created
   const { apiUrl, cdnUrl } = getEnvironmentUrls();
+  setConfig({ apiUrl, cdnUrl });
   
-  shoprocket.init(publicKey, { apiUrl, cdnUrl }).catch(console.error);
+  shoprocket.init(publicKey, { apiUrl }).catch(console.error);
 }
 
 // Register components globally for the widget manager

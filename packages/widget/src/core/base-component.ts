@@ -26,9 +26,6 @@ export class BaseComponent extends LitElement {
   }
   @property({ attribute: false })
   sdk!: ShoprocketCore;
-  
-  @property({ attribute: false })
-  cdnUrl?: string;
 
   @state()
   private loadingStates = new Map<string, boolean>();
@@ -59,11 +56,11 @@ export class BaseComponent extends LitElement {
 
   // Delegate to utility functions to avoid duplication
   protected getMediaUrl(media: Parameters<typeof getMediaUrl>[1], transformations?: string): string {
-    return getMediaUrl(this.sdk, media, transformations, this.cdnUrl);
+    return getMediaUrl(this.sdk, media, transformations);
   }
 
   protected handleImageError(e: Event): void {
-    handleImageError(this.sdk, e, this.cdnUrl);
+    handleImageError(this.sdk, e);
   }
   
   protected dispatchCartEvents(product: any, variantId?: string, variantText?: string | null): void {
