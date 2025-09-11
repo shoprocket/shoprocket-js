@@ -36,60 +36,45 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Get GitHub Actions IP
+      - name: Configure SSH multiplexing
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          echo "🌐 Current GitHub Actions IP:"
-          curl -s https://api.ipify.org
-          echo ""
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/config << EOF
+          Host $DEPLOY_HOST
+            User root
+            ControlMaster auto
+            ControlPath ~/.ssh/master-%r@%h:%p
+            ControlPersist 10m
+            ServerAliveInterval 60
+            ConnectTimeout 30
+            StrictHostKeyChecking no
+          EOF
+          
+          # Add host key to known_hosts
+          ssh-keyscan -T 10 -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>&1
           
       - name: Deploy to server
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          # Add timeout to ssh-keyscan and better error handling
-          echo "🔍 Scanning SSH host: $DEPLOY_HOST"
-          ssh-keyscan -T 10 -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>&1 || {
-            echo "❌ Failed to scan SSH host. Please check:"
-            echo "   - Server is accessible on port 22"
-            echo "   - DEPLOY_HOST secret is correct"
-            echo "   - No firewall blocking GitHub Actions IPs"
+          echo "🔗 Establishing SSH master connection..."
+          ssh $DEPLOY_HOST "echo 'SSH master connection established'" || {
+            echo "❌ Failed to establish SSH connection"
+            echo "This might be due to UFW rate limiting."
+            echo "Check server logs: sudo journalctl -xe | grep UFW"
             exit 1
           }
           
-          echo "✅ SSH host scanned successfully"
-          
-          # Try SSH with different options
-          echo "🔗 Testing SSH connection..."
-          ssh -o ConnectTimeout=30 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes -o StrictHostKeyChecking=no root@$DEPLOY_HOST "echo 'SSH connection successful'" || {
-            echo "❌ SSH connection failed!"
-            echo ""
-            echo "Since you can SSH from your local machine but GitHub Actions cannot,"
-            echo "this is likely a firewall issue. To fix this:"
-            echo ""
-            echo "Option 1 (Recommended): Whitelist GitHub Actions IPs"
-            echo "  Run this on your server to allow GitHub Actions:"
-            echo "  curl -s https://api.github.com/meta | jq -r '.actions[]' | while read ip; do"
-            echo "    sudo ufw allow from \$ip to any port 22"
-            echo "  done"
-            echo ""
-            echo "Option 2: Use Cloudflare Tunnel or ngrok for deployment"
-            echo "Option 3: Deploy from your local machine instead"
-            echo ""
-            echo "Current GitHub Actions IP trying to connect:"
-            curl -s https://api.ipify.org
-            echo ""
-            exit 1
-          }
-          
-          # Create directory and deploy files
+          # All subsequent commands reuse the same connection
           echo "📁 Creating deployment directory..."
-          ssh -o ConnectTimeout=30 root@$DEPLOY_HOST "mkdir -p /home/var/www/widget"
+          ssh $DEPLOY_HOST "mkdir -p /home/var/www/widget"
           
           echo "📤 Uploading files..."
-          rsync -avz --delete --timeout=60 -e "ssh -o ConnectTimeout=30" packages/widget/dist/ root@$DEPLOY_HOST:/home/var/www/widget/
+          rsync -avz --delete packages/widget/dist/ root@$DEPLOY_HOST:/home/var/www/widget/
           
-          # Set permissions
           echo "🔧 Setting permissions..."
-          ssh -o ConnectTimeout=30 root@$DEPLOY_HOST "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
+          ssh $DEPLOY_HOST "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
           
           echo "✅ Deployment complete!"
