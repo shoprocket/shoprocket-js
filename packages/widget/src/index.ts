@@ -18,7 +18,7 @@ import { ShoprocketElement } from './core/base-component';
 import { ProductCatalog } from './components/product-catalog';
 import { ProductDetail } from './components/product-detail';
 import { CartWidget } from './components/cart';
-import { setConfig } from './core/config';
+import { initializeConfig, getConfig } from './core/config';
 
 // ProductGrid and CartWidget are now imported from their respective files
 
@@ -62,27 +62,6 @@ function getPublicKey(): string | null {
   return url.searchParams.get('pk');
 }
 
-/**
- * Auto-detect environment URLs based on script source
- */
-function getEnvironmentUrls(): { apiUrl: string; cdnUrl: string } {
-  let apiUrl = 'https://api.shoprocket.io/api/v3';
-  let cdnUrl = 'https://cdn.shoprocket.io';
-  
-  if (scriptUrl) {
-    const scriptHost = new URL(scriptUrl).hostname;
-    
-    if (scriptHost === 'dev-cdn.shoprocket.io') {
-      apiUrl = 'https://dev.shoprocket.io/api/v3';
-      cdnUrl = 'https://dev-cdn.shoprocket.io';
-    } else if (scriptHost.includes('localhost') || scriptHost.includes('.test') || scriptHost.includes('.local')) {
-      apiUrl = 'https://shoprocketv3.test/api/v3';
-      cdnUrl = 'https://shoprocketv3.test';
-    }
-  }
-  
-  return { apiUrl, cdnUrl };
-}
 
 /**
  * Initialize when DOM is ready
@@ -96,9 +75,11 @@ function autoInit(): void {
     return;
   }
   
-  // Set config early, before any components are created
-  const { apiUrl, cdnUrl } = getEnvironmentUrls();
-  setConfig({ apiUrl, cdnUrl });
+  // Initialize config based on script URL
+  initializeConfig(scriptUrl);
+  
+  // Get the config to pass API URL
+  const { apiUrl } = getConfig();
   
   shoprocket.init(publicKey, { apiUrl }).catch(console.error);
 }
