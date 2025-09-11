@@ -62,25 +62,25 @@ function getPublicKey(): string | null {
 }
 
 /**
- * Auto-detect API URL based on script source
+ * Auto-detect environment URLs based on script source
  */
-function getApiUrl(): string {
-  // TODO: update this to use the correct API URL
-  let apiUrl = 'https://api.shoprocket.io/api/v3'; // Default production
+function getEnvironmentUrls(): { apiUrl: string; cdnUrl: string } {
+  let apiUrl = 'https://api.shoprocket.io/api/v3';
+  let cdnUrl = 'https://cdn.shoprocket.io';
   
   if (scriptUrl) {
     const scriptHost = new URL(scriptUrl).hostname;
     
-    // Detect environment based on script host
     if (scriptHost === 'dev-cdn.shoprocket.io') {
-      // Development CDN maps to dev API
       apiUrl = 'https://dev.shoprocket.io/api/v3';
+      cdnUrl = 'https://dev-cdn.shoprocket.io';
     } else if (scriptHost.includes('localhost') || scriptHost.includes('.test') || scriptHost.includes('.local')) {
       apiUrl = 'https://shoprocketv3.test/api/v3';
+      cdnUrl = 'https://shoprocketv3.test';
     }
   }
   
-  return apiUrl;
+  return { apiUrl, cdnUrl };
 }
 
 /**
@@ -95,9 +95,9 @@ function autoInit(): void {
     return;
   }
   
-  const apiUrl = getApiUrl();
+  const { apiUrl, cdnUrl } = getEnvironmentUrls();
   
-  shoprocket.init(publicKey, { apiUrl }).catch(console.error);
+  shoprocket.init(publicKey, { apiUrl, cdnUrl }).catch(console.error);
 }
 
 // Register components globally for the widget manager
