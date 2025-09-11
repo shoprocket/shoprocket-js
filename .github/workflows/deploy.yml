@@ -42,7 +42,8 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           cat >> ~/.ssh/config << EOF
-          Host $DEPLOY_HOST
+          Host deploy-server
+            HostName $DEPLOY_HOST
             User root
             ControlMaster auto
             ControlPath ~/.ssh/master-%r@%h:%p
@@ -52,29 +53,26 @@ jobs:
             StrictHostKeyChecking no
           EOF
           
-          # Add host key to known_hosts
+          # Add host key to known_hosts using the actual hostname
           ssh-keyscan -T 10 -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>&1
           
-      - name: Deploy to server
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      - name: Deploy to server (single connection)
         run: |
           echo "🔗 Establishing SSH master connection..."
-          ssh $DEPLOY_HOST "echo 'SSH master connection established'" || {
+          ssh deploy-server "echo 'SSH master connection established'" || {
             echo "❌ Failed to establish SSH connection"
             echo "This might be due to UFW rate limiting."
-            echo "Check server logs: sudo journalctl -xe | grep UFW"
             exit 1
           }
           
-          # All subsequent commands reuse the same connection
           echo "📁 Creating deployment directory..."
-          ssh $DEPLOY_HOST "mkdir -p /home/var/www/widget"
+          ssh deploy-server "mkdir -p /home/var/www/widget"
           
           echo "📤 Uploading files..."
-          rsync -avz --delete packages/widget/dist/ root@$DEPLOY_HOST:/home/var/www/widget/
+          # Use the SSH config alias for rsync too
+          rsync -avz --delete -e "ssh" packages/widget/dist/ deploy-server:/home/var/www/widget/
           
           echo "🔧 Setting permissions..."
-          ssh $DEPLOY_HOST "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
+          ssh deploy-server "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
           
           echo "✅ Deployment complete!"
