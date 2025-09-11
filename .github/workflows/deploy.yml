@@ -52,15 +52,29 @@ jobs:
           
           echo "✅ SSH host scanned successfully"
           
+          # Test SSH connection with verbose output
+          echo "🔗 Testing SSH connection..."
+          ssh -vvv -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@$DEPLOY_HOST "echo 'SSH connection successful'" || {
+            echo "❌ SSH connection failed. Common causes:"
+            echo "   - Firewall blocking GitHub Actions IPs"
+            echo "   - SSH key not authorized for root user"
+            echo "   - SSH service not allowing root login"
+            echo "   - Port 22 blocked for incoming connections"
+            echo ""
+            echo "GitHub Actions IP ranges can be found at:"
+            echo "https://api.github.com/meta"
+            exit 1
+          }
+          
           # Create directory and deploy files
           echo "📁 Creating deployment directory..."
-          ssh -o ConnectTimeout=10 root@$DEPLOY_HOST "mkdir -p /home/var/www/widget"
+          ssh -o ConnectTimeout=30 root@$DEPLOY_HOST "mkdir -p /home/var/www/widget"
           
           echo "📤 Uploading files..."
-          rsync -avz --delete --timeout=60 packages/widget/dist/ root@$DEPLOY_HOST:/home/var/www/widget/
+          rsync -avz --delete --timeout=60 -e "ssh -o ConnectTimeout=30" packages/widget/dist/ root@$DEPLOY_HOST:/home/var/www/widget/
           
           # Set permissions
           echo "🔧 Setting permissions..."
-          ssh -o ConnectTimeout=10 root@$DEPLOY_HOST "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
+          ssh -o ConnectTimeout=30 root@$DEPLOY_HOST "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
           
           echo "✅ Deployment complete!"
