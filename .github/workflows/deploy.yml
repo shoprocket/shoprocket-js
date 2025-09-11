@@ -40,13 +40,27 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
+          # Add timeout to ssh-keyscan and better error handling
+          echo "🔍 Scanning SSH host: $DEPLOY_HOST"
+          ssh-keyscan -T 10 -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>&1 || {
+            echo "❌ Failed to scan SSH host. Please check:"
+            echo "   - Server is accessible on port 22"
+            echo "   - DEPLOY_HOST secret is correct"
+            echo "   - No firewall blocking GitHub Actions IPs"
+            exit 1
+          }
+          
+          echo "✅ SSH host scanned successfully"
           
           # Create directory and deploy files
-          ssh root@$DEPLOY_HOST "mkdir -p /home/var/www/widget"
-          rsync -avz --delete packages/widget/dist/ root@$DEPLOY_HOST:/home/var/www/widget/
+          echo "📁 Creating deployment directory..."
+          ssh -o ConnectTimeout=10 root@$DEPLOY_HOST "mkdir -p /home/var/www/widget"
+          
+          echo "📤 Uploading files..."
+          rsync -avz --delete --timeout=60 packages/widget/dist/ root@$DEPLOY_HOST:/home/var/www/widget/
           
           # Set permissions
-          ssh root@$DEPLOY_HOST "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
+          echo "🔧 Setting permissions..."
+          ssh -o ConnectTimeout=10 root@$DEPLOY_HOST "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
           
           echo "✅ Deployment complete!"
