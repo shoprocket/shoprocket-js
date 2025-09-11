@@ -33,10 +33,9 @@ export function formatDate(date: string | Date): string {
 /**
  * Build media URL with transformations
  */
-export function getMediaUrl(sdk: ShoprocketCore, media: Media | null | undefined, transformations?: string): string {
-  // Get base URL from SDK config
-  const apiUrl = sdk.getApiUrl();
-  const baseUrl = apiUrl.replace('/api/v3', '');
+export function getMediaUrl(sdk: ShoprocketCore, media: Media | null | undefined, transformations?: string, cdnUrl?: string): string {
+  // Use CDN URL if provided, otherwise fallback to extracting from API URL
+  const baseUrl = cdnUrl || sdk.getApiUrl().replace('/api/v3', '');
   
   // Return placeholder if no media provided
   if (!media) {
@@ -60,10 +59,10 @@ export function getMediaUrl(sdk: ShoprocketCore, media: Media | null | undefined
 /**
  * Handle image error by showing placeholder
  */
-export function handleImageError(sdk: ShoprocketCore, e: Event): void {
+export function handleImageError(sdk: ShoprocketCore, e: Event, cdnUrl?: string): void {
   const img = e.target as HTMLImageElement;
-  const apiUrl = sdk.getApiUrl();
-  const baseUrl = apiUrl.replace('/api/v3', '');
+  // Use CDN URL if provided, otherwise fallback to extracting from API URL
+  const baseUrl = cdnUrl || sdk.getApiUrl().replace('/api/v3', '');
   const placeholderUrl = `${baseUrl}/img/placeholder.svg`;
   
   // Prevent infinite loop if placeholder also fails
