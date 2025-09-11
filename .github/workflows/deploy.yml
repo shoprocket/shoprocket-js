@@ -36,43 +36,20 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Configure SSH multiplexing
+      - name: Deploy to server
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          mkdir -p ~/.ssh
-          cat >> ~/.ssh/config << EOF
-          Host deploy-server
-            HostName $DEPLOY_HOST
-            User root
-            ControlMaster auto
-            ControlPath ~/.ssh/master-%r@%h:%p
-            ControlPersist 10m
-            ServerAliveInterval 60
-            ConnectTimeout 30
-            StrictHostKeyChecking no
-          EOF
-          
-          # Add host key to known_hosts using the actual hostname
-          ssh-keyscan -T 10 -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>&1
-          
-      - name: Deploy to server (single connection)
-        run: |
-          echo "🔗 Establishing SSH master connection..."
-          ssh deploy-server "echo 'SSH master connection established'" || {
-            echo "❌ Failed to establish SSH connection"
-            echo "This might be due to UFW rate limiting."
-            exit 1
-          }
+          # Add host to known_hosts
+          ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
           
           echo "📁 Creating deployment directory..."
-          ssh deploy-server "mkdir -p /home/var/www/widget"
+          ssh root@$DEPLOY_HOST "mkdir -p /home/var/www/widget"
           
           echo "📤 Uploading files..."
-          # Use the SSH config alias for rsync too
-          rsync -avz --delete -e "ssh" packages/widget/dist/ deploy-server:/home/var/www/widget/
+          rsync -avz --delete packages/widget/dist/ root@$DEPLOY_HOST:/home/var/www/widget/
           
           echo "🔧 Setting permissions..."
-          ssh deploy-server "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
+          ssh root@$DEPLOY_HOST "chown -R www-data:www-data /home/var/www/widget && chmod -R 755 /home/var/www/widget"
           
           echo "✅ Deployment complete!"
