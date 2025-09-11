@@ -39,24 +39,10 @@ export class WidgetManager {
         apiUrl: options.apiUrl,
       });
 
-      // Check for existing session in localStorage (store-specific)
-      const sessionKey = `shoprocket_session_${publicKey}`;
-      const storedToken = localStorage.getItem(sessionKey);
-      if (storedToken) {
-        this.sdk.setSessionToken(storedToken);
-      } else {
-        // Create new session
-        const session = await this.sdk.session.create() as unknown as Session | ApiResponse<Session>;
-        const sessionToken = 'data' in session ? session.data.session_token : session.session_token;
-        if (sessionToken) {
-          this.sdk.setSessionToken(sessionToken);
-          localStorage.setItem(sessionKey, sessionToken);
-        }
-      }
+      // Initialize session asynchronously (non-blocking)
+      this.initializeSessionAsync(publicKey);
 
-      // Get store info
-      await this.sdk.store.get();
-
+      // Mark as initialized immediately so components can start loading
       this.initialized = true;
 
       // Auto-mount any widgets already in DOM
@@ -64,6 +50,34 @@ export class WidgetManager {
     } catch (error) {
       // Initialization failed
       throw error;
+    }
+  }
+
+  /**
+   * Initialize session in the background (non-blocking)
+   */
+  private async initializeSessionAsync(publicKey: string): Promise<void> {
+    try {
+      const sessionKey = `shoprocket_session_${publicKey}`;
+      const storedToken = localStorage.getItem(sessionKey);
+      
+      if (storedToken) {
+        this.sdk!.setSessionToken(storedToken);
+      } else {
+        // Create new session
+        const session = await this.sdk!.session.create() as unknown as Session | ApiResponse<Session>;
+        const sessionToken = 'data' in session ? session.data.session_token : session.session_token;
+        if (sessionToken) {
+          this.sdk!.setSessionToken(sessionToken);
+          localStorage.setItem(sessionKey, sessionToken);
+        }
+      }
+
+      // Get store info (also non-blocking)
+      await this.sdk!.store.get();
+    } catch (error) {
+      // Session initialization failed - log but don't throw
+      console.warn('Failed to initialize session:', error);
     }
   }
 
