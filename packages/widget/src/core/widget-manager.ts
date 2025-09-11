@@ -2,6 +2,7 @@ import { ShoprocketCore } from '@shoprocket/core';
 import type { Session, ApiResponse } from '../types/api';
 import type { BaseComponent } from './base-component';
 import type { LitElement } from 'lit';
+import { getCookie, setCookie } from '../utils/cookie-utils';
 
 export interface WidgetConfig {
   publicKey?: string;
@@ -59,7 +60,7 @@ export class WidgetManager {
   private async initializeSessionAsync(publicKey: string): Promise<void> {
     try {
       const sessionKey = `shoprocket_session_${publicKey}`;
-      const storedToken = localStorage.getItem(sessionKey);
+      const storedToken = getCookie(sessionKey);
       
       if (storedToken) {
         this.sdk!.setSessionToken(storedToken);
@@ -69,7 +70,7 @@ export class WidgetManager {
         const sessionToken = 'data' in session ? session.data.session_token : session.session_token;
         if (sessionToken) {
           this.sdk!.setSessionToken(sessionToken);
-          localStorage.setItem(sessionKey, sessionToken);
+          setCookie(sessionKey, sessionToken);
         }
       }
 
