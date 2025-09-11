@@ -65,6 +65,7 @@ function getPublicKey(): string | null {
  * Auto-detect API URL based on script source
  */
 function getApiUrl(): string {
+  // TODO: update this to use the correct API URL
   let apiUrl = 'https://api.shoprocket.io/api/v3'; // Default production
   
   if (scriptUrl) {
@@ -74,8 +75,6 @@ function getApiUrl(): string {
     if (scriptHost === 'dev-cdn.shoprocket.io') {
       // Development CDN maps to dev API
       apiUrl = 'https://dev.shoprocket.io/api/v3';
-    } else if (scriptHost.includes('staging') || scriptHost.includes('stage')) {
-      apiUrl = 'https://api-staging.shoprocket.io/api/v3';
     } else if (scriptHost.includes('localhost') || scriptHost.includes('.test') || scriptHost.includes('.local')) {
       apiUrl = 'https://shoprocketv3.test/api/v3';
     }
