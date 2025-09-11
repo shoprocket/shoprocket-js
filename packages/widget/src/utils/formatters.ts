@@ -51,10 +51,11 @@ export function getMediaUrl(_sdk: ShoprocketCore, media: Media | null | undefine
   // Otherwise construct the URL
   const mediaUrl = `${baseUrl}/media`;
   const transforms = transformations || media.transformations || 'w=600,h=800,fit=cover';
-  const path = media.path || media.id;
-  const filename = media.filename || media.name || '';
   
-  return `${mediaUrl}/${transforms}/${path}/${filename}`;
+  // The path already includes the filename in the API response
+  const path = media.path || media.id;
+  
+  return `${mediaUrl}/${transforms}/${path}`;
 }
 
 /**
