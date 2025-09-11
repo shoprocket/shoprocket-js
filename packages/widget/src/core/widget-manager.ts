@@ -6,6 +6,7 @@ import type { LitElement } from 'lit';
 export interface WidgetConfig {
   publicKey?: string;
   apiUrl?: string;
+  cdnUrl?: string;
   locale?: string;
   currency?: string;
 }
@@ -22,6 +23,7 @@ export class WidgetManager {
   private sdk: ShoprocketCore | null = null;
   private initialized = false;
   private mountedWidgets = new Map<Element, LitElement>();
+  private cdnUrl: string | null = null;
 
   /**
    * Initialize the widget with a public key
@@ -38,6 +40,9 @@ export class WidgetManager {
         publicKey,
         apiUrl: options.apiUrl,
       });
+      
+      // Store CDN URL
+      this.cdnUrl = options.cdnUrl || null;
 
       // Check for existing session in localStorage (store-specific)
       const sessionKey = `shoprocket_session_${publicKey}`;
@@ -75,6 +80,13 @@ export class WidgetManager {
       throw new Error('Shoprocket: Not initialized. Call init() first.');
     }
     return this.sdk;
+  }
+  
+  /**
+   * Get CDN URL
+   */
+  getCdnUrl(): string | null {
+    return this.cdnUrl;
   }
 
   /**
@@ -133,6 +145,7 @@ export class WidgetManager {
     Object.assign(component, mappedOptions);
     if ('sdk' in component && component instanceof HTMLElement) {
       (component as BaseComponent).sdk = this.sdk;
+      (component as BaseComponent).cdnUrl = this.cdnUrl || undefined;
     }
 
     // Replace the mount point with our component to avoid unnecessary wrapper
