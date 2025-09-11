@@ -36,6 +36,12 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Get GitHub Actions IP
+        run: |
+          echo "🌐 Current GitHub Actions IP:"
+          curl -s https://api.ipify.org
+          echo ""
+          
       - name: Deploy to server
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -52,17 +58,26 @@ jobs:
           
           echo "✅ SSH host scanned successfully"
           
-          # Test SSH connection with verbose output
+          # Try SSH with different options
           echo "🔗 Testing SSH connection..."
-          ssh -vvv -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@$DEPLOY_HOST "echo 'SSH connection successful'" || {
-            echo "❌ SSH connection failed. Common causes:"
-            echo "   - Firewall blocking GitHub Actions IPs"
-            echo "   - SSH key not authorized for root user"
-            echo "   - SSH service not allowing root login"
-            echo "   - Port 22 blocked for incoming connections"
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes -o StrictHostKeyChecking=no root@$DEPLOY_HOST "echo 'SSH connection successful'" || {
+            echo "❌ SSH connection failed!"
             echo ""
-            echo "GitHub Actions IP ranges can be found at:"
-            echo "https://api.github.com/meta"
+            echo "Since you can SSH from your local machine but GitHub Actions cannot,"
+            echo "this is likely a firewall issue. To fix this:"
+            echo ""
+            echo "Option 1 (Recommended): Whitelist GitHub Actions IPs"
+            echo "  Run this on your server to allow GitHub Actions:"
+            echo "  curl -s https://api.github.com/meta | jq -r '.actions[]' | while read ip; do"
+            echo "    sudo ufw allow from \$ip to any port 22"
+            echo "  done"
+            echo ""
+            echo "Option 2: Use Cloudflare Tunnel or ngrok for deployment"
+            echo "Option 3: Deploy from your local machine instead"
+            echo ""
+            echo "Current GitHub Actions IP trying to connect:"
+            curl -s https://api.ipify.org
+            echo ""
             exit 1
           }
           
