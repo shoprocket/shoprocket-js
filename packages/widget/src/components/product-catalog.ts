@@ -165,39 +165,52 @@ export class ProductCatalog extends ShoprocketElement {
       return;
     }
     
-    // Can quick add - add to cart with loading state
-    const loadingKey = `addToCart-${product.id}`;
-    await this.withLoading(loadingKey, async () => {
-      try {
-        await this.sdk.cart.addItem({
-          product_id: product.id,
-          variant_id: product.default_variant_id,
-          quantity: 1
-        } as any);
-        
-        // Dispatch events
-        this.dispatchCartEvents(
-          {
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            media: product.media?.[0]
-          },
-          product.default_variant_id,
-          null
-        );
-        
-        // Show success state
-        this.addedToCartProducts.add(product.id);
-        setTimeout(() => {
-          this.addedToCartProducts.delete(product.id);
-          this.requestUpdate();
-        }, 2000);
-      } catch (error) {
-        console.error('Failed to add to cart:', error);
-        this.showError('Failed to add item to cart. Please try again.');
-      }
+    // Prepare cart item data for optimistic update
+    const cartItemData = {
+      product_id: product.id,
+      product_name: product.name,
+      variant_id: product.default_variant_id,
+      variant_name: undefined, // No variant text for default variant
+      quantity: 1,
+      price: product.price, // Already in correct format from API
+      media: product.media?.[0] ? [product.media[0]] : undefined
+    };
+    
+    // Dispatch event with full cart item data for optimistic update
+    window.dispatchEvent(new CustomEvent('shoprocket:cart:add-item', {
+      detail: { item: cartItemData }
+    }));
+    
+    // Show success state immediately
+    this.addedToCartProducts.add(product.id);
+    this.requestUpdate(); // Force re-render to show success state
+    setTimeout(() => {
+      this.addedToCartProducts.delete(product.id);
+      this.requestUpdate();
+    }, 2000);
+    
+    // Fire and forget API call
+    this.sdk.cart.addItem({
+      product_id: product.id,
+      variant_id: product.default_variant_id,
+      quantity: 1
+    } as any).catch(error => {
+      console.error('Failed to add to cart:', error);
+      // Don't show error to user - keep optimistic state
     });
+    
+    // Also dispatch the product added event for notification
+    window.dispatchEvent(new CustomEvent('shoprocket:product:added', {
+      detail: { 
+        product: {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          media: product.media?.[0],
+          variantText: null
+        }
+      }
+    }));
   }
   
   private showProductDetail(product: Product): void {

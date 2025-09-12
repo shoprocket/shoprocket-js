@@ -34,8 +34,8 @@ This creates `dist/shoprocket.js` ready for CDN deployment.
 ### Deployment
 
 The built widget should be deployed to:
-- Production: `https://cdn.shoprocket.io/v3/widget.js`
-- Staging: `https://cdn-staging.shoprocket.io/v3/widget.js`
+- Production: `https://cdn.shoprocket.io/v3/shoprocket.js`
+- Staging: `https://cdn-staging.shoprocket.io/v3/shoprocket.js`
 
 ### Version Strategy
 

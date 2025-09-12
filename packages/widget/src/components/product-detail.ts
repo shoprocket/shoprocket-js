@@ -396,38 +396,51 @@ export class ProductDetail extends ShoprocketElement {
       return;
     }
 
-    const loadingKey = `addToCart-${product.id}`;
-    await this.withLoading(loadingKey, async () => {
-      try {
-        await this.sdk.cart.addItem({
-          product_id: product.id,
-          variant_id: variantId,
-          quantity: 1
-        } as any);
-        
-        // Dispatch events
-        this.dispatchCartEvents(
-          {
-            id: product.id,
-            name: product.name,
-            price: this.getSelectedPrice(),
-            media: this.getSelectedMedia()
-          },
-          variantId,
-          this.getSelectedVariantText()
-        );
-        
-        // Show success state
-        this.addedToCart = true;
-        this.isInCart = true;
-        setTimeout(() => {
-          this.addedToCart = false;
-        }, 2000);
-      } catch (error) {
-        console.error('Failed to add to cart:', error);
-        this.showError('Failed to add item to cart. Please try again.');
-      }
+    // Prepare cart item data for optimistic update
+    const cartItemData = {
+      product_id: product.id,
+      product_name: product.name,
+      variant_id: variantId,
+      variant_name: this.getSelectedVariantText() || undefined,
+      quantity: 1,
+      price: { amount: this.getSelectedPrice() }, // Format as Money object
+      media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined
+    };
+    
+    // Dispatch event with full cart item data for optimistic update
+    window.dispatchEvent(new CustomEvent('shoprocket:cart:add-item', {
+      detail: { item: cartItemData }
+    }));
+    
+    // Show success state immediately
+    this.addedToCart = true;
+    this.isInCart = true;
+    setTimeout(() => {
+      this.addedToCart = false;
+    }, 2000);
+    
+    // Fire and forget API call
+    this.sdk.cart.addItem({
+      product_id: product.id,
+      variant_id: variantId,
+      quantity: 1
+    } as any).catch(error => {
+      console.error('Failed to add to cart:', error);
+      // Don't show error to user - keep optimistic state
     });
+    
+    // Also dispatch the product added event for notification
+    window.dispatchEvent(new CustomEvent('shoprocket:product:added', {
+      detail: { 
+        product: {
+          id: product.id,
+          name: product.name,
+          price: this.getSelectedPrice(),
+          media: this.getSelectedMedia(),
+          variantText: this.getSelectedVariantText()
+        }
+      }
+    }));
   }
 
   private selectOption(optionId: string, valueId: string): void {
