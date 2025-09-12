@@ -97,10 +97,20 @@ export class CartWidget extends ShoprocketElement {
     // Set initial cart state from hash
     const initialState = this.hashRouter.getCurrentState();
     this.isOpen = initialState.cartOpen;
+    
+    // Apply initial scroll lock if cart is open
+    if (this.isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    
+    // Restore scroll if cart was open
+    if (this.isOpen) {
+      document.body.style.overflow = '';
+    }
     window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate);
     window.removeEventListener('shoprocket:cart:add-item', this.handleAddItem as EventListener);
     window.removeEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
@@ -226,7 +236,17 @@ export class CartWidget extends ShoprocketElement {
   private handleHashStateChange = (event: Event): void => {
     // HashRouter tells us when cart state changes
     const customEvent = event as CustomEvent<HashState>;
+    const wasOpen = this.isOpen;
     this.isOpen = customEvent.detail.cartOpen;
+    
+    // Lock/unlock body scroll when cart opens/closes
+    if (this.isOpen && !wasOpen) {
+      // Cart is opening - lock scroll
+      document.body.style.overflow = 'hidden';
+    } else if (!this.isOpen && wasOpen) {
+      // Cart is closing - restore scroll
+      document.body.style.overflow = '';
+    }
   }
 
 
