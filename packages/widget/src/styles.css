@@ -486,6 +486,11 @@
     @apply fixed shadow-2xl flex flex-col z-[10001] transition-all duration-300 ease-out;
     background: var(--color-surface);
   }
+  
+  /* Apply touch-action to all cart elements to prevent zoom */
+  .sr-cart-panel * {
+    touch-action: manipulation;
+  }
 
   /* Cart Panel - Bubble Style */
   .sr-cart-panel-bubble {
