@@ -57,6 +57,10 @@ export class CartWidget extends ShoprocketElement {
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener('shoprocket:cart:updated', this.handleCartUpdate);
     
+    // Listen for add item events (optimistic updates)
+    this.handleAddItem = this.handleAddItem.bind(this);
+    window.addEventListener('shoprocket:cart:add-item', this.handleAddItem as EventListener);
+    
     // Listen for product added events
     this.handleProductAdded = this.handleProductAdded.bind(this);
     window.addEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
@@ -98,6 +102,7 @@ export class CartWidget extends ShoprocketElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate);
+    window.removeEventListener('shoprocket:cart:add-item', this.handleAddItem as EventListener);
     window.removeEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
     this.hashRouter.removeEventListener('state-change', this.handleHashStateChange);
     window.removeEventListener('open-cart', this.handleOpenCart as EventListener);
@@ -112,6 +117,63 @@ export class CartWidget extends ShoprocketElement {
 
   private handleCartUpdate = async (): Promise<void> => {
     await this.loadCart();
+  }
+  
+  private handleAddItem = (event: CustomEvent): void => {
+    const { item } = event.detail;
+    
+    // Initialize cart if needed
+    if (!this.cart) {
+      this.cart = {
+        id: 'temp-' + Date.now(),
+        items: [],
+        totals: {
+          subtotal: 0,
+          tax: 0,
+          shipping: 0,
+          total: 0
+        },
+        currency: 'USD'
+      };
+    }
+    
+    // Check if item already exists in cart
+    const existingItem = this.cart.items.find((cartItem: any) => 
+      cartItem.product_id === item.product_id && 
+      cartItem.variant_id === item.variant_id
+    );
+    
+    if (existingItem) {
+      // Update quantity
+      existingItem.quantity += item.quantity;
+    } else {
+      // Calculate subtotal for new item
+      const price = typeof item.price === 'object' ? item.price.amount : item.price;
+      const subtotal = price * item.quantity;
+      
+      // Add new item with a temporary ID and subtotal
+      const newItem = {
+        ...item,
+        id: 'temp-' + Date.now() + '-' + Math.random(),
+        subtotal: subtotal
+      };
+      this.cart.items.push(newItem);
+    }
+    
+    // Update totals
+    const newSubtotal = this.cart.items.reduce((sum: number, cartItem: any) => {
+      const price = typeof cartItem.price === 'object' ? cartItem.price.amount : cartItem.price;
+      return sum + (price * cartItem.quantity);
+    }, 0);
+    
+    this.cart.totals.subtotal = newSubtotal;
+    this.cart.totals.total = newSubtotal; // Simplified - doesn't account for tax/shipping
+    
+    // Reset empty state
+    this.showEmptyState = false;
+    
+    // Trigger update
+    this.requestUpdate();
   }
   
   private handleOpenCart = (): void => {
@@ -359,13 +421,17 @@ export class CartWidget extends ShoprocketElement {
     `;
   }
 
+  // Track the last requested quantity for each item
+  private lastRequestedQuantity: Map<string, number> = new Map();
+
   private async updateQuantity(itemId: string, quantity: number): Promise<void> {
     if (quantity < 1) return;
     
-    // Store original state for rollback
-    const originalCart = JSON.parse(JSON.stringify(this.cart));
     const item = this.cart?.items.find((i: any) => i.id === itemId);
     if (!item) return;
+    
+    // Track what quantity we're requesting
+    this.lastRequestedQuantity.set(itemId, quantity);
     
     // Optimistic update - immediately update UI
     item.quantity = quantity;
@@ -389,7 +455,7 @@ export class CartWidget extends ShoprocketElement {
     this.priceChangedItems.add('cart-total');
     this.requestUpdate();
     
-    // Remove animation after it completes (independent of API)
+    // Remove animation after it completes
     setTimeout(() => {
       this.priceChangedItems.delete(itemId);
       this.priceChangedItems.delete('cart-total');
@@ -399,35 +465,26 @@ export class CartWidget extends ShoprocketElement {
     // Cancel any pending update for this item
     if (this.pendingUpdates.has(itemId)) {
       clearTimeout(this.pendingUpdates.get(itemId));
+      this.pendingUpdates.delete(itemId);
     }
     
-    // Debounce the API call - wait 300ms after last click
-    const timeoutId = setTimeout(async () => {
-      try {
-        // Make API call with final quantity
-        const updatedCart = await this.sdk.cart.updateItem(itemId, quantity);
-        
-        // Use the response directly
-        if (updatedCart && typeof updatedCart === 'object') {
-          this.cart = 'data' in updatedCart ? updatedCart.data : updatedCart;
-        }
-      } catch (error) {
+    // Debounce the API call - wait 1 second after last click
+    const timeoutId = setTimeout(() => {
+      // Fire and forget - don't await or handle response
+      this.sdk.cart.updateItem(itemId, quantity).catch(error => {
         console.error('Failed to update quantity:', error);
-        // Rollback on error
-        this.cart = originalCart;
-        this.showError('Failed to update item quantity');
-      } finally {
-        // Clean up
-        this.pendingUpdates.delete(itemId);
-      }
-    }, 300); // Wait 300ms after last click
+        // Don't rollback UI state - keep the optimistic update
+      });
+      
+      // Clean up
+      this.pendingUpdates.delete(itemId);
+      this.lastRequestedQuantity.delete(itemId);
+    }, 1000); // Wait 1 second after last click
     
     this.pendingUpdates.set(itemId, timeoutId);
   }
 
   private async removeItem(itemId: string): Promise<void> {
-    // Store original state for rollback
-    const originalCart = JSON.parse(JSON.stringify(this.cart));
     const itemIndex = this.cart?.items.findIndex((i: any) => i.id === itemId);
     if (itemIndex === undefined || itemIndex < 0) return;
     
@@ -469,35 +526,20 @@ export class CartWidget extends ShoprocketElement {
         this.requestUpdate();
       }, 600);
       
-      try {
-        // Make API call asynchronously
-        const updatedCart = await this.sdk.cart.removeItem(itemId);
-        
-        // Update with the response
-        if (updatedCart && typeof updatedCart === 'object') {
-          const newCart = 'data' in updatedCart ? updatedCart.data : updatedCart;
-          if (newCart) {
-            this.cart = newCart;
-          }
-        }
-        
-        // Force cart to stay open after update
-        this.isOpen = wasOpen;
-        
-        // If cart should be open, ensure URL has cart hash
-        if (wasOpen && !window.location.hash.includes('/~/cart')) {
-          const currentHash = window.location.hash;
-          const newHash = currentHash ? currentHash + '/~/cart' : '#/~/cart';
-          window.history.replaceState(null, '', newHash);
-        }
-      } catch (error) {
+      // Fire and forget - don't await or handle response
+      this.sdk.cart.removeItem(itemId).catch(error => {
         console.error('Failed to remove item:', error);
-        // Rollback on error
-        this.cart = originalCart;
-        this.showError('Failed to remove item from cart');
-        // Force cart to stay open
-        this.isOpen = wasOpen;
-        this.requestUpdate();
+        // Don't rollback UI state - keep the optimistic update
+      });
+      
+      // Force cart to stay open after update
+      this.isOpen = wasOpen;
+      
+      // If cart should be open, ensure URL has cart hash
+      if (wasOpen && !window.location.hash.includes('/~/cart')) {
+        const currentHash = window.location.hash;
+        const newHash = currentHash ? currentHash + '/~/cart' : '#/~/cart';
+        window.history.replaceState(null, '', newHash);
       }
     }, 300); // Wait for slide out animation
   }
@@ -564,9 +606,9 @@ export class CartWidget extends ShoprocketElement {
           ${product.media ? html`
             <div class="sr-add-notification-image">
               <img 
-                src="${this.getMediaUrl(product.media, 'w=80,h=80,fit=cover')}" 
+                src="${this.getMediaUrl(product.media, 'w=40,h=40,fit=cover')}" 
                 alt="${product.name}"
-                class="sr-cart-item-image"
+                class="sr-add-notification-img"
                 @error="${(e: Event) => this.handleImageError(e)}"
               >
             </div>
