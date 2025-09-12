@@ -482,9 +482,12 @@
 
   /* Cart Panel */
   .sr-cart-panel {
-    touch-action: manipulation;
     @apply fixed shadow-2xl flex flex-col z-[10001] transition-all duration-300 ease-out;
     background: var(--color-surface);
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   
   /* Apply touch-action to all cart elements to prevent zoom */
