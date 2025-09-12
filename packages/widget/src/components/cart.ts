@@ -101,8 +101,6 @@ export class CartWidget extends ShoprocketElement {
     // Apply initial scroll lock if cart is open
     if (this.isOpen) {
       document.body.style.overflow = 'hidden';
-      document.documentElement.style.touchAction = 'pan-x pan-y';
-      document.body.style.touchAction = 'pan-x pan-y';
     }
   }
 
@@ -112,8 +110,6 @@ export class CartWidget extends ShoprocketElement {
     // Restore scroll if cart was open
     if (this.isOpen) {
       document.body.style.overflow = '';
-      document.documentElement.style.touchAction = '';
-      document.body.style.touchAction = '';
     }
     window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate);
     window.removeEventListener('shoprocket:cart:add-item', this.handleAddItem as EventListener);
@@ -245,16 +241,11 @@ export class CartWidget extends ShoprocketElement {
     
     // Lock/unlock body scroll when cart opens/closes
     if (this.isOpen && !wasOpen) {
-      // Cart is opening - lock scroll and prevent zoom
+      // Cart is opening - lock scroll
       document.body.style.overflow = 'hidden';
-      // Add more aggressive touch-action to prevent all zooming
-      document.documentElement.style.touchAction = 'pan-x pan-y';
-      document.body.style.touchAction = 'pan-x pan-y';
     } else if (!this.isOpen && wasOpen) {
-      // Cart is closing - restore scroll and zoom
+      // Cart is closing - restore scroll
       document.body.style.overflow = '';
-      document.documentElement.style.touchAction = '';
-      document.body.style.touchAction = '';
     }
   }
 
@@ -328,7 +319,7 @@ export class CartWidget extends ShoprocketElement {
       </div>
       
       <!-- Cart Panel - SEPARATE from toggle button -->
-      <div class="sr-cart-panel sr-cart-panel-${this.widgetStyle} sr-cart-panel-${this.position} ${this.isOpen ? 'open' : 'closed'}" style="touch-action: manipulation;">
+      <div class="sr-cart-panel sr-cart-panel-${this.widgetStyle} sr-cart-panel-${this.position} ${this.isOpen ? 'open' : 'closed'}">
         <div class="sr-cart-header ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-header` : ''}">
           <h2 class="sr-cart-title">Cart</h2>
           <button class="sr-cart-close" @click="${() => this.closeCart()}">
