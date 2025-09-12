@@ -260,7 +260,7 @@
 
   /* Product Card */
   .sr-product-card {
-    @apply flex flex-col h-full overflow-hidden cursor-pointer text-left;
+    @apply flex flex-col h-full cursor-pointer text-left;
     background: var(--sr-card-bg);
     color: var(--sr-card-text);
     /* box-shadow: var(--sr-card-shadow); */
@@ -368,7 +368,14 @@
     color: var(--sr-button-primary-text);
   }
 
-  .sr-button-primary:hover:not(:disabled) {
+  @media (hover: hover) and (pointer: fine) {
+    .sr-button-primary:hover:not(:disabled) {
+      background: var(--sr-button-primary-bg-hover);
+      opacity: var(--sr-button-primary-opacity-hover);
+    }
+  }
+
+  .sr-button-primary:active:not(:disabled) {
     background: var(--sr-button-primary-bg-hover);
     opacity: var(--sr-button-primary-opacity-hover);
   }
@@ -379,7 +386,14 @@
     color: var(--sr-button-success-text);
   }
 
-  .sr-button-success:hover:not(:disabled) {
+  @media (hover: hover) and (pointer: fine) {
+    .sr-button-success:hover:not(:disabled) {
+      background: var(--sr-button-success-bg-hover);
+      opacity: 0.9;
+    }
+  }
+
+  .sr-button-success:active:not(:disabled) {
     background: var(--sr-button-success-bg-hover);
     opacity: 0.9;
   }
@@ -688,7 +702,14 @@
     color: var(--color-on-surface);
   }
 
-  .sr-cart-quantity-button:hover:not(:disabled) {
+  @media (hover: hover) and (pointer: fine) {
+    .sr-cart-quantity-button:hover:not(:disabled) {
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+    }
+  }
+
+  .sr-cart-quantity-button:active:not(:disabled) {
     background: var(--color-primary);
     color: var(--color-on-primary);
   }
@@ -907,7 +928,13 @@
     color: var(--color-on-surface);
   }
 
-  .sr-quantity-button:hover:not(:disabled) {
+  @media (hover: hover) and (pointer: fine) {
+    .sr-quantity-button:hover:not(:disabled) {
+      background: var(--color-hover);
+    }
+  }
+
+  .sr-quantity-button:active:not(:disabled) {
     background: var(--color-hover);
   }
 
@@ -970,7 +997,7 @@
 
   .sr-product-description-content {
     @apply text-base leading-relaxed space-y-4;
-    color: var(--color-text-muted);
+    color: var(--color-text);
   }
 
   .sr-product-description-content p {
@@ -1448,7 +1475,7 @@
 }
 
 .sr-add-notification-img {
-  @apply w-full h-full object-cover;
+  @apply w-full h-full object-cover object-center;
 }
 
 .sr-add-notification-details {
