@@ -464,6 +464,13 @@
     height: var(--cart-size);
     box-shadow: var(--shadow);
   }
+  
+  @media (max-width: 640px) {
+    .sr-cart-toggle-button {
+      width: var(--cart-size-sm);
+      height: var(--cart-size-sm);
+    }
+  }
 
   .sr-cart-toggle-button:hover {
     @apply shadow-xl;
@@ -475,6 +482,7 @@
 
   /* Cart Panel */
   .sr-cart-panel {
+    touch-action: manipulation;
     @apply fixed shadow-2xl flex flex-col z-[10001] transition-all duration-300 ease-out;
     background: var(--color-surface);
   }
@@ -746,6 +754,12 @@
     @apply absolute -top-2 -right-2 min-w-[1.25rem] h-5 rounded-full flex items-center justify-center text-xs font-bold px-1;
     background: var(--color-primary);
     color: var(--color-on-primary);
+  }
+  
+  @media (max-width: 640px) {
+    .sr-cart-badge {
+      @apply -top-1 -right-1 min-w-[1rem] h-4 text-[10px];
+    }
   }
 
   /* Powered by text */
