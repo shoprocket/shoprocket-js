@@ -22,8 +22,10 @@ export interface ProductVariant {
   name?: string;
   price: Money;
   media_id?: string;
-  option_values?: string[];
+  option_values?: string[]; // API returns this instead of option_value_ids
   option_value_ids?: string[];
+  inventory_quantity?: number;
+  inventory_policy?: 'deny' | 'continue';
 }
 
 export interface ProductOption {
@@ -49,6 +51,9 @@ export interface Product {
   options?: ProductOption[];
   quick_add_eligible?: boolean;
   default_variant_id?: string;
+  track_inventory?: boolean;
+  in_stock?: boolean;
+  total_inventory?: number;
 }
 
 export interface CartItem {
