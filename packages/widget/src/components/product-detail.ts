@@ -5,6 +5,7 @@ import { ShoprocketElement } from '../core/base-component';
 import type { Product, ProductVariant, ProductOption } from '../types/api';
 import { renderErrorNotification, renderSuccessNotification } from './error-notification';
 import { loadingSpinner } from './loading-spinner';
+import { formatProductPrice } from '../utils/formatters';
 
 /**
  * Product Detail Component
@@ -204,7 +205,7 @@ export class ProductDetail extends ShoprocketElement {
               <h1 class="sr-product-detail-title">${displayProduct.name}</h1>
               
               <div class="sr-product-detail-price">
-                ${this.formatPrice({ amount: this.getSelectedPrice() })}
+                ${this.formatProductPrice(displayProduct)}
               </div>
               
               ${displayProduct.summary ? html`
@@ -487,6 +488,11 @@ export class ProductDetail extends ShoprocketElement {
     const product = this.fullProduct || this.product;
     if (!product) return 0;
     return this.selectedVariant?.price?.amount || product.price?.amount || 0;
+  }
+  
+  private formatProductPrice(product: Product): string {
+    const selectedPrice = this.selectedVariant ? { amount: this.getSelectedPrice() } : undefined;
+    return formatProductPrice(product as any, selectedPrice);
   }
 
   private getSelectedMedia(): any {
