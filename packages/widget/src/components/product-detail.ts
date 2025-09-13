@@ -208,6 +208,8 @@ export class ProductDetail extends ShoprocketElement {
                 ${this.formatProductPrice(displayProduct)}
               </div>
               
+              ${this.renderStockStatus(displayProduct)}
+              
               ${displayProduct.summary ? html`
                 <p class="sr-product-detail-summary">${displayProduct.summary}</p>
               ` : ''}
@@ -296,14 +298,18 @@ export class ProductDetail extends ShoprocketElement {
               ${option.name}
             </label>
             <div class="sr-product-option-values">
-              ${option.values?.map((value: any) => html`
-                <button 
-                  class="sr-variant-option ${this.selectedOptions[option.id] === value.id ? 'selected' : ''}"
-                  @click="${() => this.selectOption(option.id, value.id)}"
-                >
-                  ${value.value}
-                </button>
-              `) || ''}
+              ${option.values?.map((value: any) => {
+                const isDisabled = this.isOptionValueOutOfStock(option.id, value.id, product);
+                return html`
+                  <button 
+                    class="sr-variant-option ${this.selectedOptions[option.id] === value.id ? 'selected' : ''}"
+                    @click="${() => !isDisabled && this.selectOption(option.id, value.id)}"
+                    ?disabled="${isDisabled}"
+                  >
+                    ${value.value}
+                  </button>
+                `;
+              }) || ''}
             </div>
           </div>
         `)}
@@ -332,7 +338,9 @@ export class ProductDetail extends ShoprocketElement {
             </svg>
             Added to Cart
           </span>
-        ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` : canAdd ? 'Add to Cart' : 'Select All Options'}
+        ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` : 
+            (product.track_inventory && !product.in_stock) ? 'Out of Stock' : 
+            canAdd ? 'Add to Cart' : 'Select All Options'}
       </button>
     `;
   }
@@ -451,13 +459,22 @@ export class ProductDetail extends ShoprocketElement {
 
   private updateSelectedVariant(): void {
     const product = this.fullProduct || this.product;
-    if (!product?.variants) return;
+    if (!product?.variants || !product?.options) return;
+    
+    // Only look for exact match if all options are selected
+    if (Object.keys(this.selectedOptions).length !== product.options.length) {
+      this.selectedVariant = undefined;
+      return;
+    }
 
     const selectedOptionValues = Object.values(this.selectedOptions);
     
     this.selectedVariant = product.variants.find((variant: ProductVariant) => {
       const variantOptionValues = variant.option_values || variant.option_value_ids || [];
-      return selectedOptionValues.every(valueId => variantOptionValues.includes(valueId));
+      
+      // Check if variant has exactly the selected values (no more, no less)
+      return variantOptionValues.length === selectedOptionValues.length &&
+             selectedOptionValues.every(valueId => variantOptionValues.includes(valueId));
     });
     
     // If variant has specific media, find its index and select it
@@ -473,7 +490,19 @@ export class ProductDetail extends ShoprocketElement {
     const product = this.fullProduct || this.product;
     if (!product) return false;
     
-    // For single variant products, always can add
+    // Check stock if tracking inventory
+    if (product.track_inventory) {
+      // Check specific variant stock if selected
+      if (this.selectedVariant && (this.selectedVariant.inventory_quantity ?? 0) === 0) {
+        return false;
+      }
+      // Check general stock
+      if (!product.in_stock) {
+        return false;
+      }
+    }
+    
+    // For single variant products, can add if in stock
     if (product.variants?.length === 1) return true;
     
     // For multi-variant, need all options selected
@@ -493,6 +522,81 @@ export class ProductDetail extends ShoprocketElement {
   private formatProductPrice(product: Product): string {
     const selectedPrice = this.selectedVariant ? { amount: this.getSelectedPrice() } : undefined;
     return formatProductPrice(product as any, selectedPrice);
+  }
+  
+  private isOptionValueOutOfStock(optionId: string, valueId: string, product: Product): boolean {
+    if (!product.track_inventory || !product.variants) return false;
+    
+    // Find all variants that have this specific option value
+    const variantsWithThisOption = product.variants.filter(variant => {
+      const variantValues = variant.option_values || variant.option_value_ids || [];
+      return variantValues.includes(valueId);
+    });
+    
+    // If no variants have this option value, it shouldn't exist
+    if (variantsWithThisOption.length === 0) return true;
+    
+    // Check if there are any other selected options
+    const otherSelections = Object.entries(this.selectedOptions)
+      .filter(([optId]) => optId !== optionId)
+      .map(([, valId]) => valId);
+    
+    if (otherSelections.length === 0) {
+      // No other selections, just check if any variant with this option has stock
+      return variantsWithThisOption.every(v => (v.inventory_quantity ?? 0) === 0);
+    }
+    
+    // Find variants that match this option value AND all other current selections
+    const fullyMatchingVariants = variantsWithThisOption.filter(variant => {
+      const variantValues = variant.option_values || variant.option_value_ids || [];
+      return otherSelections.every(valId => variantValues.includes(valId));
+    });
+    
+    // If no fully matching variants or all have 0 inventory, it's out of stock
+    if (fullyMatchingVariants.length === 0) return false; // Don't disable if no exact match yet
+    return fullyMatchingVariants.every(v => (v.inventory_quantity ?? 0) === 0);
+  }
+  
+  private renderStockStatus(product: Product): TemplateResult | string {
+    // Skip if not tracking inventory
+    if (!product.track_inventory) return '';
+    
+    const stockQuantity = product.total_inventory ?? 0;
+    const inStock = product.in_stock ?? false;
+    
+    // Show out of stock if not in stock
+    if (!inStock || stockQuantity === 0) {
+      return html`
+        <div class="sr-stock-status sr-out-of-stock">
+          Out of Stock
+        </div>
+      `;
+    }
+    
+    // Show low stock warning for urgency
+    if (stockQuantity <= 5) {
+      return html`
+        <div class="sr-stock-status sr-low-stock">
+          Only ${stockQuantity} left in stock
+        </div>
+      `;
+    }
+    
+    // Show quantity for medium stock levels
+    if (stockQuantity <= 10) {
+      return html`
+        <div class="sr-stock-status sr-in-stock">
+          ${stockQuantity} in stock
+        </div>
+      `;
+    }
+    
+    // Just show in stock for plenty of inventory
+    return html`
+      <div class="sr-stock-status sr-in-stock">
+        In Stock
+      </div>
+    `;
   }
 
   private getSelectedMedia(): any {

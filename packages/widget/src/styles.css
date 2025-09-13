@@ -876,8 +876,25 @@
   }
 
   .sr-product-detail-price {
-    @apply text-2xl font-medium mb-6;
+    @apply text-2xl font-medium mb-2;
     color: var(--color-primary);
+  }
+  
+  /* Stock Status Styles */
+  .sr-stock-status {
+    @apply text-sm font-medium mb-6;
+  }
+  
+  .sr-in-stock {
+    color: var(--color-success, #22c55e);
+  }
+  
+  .sr-low-stock {
+    color: var(--color-warning, #f59e0b);
+  }
+  
+  .sr-out-of-stock {
+    color: var(--color-error, #ef4444);
   }
 
   .sr-product-detail-summary {
