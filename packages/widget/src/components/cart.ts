@@ -499,7 +499,7 @@ export class CartWidget extends ShoprocketElement {
       // Clean up
       this.pendingUpdates.delete(itemId);
       this.lastRequestedQuantity.delete(itemId);
-    }, 1000); // Wait 1 second after last click
+    }, 300); // Wait 300ms after last click
     
     this.pendingUpdates.set(itemId, timeoutId);
   }

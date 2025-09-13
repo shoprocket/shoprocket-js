@@ -90,6 +90,7 @@ export class ProductListTemplates {
     const loadingKey = needsOptions ? `viewProduct-${product.id}` : `addToCart-${product.id}`;
     const isLoading = handlers.isLoadingItem(loadingKey);
     const isAdded = addedToCartProducts.has(product.id);
+    const isOutOfStock = product.in_stock === false;
     
     return html`
       <article class="sr-product-card">
@@ -138,8 +139,9 @@ export class ProductListTemplates {
             <button 
               class="sr-button ${isAdded ? 'sr-button-success' : 'sr-button-primary'}"
               @click="${(e: Event) => { e.stopPropagation(); handlers.handleAddToCart(product); }}"
+              ?disabled="${isOutOfStock}"
             >
-              ${isAdded ? html`
+              ${isOutOfStock ? 'Out of Stock' : isAdded ? html`
                 <span class="sr-button-content">
                   <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
