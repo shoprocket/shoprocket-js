@@ -956,7 +956,20 @@
   }
 
   .sr-variant-option:disabled {
-    @apply opacity-50 cursor-not-allowed;
+    @apply opacity-50 cursor-not-allowed relative overflow-hidden;
+  }
+  
+  .sr-variant-option:disabled::after {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: linear-gradient(
+      to bottom right,
+      transparent calc(50% - 1px),
+      var(--color-text, #1f2937) calc(50% - 1px),
+      var(--color-text, #1f2937) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+    opacity: 0.3;
   }
 
   /* Product Detail Actions */

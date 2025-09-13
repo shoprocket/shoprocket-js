@@ -6,6 +6,7 @@ import type { Product, ProductVariant, ProductOption } from '../types/api';
 import { renderErrorNotification, renderSuccessNotification } from './error-notification';
 import { loadingSpinner } from './loading-spinner';
 import { formatProductPrice } from '../utils/formatters';
+import './tooltip'; // Register tooltip component
 
 /**
  * Product Detail Component
@@ -229,7 +230,9 @@ export class ProductDetail extends ShoprocketElement {
                 
                 <!-- Additional info -->
                 <div class="sr-product-detail-info-text">
-                  Free shipping on orders over $50
+                  <sr-tooltip text="Free standard shipping (5-7 business days) on all orders over $50. Express shipping available at checkout." wrap>
+                    Free shipping on orders over $50
+                  </sr-tooltip>
                 </div>
               </div>
             </div>
@@ -300,7 +303,7 @@ export class ProductDetail extends ShoprocketElement {
             <div class="sr-product-option-values">
               ${option.values?.map((value: any) => {
                 const isDisabled = this.isOptionValueOutOfStock(option.id, value.id, product);
-                return html`
+                const button = html`
                   <button 
                     class="sr-variant-option ${this.selectedOptions[option.id] === value.id ? 'selected' : ''}"
                     @click="${() => !isDisabled && this.selectOption(option.id, value.id)}"
@@ -309,6 +312,13 @@ export class ProductDetail extends ShoprocketElement {
                     ${value.value}
                   </button>
                 `;
+                
+                // Wrap disabled buttons in tooltip
+                return isDisabled ? html`
+                  <sr-tooltip text="Out of stock" position="top">
+                    ${button}
+                  </sr-tooltip>
+                ` : button;
               }) || ''}
             </div>
           </div>
@@ -577,7 +587,9 @@ export class ProductDetail extends ShoprocketElement {
     if (stockQuantity <= 5) {
       return html`
         <div class="sr-stock-status sr-low-stock">
-          Only ${stockQuantity} left in stock
+          <sr-tooltip text="Limited availability - order soon to avoid disappointment">
+            Only ${stockQuantity} left in stock
+          </sr-tooltip>
         </div>
       `;
     }
