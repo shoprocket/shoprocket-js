@@ -9,6 +9,8 @@ export interface Product {
   name: string;
   slug?: string;
   price: Price;
+  price_min?: number;
+  price_max?: number;
   summary?: string;
   description?: string;
   media?: Media[];

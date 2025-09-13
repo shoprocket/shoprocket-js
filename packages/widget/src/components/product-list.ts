@@ -1,5 +1,6 @@
 import { html, type TemplateResult } from 'lit';
 import type { Product } from '../types/api';
+import { formatProductPrice } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 
 /**
@@ -128,7 +129,7 @@ export class ProductListTemplates {
                 @click="${() => handlers.handleProductClick(product)}">${product.name}</h3>
             
             <div>
-              <span class="sr-product-price">${handlers.formatPrice(product.price as any)}</span>
+              <span class="sr-product-price">${formatProductPrice(product as any)}</span>
             </div>
           </div>
           

@@ -42,6 +42,8 @@ export interface Product {
   summary?: string;
   description?: string;
   price: Money;
+  price_min?: number;
+  price_max?: number;
   media: Media[];
   variants?: ProductVariant[];
   options?: ProductOption[];

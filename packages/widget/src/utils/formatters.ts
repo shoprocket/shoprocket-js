@@ -24,6 +24,36 @@ export function formatPrice(price: Money | number | undefined | null): string {
 }
 
 /**
+ * Format price with range support
+ */
+export function formatPriceRange(product: { price: Money | number; price_min?: number; price_max?: number }): string {
+  const basePrice = typeof product.price === 'object' ? product.price.amount : product.price;
+  const hasRange = product.price_max && product.price_max > basePrice;
+  
+  if (hasRange) {
+    return `From ${formatPrice(product.price)}`;
+  }
+  
+  return formatPrice(product.price);
+}
+
+/**
+ * Format product price with variant support
+ */
+export function formatProductPrice(
+  product: { price: Money | number; price_min?: number; price_max?: number },
+  selectedVariantPrice?: number | Money
+): string {
+  // If a specific variant is selected, show its price
+  if (selectedVariantPrice) {
+    return formatPrice(selectedVariantPrice);
+  }
+  
+  // Otherwise show price range if applicable
+  return formatPriceRange(product);
+}
+
+/**
  * Format date for display
  */
 export function formatDate(date: string | Date): string {
