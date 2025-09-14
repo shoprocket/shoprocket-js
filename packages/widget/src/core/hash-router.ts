@@ -1,10 +1,11 @@
 /**
  * Centralized Hash Router - Single source of truth for URL hash state
  * 
- * Hash format: #!/[product-slug][/~/cart]
+ * Hash format: #!/[product-slug][/~/cart][?page=N]
  * Examples:
  * - "" or "#" -> list view, cart closed
  * - "#/~/cart" -> list view, cart open  
+ * - "#?page=2" -> list view page 2
  * - "#!/product-slug" -> product view, cart closed
  * - "#!/product-slug/~/cart" -> product view, cart open
  */
@@ -13,6 +14,7 @@ export interface HashState {
   view: 'list' | 'product';
   productSlug?: string;
   cartOpen: boolean;
+  page?: number;
 }
 
 export class HashRouter extends EventTarget {
@@ -64,32 +66,57 @@ export class HashRouter extends EventTarget {
       return { view: 'list', cartOpen: false };
     }
 
+    // Extract page number from hash - supports both page=N and ~pN formats
+    let page: number | undefined;
+    const pageMatch = hash.match(/page=(\d+)|~p(\d+)/);
+    if (pageMatch) {
+      const pageStr = pageMatch[1] || pageMatch[2];
+      if (pageStr) {
+        page = parseInt(pageStr, 10);
+      }
+    }
+
     // Check for cart state
     const cartOpen = hash.includes('/~/cart');
+    
+    // Check if this is just pagination (#!/page=N or #!/~pN)
+    if (hash.match(/^#!\/(page=\d+|~p\d+)$/)) {
+      return { view: 'list', cartOpen: false, page };
+    }
     
     // Extract product slug
     if (hash.startsWith('#!/')) {
       const hashPath = hash.substring(3); // Remove #!/
-      const productSlug = hashPath.split('/~/')[0]; // Get part before /~/cart
       
-      if (productSlug) {
-        return { view: 'product', productSlug, cartOpen };
+      // Check if it's a page parameter first
+      if (hashPath.startsWith('page=') || hashPath.startsWith('~p')) {
+        return { view: 'list', cartOpen: false, page };
+      }
+      
+      // Split by / or ? but exclude page parameter
+      const parts = hashPath.split(/[/?]/);
+      const productSlug = parts[0];
+      
+      // Only treat as product if it's not a page parameter
+      if (productSlug && productSlug !== '~' && !productSlug.startsWith('page=')) {
+        return { view: 'product', productSlug, cartOpen, page };
       }
     }
     
     // Just cart open on list view: #/~/cart
     if (hash === '#/~/cart') {
-      return { view: 'list', cartOpen: true };
+      return { view: 'list', cartOpen: true, page };
     }
 
-    return { view: 'list', cartOpen: false };
+    return { view: 'list', cartOpen: false, page };
   }
 
   private hasStateChanged(oldState: HashState, newState: HashState): boolean {
     return (
       oldState.view !== newState.view ||
       oldState.productSlug !== newState.productSlug ||
-      oldState.cartOpen !== newState.cartOpen
+      oldState.cartOpen !== newState.cartOpen ||
+      oldState.page !== newState.page
     );
   }
 
@@ -136,5 +163,19 @@ export class HashRouter extends EventTarget {
 
   getCurrentState(): HashState {
     return { ...this.currentState };
+  }
+  
+  updateCatalogState(updates: { page?: number }): void {
+    let newHash: string;
+    if (updates.page && updates.page > 1) {
+      newHash = `#!/page=${updates.page}`;
+    } else {
+      // Use #!/page=1 for page 1 to maintain consistent format and prevent jump
+      newHash = '#!/page=1';
+    }
+    
+    if (window.location.hash !== newHash) {
+      window.location.hash = newHash;
+    }
   }
 }
