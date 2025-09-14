@@ -40,6 +40,15 @@ export class ProductCatalog extends ShoprocketElement {
   
   @state()
   private addedToCartProducts: Set<string> = new Set();
+  
+  @state()
+  private currentPage = 1;
+  
+  @state()
+  private totalPages = 1;
+  
+  // @state()
+  // private totalProducts = 0; // Reserved for showing total count
 
   @state()
   private productSlugToLoad?: string;
@@ -56,26 +65,53 @@ export class ProductCatalog extends ShoprocketElement {
     if (state.view === 'product' && state.productSlug) {
       // Show product view
       await this.showProductBySlug(state.productSlug);
-    } else {
-      // Show list view
+    } else if (this.currentView === 'product') {
+      // Only call showList when actually transitioning FROM product view
       this.showList();
+    } else if (state.view === 'list' && this.currentView === 'list') {
+      // We're in list view - check if page changed
+      const targetPage = state.page || 1; // Default to page 1 if no page specified
+      if (targetPage !== this.currentPage) {
+        await this.loadProducts(targetPage);
+        this.scrollToTop();
+      }
     }
   };
 
   protected override async firstUpdated(_changedProperties: PropertyValues): Promise<void> {
     super.firstUpdated(_changedProperties);
-    await this.loadProducts();
+    // Don't load products here if we're the primary instance - connectedCallback handles it
+    if (!this.isPrimary) {
+      await this.loadProducts(this.currentPage);
+    }
   }
   
-  private async loadProducts(): Promise<void> {
+  private async loadProducts(page: number = 1): Promise<void> {
     await this.withLoading('products', async () => {
       try {
         const response = await this.sdk.products.list({
+          page,
           per_page: this.limit || 12,
           category: this.category,
         }) as ApiResponse<Product[]>;
 
         this.products = response.data || [];
+        this.currentPage = page;
+        
+        // Update pagination info from API response
+        // The API returns meta directly with total and per_page
+        if (response.meta) {
+          const meta = response.meta as any;
+          if (meta.total && meta.per_page) {
+            // Calculate total pages from total items and per_page
+            this.totalPages = Math.ceil(meta.total / meta.per_page);
+            // this.totalProducts = meta.total; // For future use
+          } else if (response.meta?.pagination) {
+            // Fallback to standard pagination structure if it exists
+            this.totalPages = response.meta.pagination.total_pages;
+          }
+        }
+        
         this.clearError();
       } catch (err) {
         console.error('Failed to load products:', err);
@@ -117,7 +153,16 @@ export class ProductCatalog extends ShoprocketElement {
       
       // Set initial view based on current hash state
       const initialState = this.hashRouter.getCurrentState();
-      await this.updateViewFromState(initialState);
+      
+      // Handle initial state - either product view or list with page
+      if (initialState.view === 'list') {
+        // Load products for the initial page (default 1 or from URL)
+        const pageToLoad = initialState.page || 1;
+        await this.loadProducts(pageToLoad);
+      } else {
+        // Product view will be handled by updateViewFromState
+        await this.updateViewFromState(initialState);
+      }
     }
   }
   
@@ -154,6 +199,7 @@ export class ProductCatalog extends ShoprocketElement {
             isLoadingItem: (key) => this.isLoading(key)
           }
         )}
+        ${this.currentView === 'list' && this.totalPages > 1 ? this.renderPagination() : ''}
       </div>
       ${this.currentView === 'product' ? html`
         <shoprocket-product-detail
@@ -256,6 +302,82 @@ export class ProductCatalog extends ShoprocketElement {
     }
   }
 
+  private renderPagination(): TemplateResult {
+    const maxVisible = 5; // Max number of page buttons to show
+    
+    // Calculate range of pages to show
+    let startPage = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(this.totalPages, startPage + maxVisible - 1);
+    
+    // Adjust if we're near the end
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    
+    return html`
+      <div class="sr-pagination">
+        <button 
+          class="sr-pagination-button sr-pagination-prev"
+          ?disabled="${this.currentPage === 1 || this.isLoading('products')}"
+          @click="${() => this.goToPage(this.currentPage - 1)}"
+        >
+          ← Previous
+        </button>
+        
+        <div class="sr-pagination-pages">
+          ${startPage > 1 ? html`
+            <button 
+              class="sr-pagination-button sr-pagination-page"
+              @click="${() => this.goToPage(1)}"
+            >1</button>
+            ${startPage > 2 ? html`<span class="sr-pagination-ellipsis">...</span>` : ''}
+          ` : ''}
+          
+          ${Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => html`
+            <button 
+              class="sr-pagination-button sr-pagination-page ${page === this.currentPage ? 'active' : ''}"
+              ?disabled="${this.isLoading('products')}"
+              @click="${() => page !== this.currentPage && this.goToPage(page)}"
+            >${page}</button>
+          `)}
+          
+          ${endPage < this.totalPages ? html`
+            ${endPage < this.totalPages - 1 ? html`<span class="sr-pagination-ellipsis">...</span>` : ''}
+            <button 
+              class="sr-pagination-button sr-pagination-page"
+              @click="${() => this.goToPage(this.totalPages)}"
+            >${this.totalPages}</button>
+          ` : ''}
+        </div>
+        
+        <button 
+          class="sr-pagination-button sr-pagination-next"
+          ?disabled="${this.currentPage === this.totalPages || this.isLoading('products')}"
+          @click="${() => this.goToPage(this.currentPage + 1)}"
+        >
+          Next →
+        </button>
+      </div>
+    `;
+  }
+  
+  private async goToPage(page: number): Promise<void> {
+    if (page < 1 || page > this.totalPages || page === this.currentPage) return;
+    
+    // Clear products to show loading skeleton
+    this.products = [];
+    
+    if (this.isPrimary) {
+      // Update URL hash with page number - this will trigger updateViewFromState
+      this.hashRouter.updateCatalogState({ page });
+      // The hash change will handle loading and scrolling
+    } else {
+      // Non-primary instances load directly
+      await this.loadProducts(page);
+      this.scrollToTop();
+    }
+  }
+
   private showProductDetail(product: Product): void {
     const productSlug = product.slug || product.id;
     
@@ -322,6 +444,12 @@ export class ProductCatalog extends ShoprocketElement {
       // Non-primary instances just update local state
       this.showList();
     }
+  }
+  
+  private scrollToTop(): void {
+    requestAnimationFrame(() => {
+      this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
 }
