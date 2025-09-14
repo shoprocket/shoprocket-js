@@ -578,10 +578,25 @@ export class ProductDetail extends ShoprocketElement {
     // Skip if not tracking inventory
     if (!product.track_inventory) return '';
     
-    const stockQuantity = product.total_inventory ?? 0;
-    const inStock = product.in_stock ?? false;
+    // Get config from data attribute or global config
+    const stockDisplay = this.getAttribute('data-stock-display') as 'off' | 'low-only' | 'always' | null
+      || (window as any).Shoprocket?.getConfig?.()?.stockDisplay 
+      || 'always';
+      
+    const lowStockThreshold = parseInt(this.getAttribute('data-low-stock-threshold') || '') 
+      || (window as any).Shoprocket?.getConfig?.()?.lowStockThreshold 
+      || 10;
     
-    // Show out of stock if not in stock
+    // If disabled, show nothing
+    if (stockDisplay === 'off') return '';
+    
+    // Get stock for selected variant or fallback to product total
+    const stockQuantity = this.selectedVariant?.inventory_quantity ?? product.total_inventory ?? 0;
+    const inStock = this.selectedVariant 
+      ? (this.selectedVariant.inventory_quantity ?? 0) > 0
+      : (product.in_stock ?? false);
+    
+    // Always show out of stock
     if (!inStock || stockQuantity === 0) {
       return html`
         <div class="sr-stock-status sr-out-of-stock">
@@ -590,32 +605,22 @@ export class ProductDetail extends ShoprocketElement {
       `;
     }
     
-    // Show low stock warning for urgency
-    if (stockQuantity <= 5) {
+    const isLowStock = stockQuantity <= lowStockThreshold;
+    
+    // Show based on config
+    if (stockDisplay === 'always' || (stockDisplay === 'low-only' && isLowStock)) {
       return html`
-        <div class="sr-stock-status sr-low-stock">
-          <sr-tooltip text="Limited availability - order soon to avoid disappointment">
-            Only ${stockQuantity} left in stock
-          </sr-tooltip>
+        <div class="sr-stock-status ${isLowStock ? 'sr-low-stock' : 'sr-in-stock'}">
+          ${isLowStock ? html`
+            <sr-tooltip text="Limited availability - order soon to avoid disappointment">
+              Only ${stockQuantity} left in stock
+            </sr-tooltip>
+          ` : `${stockQuantity} in stock`}
         </div>
       `;
     }
     
-    // Show quantity for medium stock levels
-    if (stockQuantity <= 10) {
-      return html`
-        <div class="sr-stock-status sr-in-stock">
-          ${stockQuantity} in stock
-        </div>
-      `;
-    }
-    
-    // Just show in stock for plenty of inventory
-    return html`
-      <div class="sr-stock-status sr-in-stock">
-        In Stock
-      </div>
-    `;
+    return '';
   }
 
   private getSelectedMedia(): any {

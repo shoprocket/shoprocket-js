@@ -9,6 +9,8 @@ export interface WidgetConfig {
   apiUrl?: string;
   locale?: string;
   currency?: string;
+  stockDisplay?: 'off' | 'low-only' | 'always';
+  lowStockThreshold?: number;
 }
 
 export interface MountOptions {
@@ -23,6 +25,7 @@ export class WidgetManager {
   private sdk: ShoprocketCore | null = null;
   private initialized = false;
   private mountedWidgets = new Map<Element, LitElement>();
+  private config: WidgetConfig = {};
 
   /**
    * Initialize the widget with a public key
@@ -34,6 +37,13 @@ export class WidgetManager {
     }
 
     try {
+      // Store config options with defaults
+      this.config = { 
+        stockDisplay: 'always',
+        lowStockThreshold: 10,
+        ...options 
+      };
+
       // Initialize SDK
       this.sdk = new ShoprocketCore({
         publicKey,
@@ -90,6 +100,13 @@ export class WidgetManager {
       throw new Error('Shoprocket: Not initialized. Call init() first.');
     }
     return this.sdk;
+  }
+
+  /**
+   * Get widget configuration
+   */
+  getConfig(): WidgetConfig {
+    return this.config;
   }
 
   /**
