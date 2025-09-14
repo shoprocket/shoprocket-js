@@ -99,6 +99,17 @@ export class CartWidget extends ShoprocketElement {
       get data(): Cart | null { return self.cart; }
     };
     
+    // Store SDK reference globally for formatters
+    (window as any).ShoprocketWidget.sdk = this.sdk;
+    
+    // Fetch and store store data for currency formatting
+    try {
+      const storeData = await this.sdk.store.get();
+      (window as any).ShoprocketWidget.store = storeData;
+    } catch (e) {
+      // Store data fetch failed, will fallback to USD
+    }
+    
     // Load cart data
     await this.loadCart();
     
