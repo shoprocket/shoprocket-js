@@ -398,6 +398,7 @@
     opacity: 0.9;
   }
 
+
   /* Button Content */
   .sr-button-content {
     @apply flex items-center justify-center gap-2;
@@ -1178,6 +1179,18 @@
   color: var(--color-error, #ef4444);
 }
 
+/* Error styling for ALL elements in error notifications */
+.sr-add-notification.sr-notification-error {
+  background: #fef2f2 !important;
+}
+.sr-add-notification.sr-notification-error * {
+  color: var(--color-error, #ef4444);
+}
+/* Make the arrow match error background */
+.sr-add-notification.sr-notification-error .sr-arrow-inner {
+  border-right-color: #fef2f2;
+}
+
 .sr-notification-success .sr-notification-content {
   background: rgba(34, 197, 94, 0.1);
   border-color: rgba(34, 197, 94, 0.2);
@@ -1185,7 +1198,7 @@
 }
 
 .sr-notification-icon {
-  @apply w-5 h-5 flex-shrink-0 mt-0.5;
+  @apply w-5 h-5 flex-shrink-0;
   opacity: 0.6;
 }
 
@@ -1540,7 +1553,7 @@
 }
 
 .sr-add-notification-content {
-  @apply flex items-start gap-3 w-full;
+  @apply flex items-center gap-3 w-full;
 }
 
 @media (max-width: 640px) {
@@ -1634,11 +1647,11 @@
 }
 
 .sr-notification-middle-right {
-  @apply right-full top-0 mr-2;
+  @apply right-full top-1/2 -translate-y-1/2 mr-2;
 }
 
 .sr-notification-middle-left {
-  @apply left-full top-0 ml-2;
+  @apply left-full top-1/2 -translate-y-1/2 ml-2;
 }
 
 /* Notification Animations */

@@ -65,6 +65,8 @@ export interface CartItem {
   quantity: number;
   price: Money;
   media?: Media[];
+  total_inventory?: number;
+  inventory_policy?: 'deny' | 'continue';
 }
 
 export interface CartTotals {

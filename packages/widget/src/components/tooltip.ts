@@ -47,7 +47,7 @@ export class Tooltip extends LitElement {
     this.tooltipElement.setAttribute('role', 'tooltip');
     this.tooltipElement.style.cssText = `
       position: fixed;
-      z-index: 10000;
+      z-index: 10002;
       padding: 8px 12px;
       background: var(--color-text, #1f2937);
       color: var(--color-surface, #fff);
@@ -98,7 +98,12 @@ export class Tooltip extends LitElement {
   private positionTooltip(): void {
     if (!this.tooltipElement || !this.triggerElement) return;
 
-    const triggerRect = this.triggerElement.getBoundingClientRect();
+    // Try to get the actual slotted element for better positioning
+    const slot = this.shadowRoot?.querySelector('slot');
+    const slottedElements = slot?.assignedElements();
+    const actualTrigger = slottedElements?.[0] as HTMLElement || this.triggerElement;
+    
+    const triggerRect = actualTrigger.getBoundingClientRect();
     const tooltipRect = this.tooltipElement.getBoundingClientRect();
 
     let top: number;
@@ -112,13 +117,24 @@ export class Tooltip extends LitElement {
 
     // Keep tooltip within viewport
     const padding = 10;
+    const originalLeft = left;
     left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
+    
+    // Calculate arrow offset if tooltip was shifted
+    const arrow = this.tooltipElement.querySelector('div') as HTMLDivElement;
+    if (arrow) {
+      const shiftAmount = originalLeft - left;
+      if (shiftAmount !== 0) {
+        // Move arrow to stay aligned with trigger
+        const arrowOffset = 50 + (shiftAmount / tooltipRect.width * 100);
+        arrow.style.left = `${arrowOffset}%`;
+      }
+    }
     
     // Flip if would go off screen
     if (this.position === 'top' && top < padding) {
       top = triggerRect.bottom + 10;
       // Update arrow position
-      const arrow = this.tooltipElement.querySelector('div') as HTMLDivElement;
       if (arrow) {
         arrow.style.cssText = arrow.style.cssText.replace('bottom: -10px', 'top: -10px')
           .replace('border-top-color', 'border-bottom-color');
@@ -137,6 +153,8 @@ export class Tooltip extends LitElement {
     // Force reflow then show
     requestAnimationFrame(() => {
       if (this.tooltipElement) {
+        // Recalculate position when showing
+        this.positionTooltip();
         this.tooltipElement.style.opacity = '1';
       }
     });

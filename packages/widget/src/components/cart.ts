@@ -4,8 +4,8 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Cart, ApiResponse } from '../types/api';
-import { renderErrorNotification } from './error-notification';
 import { HashRouter, type HashState } from '../core/hash-router';
+import './tooltip';
 
 // Import SVG as string - Vite will inline it at build time
 import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
@@ -37,6 +37,12 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private notificationSliding: 'in' | 'out' | null = null;
   
+  @state()
+  private floatingErrorMessage: string | null = null;
+  
+  @state()
+  private errorNotificationSliding: 'in' | 'out' | null = null;
+  
   // Track pending API calls for debouncing
   private pendingUpdates: Map<string, NodeJS.Timeout> = new Map();
   
@@ -53,9 +59,7 @@ export class CartWidget extends ShoprocketElement {
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
     
-    // Listen for cart updates
-    this.handleCartUpdate = this.handleCartUpdate.bind(this);
-    window.addEventListener('shoprocket:cart:updated', this.handleCartUpdate);
+    // Remove cart update listener - we are the source of these events!
     
     // Listen for add item events (optimistic updates)
     this.handleAddItem = this.handleAddItem.bind(this);
@@ -64,6 +68,10 @@ export class CartWidget extends ShoprocketElement {
     // Listen for product added events
     this.handleProductAdded = this.handleProductAdded.bind(this);
     window.addEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
+    
+    // Listen for cart errors to show floating notifications
+    this.handleFloatingError = this.handleFloatingError.bind(this);
+    window.addEventListener('shoprocket:cart:error', this.handleFloatingError as EventListener);
     
     
     // Get HashRouter singleton instance
@@ -111,9 +119,9 @@ export class CartWidget extends ShoprocketElement {
     if (this.isOpen) {
       document.body.style.overflow = '';
     }
-    window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate);
     window.removeEventListener('shoprocket:cart:add-item', this.handleAddItem as EventListener);
     window.removeEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
+    window.removeEventListener('shoprocket:cart:error', this.handleFloatingError as EventListener);
     this.hashRouter.removeEventListener('state-change', this.handleHashStateChange);
     window.removeEventListener('open-cart', this.handleOpenCart as EventListener);
     window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
@@ -125,12 +133,50 @@ export class CartWidget extends ShoprocketElement {
     }
   }
 
-  private handleCartUpdate = async (): Promise<void> => {
-    await this.loadCart();
-  }
   
   private handleAddItem = (event: CustomEvent): void => {
-    const { item } = event.detail;
+    const { item, stockInfo } = event.detail;
+    
+    // Validate stock if tracking inventory (track_inventory or inventory_policy === 'deny')
+    if (stockInfo?.track_inventory || stockInfo?.inventory_policy === 'deny') {
+      const availableQuantity = stockInfo.available_quantity ?? stockInfo.total_inventory ?? 0;
+      
+      // Check if out of stock
+      if (availableQuantity === 0) {
+        window.dispatchEvent(new CustomEvent('shoprocket:cart:error', {
+          detail: {
+            type: 'out_of_stock',
+            message: 'Sorry, this item is out of stock'
+          }
+        }));
+        return;
+      }
+      
+      // Check existing quantity in cart
+      const existingItem = this.cart?.items.find((cartItem: any) => 
+        cartItem.product_id === item.product_id && 
+        cartItem.variant_id === item.variant_id
+      );
+      
+      const currentQuantityInCart = existingItem?.quantity || 0;
+      const requestedTotal = currentQuantityInCart + item.quantity;
+      
+      // Check if requested quantity exceeds available stock
+      if (requestedTotal > availableQuantity) {
+        const canAdd = availableQuantity - currentQuantityInCart;
+        window.dispatchEvent(new CustomEvent('shoprocket:cart:error', {
+          detail: {
+            type: 'insufficient_stock',
+            message: canAdd > 0 ? 
+              `Only ${canAdd} more available` : 
+              `Maximum quantity (${availableQuantity}) already in cart`,
+            available_quantity: availableQuantity,
+            current_quantity: currentQuantityInCart
+          }
+        }));
+        return; // STOP HERE - DO NOT ADD TO CART
+      }
+    }
     
     // Initialize cart if needed
     if (!this.cart) {
@@ -156,16 +202,26 @@ export class CartWidget extends ShoprocketElement {
     if (existingItem) {
       // Update quantity
       existingItem.quantity += item.quantity;
+      // Update stock info if provided
+      if (stockInfo) {
+        existingItem.inventory_policy = stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue');
+        existingItem.total_inventory = stockInfo.total_inventory ?? stockInfo.available_quantity;
+      }
     } else {
       // Calculate subtotal for new item
       const price = typeof item.price === 'object' ? item.price.amount : item.price;
       const subtotal = price * item.quantity;
       
-      // Add new item with a temporary ID and subtotal
+      // Add new item with a temporary ID, subtotal, and stock info
       const newItem = {
         ...item,
         id: 'temp-' + Date.now() + '-' + Math.random(),
-        subtotal: subtotal
+        subtotal: subtotal,
+        // Include stock info if provided
+        ...(stockInfo && {
+          inventory_policy: stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue'),
+          total_inventory: stockInfo.total_inventory ?? stockInfo.available_quantity
+        })
       };
       this.cart.items.push(newItem);
     }
@@ -184,6 +240,50 @@ export class CartWidget extends ShoprocketElement {
     
     // Trigger update
     this.requestUpdate();
+    
+    // Dispatch cart updated event
+    this.dispatchCartUpdatedEvent();
+    
+    // Dispatch product added event for UI feedback
+    window.dispatchEvent(new CustomEvent('shoprocket:product:added', {
+      detail: { 
+        product: {
+          id: item.product_id,
+          name: item.product_name,
+          price: item.price,
+          media: item.media?.[0],
+          variantText: item.variant_name
+        }
+      }
+    }));
+    
+    // Fire and forget API call
+    this.sdk.cart.addItem({
+      product_id: item.product_id,
+      variant_id: item.variant_id,
+      quantity: item.quantity
+    }).catch(error => {
+      console.error('Failed to add to cart:', error);
+      // Don't rollback - keep optimistic update
+    });
+  }
+  
+  private dispatchCartUpdatedEvent(): void {
+    if (!this.cart) return;
+    
+    // Create a simplified cart state for other components
+    const cartState = {
+      items: this.cart.items.map((item: any) => ({
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        quantity: item.quantity
+      })),
+      total_items: this.cart.items.reduce((sum: number, item: any) => sum + item.quantity, 0)
+    };
+    
+    window.dispatchEvent(new CustomEvent('shoprocket:cart:updated', {
+      detail: { cart: cartState }
+    }));
   }
   
   private handleOpenCart = (): void => {
@@ -200,11 +300,22 @@ export class CartWidget extends ShoprocketElement {
   
   
   private notificationTimeouts: { slideOut?: NodeJS.Timeout; remove?: NodeJS.Timeout } = {};
+  private errorNotificationTimeouts: { slideOut?: NodeJS.Timeout; remove?: NodeJS.Timeout } = {};
 
   private handleProductAdded = (event: CustomEvent): void => {
     const { product } = event.detail;
     
-    // Clear existing timeouts
+    // Clear any existing error notification
+    this.floatingErrorMessage = null;
+    this.errorNotificationSliding = null;
+    if (this.errorNotificationTimeouts.slideOut) {
+      clearTimeout(this.errorNotificationTimeouts.slideOut);
+    }
+    if (this.errorNotificationTimeouts.remove) {
+      clearTimeout(this.errorNotificationTimeouts.remove);
+    }
+    
+    // Clear existing success timeouts
     if (this.notificationTimeouts.slideOut) {
       clearTimeout(this.notificationTimeouts.slideOut);
     }
@@ -266,6 +377,9 @@ export class CartWidget extends ShoprocketElement {
           window.dispatchEvent(new CustomEvent('shoprocket:cart:loaded', {
             detail: { cart: this.cart }
           }));
+          
+          // Also dispatch simplified cart state
+          this.dispatchCartUpdatedEvent();
         } else {
           this.cart = null;
         }
@@ -299,7 +413,6 @@ export class CartWidget extends ShoprocketElement {
     const totalQuantity = this.cart?.items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
 
     return html`
-      ${renderErrorNotification(this.errorMessage)}
       <!-- Generic Overlay -->
       <div 
         class="sr-cart-overlay ${this.isOpen ? 'open' : 'closed'}"
@@ -315,7 +428,7 @@ export class CartWidget extends ShoprocketElement {
           ${this.renderTriggerContent(totalQuantity)}
         </button>
         
-        ${this.renderProductNotification()}
+        ${this.renderNotification()}
       </div>
       
       <!-- Cart Panel - SEPARATE from toggle button -->
@@ -424,13 +537,19 @@ export class CartWidget extends ShoprocketElement {
                   −
                 </button>
                 <span class="sr-cart-quantity-value">${item.quantity}</span>
-                <button 
-                  class="sr-cart-quantity-button"
-                  @click="${() => this.updateQuantity(item.id, item.quantity + 1)}"
-                  aria-label="Increase quantity"
+                <sr-tooltip 
+                  text="${item.inventory_policy === 'deny' && item.total_inventory !== undefined && item.quantity >= item.total_inventory ? `Maximum quantity (${item.total_inventory}) in cart` : ''}" 
+                  position="top"
                 >
-                  +
-                </button>
+                  <button 
+                    class="sr-cart-quantity-button"
+                    @click="${() => this.updateQuantity(item.id, item.quantity + 1)}"
+                    ?disabled="${item.inventory_policy === 'deny' && item.total_inventory !== undefined && item.quantity >= item.total_inventory}"
+                    aria-label="Increase quantity"
+                  >
+                    +
+                  </button>
+                </sr-tooltip>
               </div>
             </div>
           </div>
@@ -449,6 +568,24 @@ export class CartWidget extends ShoprocketElement {
     
     const item = this.cart?.items.find((i: any) => i.id === itemId);
     if (!item) return;
+    
+    // Check if we're increasing quantity and need stock validation
+    if (quantity > item.quantity) {
+      // Check if item has inventory policy and stock info
+      if (item.inventory_policy === 'deny' && item.total_inventory !== undefined) {
+        if (quantity > item.total_inventory) {
+          // Show error notification
+          const message = item.total_inventory === 0 
+            ? 'Out of stock' 
+            : `Maximum quantity (${item.total_inventory}) already in cart`;
+          
+          window.dispatchEvent(new CustomEvent('shoprocket:cart:error', {
+            detail: { message }
+          }));
+          return;
+        }
+      }
+    }
     
     // Track what quantity we're requesting
     this.lastRequestedQuantity.set(itemId, quantity);
@@ -481,6 +618,9 @@ export class CartWidget extends ShoprocketElement {
       this.priceChangedItems.delete('cart-total');
       this.requestUpdate();
     }, 600);
+    
+    // Dispatch cart updated event
+    this.dispatchCartUpdatedEvent();
     
     // Cancel any pending update for this item
     if (this.pendingUpdates.has(itemId)) {
@@ -561,6 +701,9 @@ export class CartWidget extends ShoprocketElement {
         const newHash = currentHash ? currentHash + '/~/cart' : '#/~/cart';
         window.history.replaceState(null, '', newHash);
       }
+      
+      // Dispatch cart updated event
+      this.dispatchCartUpdatedEvent();
     }, 300); // Wait for slide out animation
   }
 
@@ -603,48 +746,121 @@ export class CartWidget extends ShoprocketElement {
     `;
   }
   
-  private renderProductNotification(): TemplateResult {
-    if (!this.recentlyAddedProduct) {
-      return html``;
+  private handleFloatingError = (event: CustomEvent): void => {
+    const { message } = event.detail;
+    
+    // Clear any existing success notification
+    this.recentlyAddedProduct = null;
+    this.notificationSliding = null;
+    if (this.notificationTimeouts.slideOut) {
+      clearTimeout(this.notificationTimeouts.slideOut);
+    }
+    if (this.notificationTimeouts.remove) {
+      clearTimeout(this.notificationTimeouts.remove);
     }
     
-    const product = this.recentlyAddedProduct;
-    const notificationClasses = `sr-notification-${this.position}`;
-    
-    let animationClass = '';
-    if (this.notificationSliding === 'in') {
-      animationClass = 'sr-notification-slide-in';
-    } else if (this.notificationSliding === 'out') {
-      animationClass = 'sr-notification-slide-out';
+    // Clear any existing error timeouts
+    if (this.errorNotificationTimeouts.slideOut) {
+      clearTimeout(this.errorNotificationTimeouts.slideOut);
+    }
+    if (this.errorNotificationTimeouts.remove) {
+      clearTimeout(this.errorNotificationTimeouts.remove);
     }
     
-    return html`
-      <div class="sr-add-notification ${notificationClasses} ${animationClass}">
-        <!-- Triangle arrow -->
-        ${this.renderNotificationArrow()}
-        <div class="sr-add-notification-content">
-          ${product.media ? html`
-            <div class="sr-add-notification-image">
-              <img 
-                src="${this.getMediaUrl(product.media, 'w=40,h=40,fit=cover')}" 
-                alt="${product.name}"
-                class="sr-add-notification-img"
-                @error="${(e: Event) => this.handleImageError(e)}"
-              >
-            </div>
-          ` : ''}
-          <div class="sr-add-notification-details">
-            <p class="sr-add-notification-title">${product.name}</p>
-            <div class="sr-add-notification-info">
-              <span class="sr-add-notification-price">${this.formatPrice(product.price)}</span>
-              ${product.variantText ? html`
-                <span class="sr-add-notification-variant">• ${product.variantText}</span>
-              ` : ''}
+    // Show the error notification
+    this.errorNotificationSliding = null;
+    this.floatingErrorMessage = message;
+    
+    // Trigger animation after next render
+    requestAnimationFrame(() => {
+      this.errorNotificationSliding = 'in';
+      
+      // Start slide out after 4 seconds
+      this.errorNotificationTimeouts.slideOut = setTimeout(() => {
+        this.errorNotificationSliding = 'out';
+        
+        // Remove completely after slide animation completes
+        this.errorNotificationTimeouts.remove = setTimeout(() => {
+          this.floatingErrorMessage = null;
+          this.errorNotificationSliding = null;
+        }, 300); // Match animation duration
+      }, 4000);
+    });
+  }
+  
+  private renderNotification(): TemplateResult {
+    // Error takes priority over success
+    if (this.floatingErrorMessage) {
+      // Use middle position for vertical centering with cart toggle
+      const verticalPosition = this.position.includes('top') ? 'top' : this.position.includes('bottom') ? 'middle' : 'middle';
+      const horizontalPosition = this.position.includes('left') ? 'left' : 'right';
+      const notificationClasses = `sr-notification-${verticalPosition}-${horizontalPosition}`;
+      
+      let animationClass = '';
+      if (this.errorNotificationSliding === 'in') {
+        animationClass = 'sr-notification-slide-in';
+      } else if (this.errorNotificationSliding === 'out') {
+        animationClass = 'sr-notification-slide-out';
+      }
+      
+      return html`
+        <div class="sr-add-notification sr-notification-error ${notificationClasses} ${animationClass}">
+          <!-- Triangle arrow -->
+          ${this.renderNotificationArrow()}
+          <div class="sr-add-notification-content">
+            <svg class="sr-notification-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="sr-add-notification-details">
+              <p class="sr-add-notification-title">${this.floatingErrorMessage}</p>
             </div>
           </div>
         </div>
-      </div>
-    `;
+      `;
+    }
+    
+    if (this.recentlyAddedProduct) {
+      const product = this.recentlyAddedProduct;
+      // Use same position as cart toggle
+      const notificationClasses = `sr-notification-${this.position}`;
+      
+      let animationClass = '';
+      if (this.notificationSliding === 'in') {
+        animationClass = 'sr-notification-slide-in';
+      } else if (this.notificationSliding === 'out') {
+        animationClass = 'sr-notification-slide-out';
+      }
+      
+      return html`
+        <div class="sr-add-notification ${notificationClasses} ${animationClass}">
+          <!-- Triangle arrow -->
+          ${this.renderNotificationArrow()}
+          <div class="sr-add-notification-content">
+            ${product.media ? html`
+              <div class="sr-add-notification-image">
+                <img 
+                  src="${this.getMediaUrl(product.media, 'w=40,h=40,fit=cover')}" 
+                  alt="${product.name}"
+                  class="sr-add-notification-img"
+                  @error="${(e: Event) => this.handleImageError(e)}"
+                >
+              </div>
+            ` : ''}
+            <div class="sr-add-notification-details">
+              <p class="sr-add-notification-title">${product.name}</p>
+              <div class="sr-add-notification-info">
+                <span class="sr-add-notification-price">${this.formatPrice(product.price)}</span>
+                ${product.variantText ? html`
+                  <span class="sr-add-notification-variant">• ${product.variantText}</span>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    return html``;
   }
   
 

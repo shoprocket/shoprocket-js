@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tooltip Test</title>
+    <style>
+        body {
+            padding: 100px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        .test-container {
+            padding: 50px;
+            background: #f3f4f6;
+            border-radius: 8px;
+        }
+        
+        .low-opacity {
+            opacity: 0.6;
+        }
+        
+        /* CSS variables for tooltip theming */
+        :root {
+            --color-text: #1f2937;
+            --color-surface: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tooltip Component Test</h1>
+    
+    <div class="test-container">
+        <h2>Basic Tooltip</h2>
+        <p>
+            Hover over this 
+            <sr-tooltip text="This is a basic tooltip">
+                <strong>text with tooltip</strong>
+            </sr-tooltip>
+            to see the tooltip.
+        </p>
+        
+        <h2>Long Text Tooltip</h2>
+        <p>
+            This has a 
+            <sr-tooltip text="This is a much longer tooltip that wraps to multiple lines when the wrap attribute is set. It can contain detailed information about the item." wrap>
+                <strong>wrapped tooltip</strong>
+            </sr-tooltip>
+            with more content.
+        </p>
+        
+        <h2>Inside Low Opacity Container</h2>
+        <div class="low-opacity">
+            <p>
+                This container has 0.6 opacity but the 
+                <sr-tooltip text="This tooltip should appear at full opacity since it's rendered at root level">
+                    <strong>tooltip</strong>
+                </sr-tooltip>
+                should still be fully visible.
+            </p>
+        </div>
+        
+        <h2>Bottom Position</h2>
+        <p>
+            This tooltip appears 
+            <sr-tooltip text="This tooltip appears below the text" position="bottom">
+                <strong>below</strong>
+            </sr-tooltip>
+            the text.
+        </p>
+    </div>
+    
+    <script type="module">
+        // Import and register the tooltip component
+        import { Tooltip } from './src/components/tooltip.js';
+    </script>
+</body>
+</html>
