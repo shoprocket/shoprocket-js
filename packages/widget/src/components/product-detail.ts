@@ -3,9 +3,9 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Product, ProductVariant, ProductOption } from '../types/api';
-import { renderErrorNotification, renderSuccessNotification } from './error-notification';
 import { loadingSpinner } from './loading-spinner';
 import { formatProductPrice } from '../utils/formatters';
+import { isAllStockInCart } from '../utils/cart-utils';
 import './tooltip'; // Register tooltip component
 
 /**
@@ -25,12 +25,17 @@ export class ProductDetail extends ShoprocketElement {
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener('shoprocket:cart:updated', this.handleCartUpdate);
     window.addEventListener('shoprocket:cart:loaded', this.handleCartUpdate);
+    
+    // Listen for successful add to cart
+    this.handleProductAdded = this.handleProductAdded.bind(this);
+    window.addEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
   }
   
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate);
     window.removeEventListener('shoprocket:cart:loaded', this.handleCartUpdate);
+    window.removeEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
     // Clean up zoom timeout if any
     if (this.zoomTimeout) {
       clearTimeout(this.zoomTimeout);
@@ -39,6 +44,20 @@ export class ProductDetail extends ShoprocketElement {
   
   private handleCartUpdate = async (): Promise<void> => {
     await this.checkIfInCart();
+  }
+  
+  private handleProductAdded = (event: CustomEvent): void => {
+    const { product } = event.detail;
+    const currentProduct = this.fullProduct || this.product;
+    
+    // Only show success if this was our product
+    if (currentProduct && product.id === currentProduct.id) {
+      this.addedToCart = true;
+      this.isInCart = true;
+      setTimeout(() => {
+        this.addedToCart = false;
+      }, 2000);
+    }
   }
 
   @property({ type: Object })
@@ -145,8 +164,6 @@ export class ProductDetail extends ShoprocketElement {
     const isLoadingFull = this.isLoading('product') && !this.fullProduct;
 
     return html`
-      ${renderErrorNotification(this.errorMessage)}
-      ${renderSuccessNotification(this.successMessage)}
       <div class="sr-product-detail" data-shoprocket="product-detail">
         <!-- Back Button -->
         ${this.renderBackButton()}
@@ -334,6 +351,13 @@ export class ProductDetail extends ShoprocketElement {
     const loadingKey = `addToCart-${product.id}`;
     const isLoading = this.isLoading(loadingKey);
     const canAdd = this.canAddToCart();
+    
+    // Check stock status for button text
+    const variantId = this.selectedVariant?.id || product.default_variant_id;
+    const totalInventory = this.selectedVariant ? 
+      this.selectedVariant.inventory_quantity : 
+      product.total_inventory;
+    const stockStatus = isAllStockInCart(product.id, variantId, totalInventory);
 
     return html`
       <button 
@@ -349,7 +373,8 @@ export class ProductDetail extends ShoprocketElement {
             Added to Cart
           </span>
         ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` : 
-            (product.track_inventory && !product.in_stock) ? 'Out of Stock' : 
+            product.in_stock === false ? 'Out of Stock' :
+            stockStatus.allInCart ? `Max (${totalInventory}) in cart` :
             canAdd ? 'Add to Cart' : 'Select All Options'}
       </button>
     `;
@@ -426,40 +451,22 @@ export class ProductDetail extends ShoprocketElement {
       media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined
     };
     
+    // Include stock info for validation
+    const stockInfo = {
+      track_inventory: product.track_inventory,
+      available_quantity: this.selectedVariant ? 
+        this.selectedVariant.inventory_quantity : 
+        product.total_inventory
+    };
+    
     // Dispatch event with full cart item data for optimistic update
     window.dispatchEvent(new CustomEvent('shoprocket:cart:add-item', {
-      detail: { item: cartItemData }
+      detail: { item: cartItemData, stockInfo }
     }));
     
-    // Show success state immediately
-    this.addedToCart = true;
-    this.isInCart = true;
-    setTimeout(() => {
-      this.addedToCart = false;
-    }, 2000);
-    
-    // Fire and forget API call
-    this.sdk.cart.addItem({
-      product_id: product.id,
-      variant_id: variantId,
-      quantity: 1
-    } as any).catch(error => {
-      console.error('Failed to add to cart:', error);
-      // Don't show error to user - keep optimistic state
-    });
-    
-    // Also dispatch the product added event for notification
-    window.dispatchEvent(new CustomEvent('shoprocket:product:added', {
-      detail: { 
-        product: {
-          id: product.id,
-          name: product.name,
-          price: this.getSelectedPrice(),
-          media: this.getSelectedMedia(),
-          variantText: this.getSelectedVariantText()
-        }
-      }
-    }));
+    // DON'T show success immediately - wait for the cart to confirm
+    // The cart will dispatch shoprocket:product:added if successful
+    // or shoprocket:cart:error if it fails
   }
 
   private selectOption(optionId: string, valueId: string): void {
@@ -500,17 +507,17 @@ export class ProductDetail extends ShoprocketElement {
     const product = this.fullProduct || this.product;
     if (!product) return false;
     
-    // Check stock if tracking inventory
-    if (product.track_inventory) {
-      // Check specific variant stock if selected
-      if (this.selectedVariant && (this.selectedVariant.inventory_quantity ?? 0) === 0) {
-        return false;
-      }
-      // Check general stock
-      if (!product.in_stock) {
-        return false;
-      }
-    }
+    // Check if out of stock
+    if (product.in_stock === false) return false;
+    
+    // Check if all stock is already in cart
+    const variantId = this.selectedVariant?.id || product.default_variant_id;
+    const totalInventory = this.selectedVariant ? 
+      this.selectedVariant.inventory_quantity : 
+      product.total_inventory;
+    
+    const stockStatus = isAllStockInCart(product.id, variantId, totalInventory);
+    if (stockStatus.allInCart) return false;
     
     // For single variant products, can add if in stock
     if (product.variants?.length === 1) return true;
