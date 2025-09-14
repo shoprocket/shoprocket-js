@@ -787,15 +787,37 @@
     border-radius: var(--radius-sm);
   }
 
-  /* Back Button */
+  /* Product Navigation */
+  .sr-product-navigation {
+    @apply flex justify-between items-center mb-6;
+  }
+  
   .sr-back-button {
-    @apply mb-6 bg-transparent border-none cursor-pointer text-sm font-medium inline-flex items-center gap-2 transition-colors;
+    @apply bg-transparent border-none cursor-pointer text-sm font-medium inline-flex items-center gap-2 transition-colors;
     color: var(--color-on-surface);
     opacity: 0.6;
   }
 
   .sr-back-button:hover {
     opacity: 1;
+  }
+  
+  .sr-product-nav-buttons {
+    @apply flex gap-2;
+  }
+  
+  .sr-nav-button {
+    @apply px-3 py-1 bg-transparent border rounded-md cursor-pointer text-sm font-medium transition-all;
+    border-color: var(--color-border);
+    color: var(--color-on-surface);
+  }
+  
+  .sr-nav-button:hover:not(.disabled) {
+    background: var(--color-hover);
+  }
+  
+  .sr-nav-button.disabled {
+    @apply cursor-not-allowed opacity-40;
   }
 
   .sr-back-arrow {

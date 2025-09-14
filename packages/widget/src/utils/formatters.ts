@@ -3,14 +3,32 @@ import type { ShoprocketCore } from '@shoprocket/core';
 import { getConfig } from '../core/config';
 
 /**
+ * Get store currency from SDK or widget data
+ */
+function getStoreCurrency(): string {
+  // Try to get from stored data or default
+  const widget = (window as any).ShoprocketWidget;
+  return widget?.store?.currency || 
+         widget?.store?.currency_code || 
+         widget?.store?.base_currency_code || 
+         'USD';
+}
+
+/**
  * Format price for display
  */
 export function formatPrice(price: Money | number | undefined | null): string {
-  if (!price) return '$0.00';
+  if (!price) {
+    const currency = getStoreCurrency();
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency
+    }).format(0);
+  }
   
   if (typeof price === 'object') {
     const cents = price.amount || price.amount_cents || 0;
-    const currency = price.currency || 'USD';
+    const currency = price.currency || getStoreCurrency();
     
     // Use Intl.NumberFormat for proper currency formatting
     return new Intl.NumberFormat('en-US', {
@@ -19,8 +37,12 @@ export function formatPrice(price: Money | number | undefined | null): string {
     }).format(cents / 100);
   }
   
-  // Assume number is cents
-  return `$${(price / 100).toFixed(2)}`;
+  // Assume number is cents, get currency from store
+  const currency = getStoreCurrency();
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency
+  }).format(price / 100);
 }
 
 /**

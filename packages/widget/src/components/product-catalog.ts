@@ -159,8 +159,11 @@ export class ProductCatalog extends ShoprocketElement {
         <shoprocket-product-detail
           .sdk="${this.sdk}"
           .product="${this.selectedProduct}"
+          .prevProduct="${this.getPrevProduct()}"
+          .nextProduct="${this.getNextProduct()}"
           product-slug="${this.productSlugToLoad || ''}"
           @back-to-list="${() => this.backToList()}"
+          @navigate-product="${(e: CustomEvent) => this.handleProductNavigation(e)}"
         ></shoprocket-product-detail>
       ` : ''}
     `;
@@ -220,6 +223,39 @@ export class ProductCatalog extends ShoprocketElement {
     }));
   }
   
+  private getPrevProduct(): Product | null {
+    if (!this.products) return null;
+    
+    // Find current product by slug or ID (works even when loading directly via URL)
+    const currentProduct = this.selectedProduct || 
+      this.products.find(p => p.slug === this.productSlugToLoad || p.id === this.productSlugToLoad);
+    
+    if (!currentProduct) return null;
+    
+    const currentIndex = this.products.findIndex(p => p.id === currentProduct.id);
+    return currentIndex > 0 ? this.products[currentIndex - 1] || null : null;
+  }
+
+  private getNextProduct(): Product | null {
+    if (!this.products) return null;
+    
+    // Find current product by slug or ID (works even when loading directly via URL)
+    const currentProduct = this.selectedProduct || 
+      this.products.find(p => p.slug === this.productSlugToLoad || p.id === this.productSlugToLoad);
+    
+    if (!currentProduct) return null;
+    
+    const currentIndex = this.products.findIndex(p => p.id === currentProduct.id);
+    return currentIndex < this.products.length - 1 ? this.products[currentIndex + 1] || null : null;
+  }
+
+  private handleProductNavigation(event: CustomEvent): void {
+    const { product } = event.detail;
+    if (product) {
+      this.showProductDetail(product);
+    }
+  }
+
   private showProductDetail(product: Product): void {
     const productSlug = product.slug || product.id;
     

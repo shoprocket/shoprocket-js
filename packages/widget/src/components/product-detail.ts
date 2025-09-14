@@ -63,6 +63,12 @@ export class ProductDetail extends ShoprocketElement {
   @property({ type: Object })
   product?: Product;
 
+  @property({ type: Object })
+  prevProduct?: Product | null;
+  
+  @property({ type: Object })
+  nextProduct?: Product | null;
+
   @property({ type: String, attribute: 'product-id' })
   productId?: string;
 
@@ -685,15 +691,44 @@ export class ProductDetail extends ShoprocketElement {
     this.zoomPosition = { x, y };
   }
 
+  private navigateToProduct(product: Product | null | undefined): void {
+    if (!product) return;
+    
+    // Dispatch event to parent catalog to handle navigation
+    this.dispatchEvent(new CustomEvent('navigate-product', {
+      detail: { product },
+      bubbles: true
+    }));
+  }
+
   private renderBackButton(): TemplateResult {
     return html`
-      <button 
-        class="sr-back-button" 
-        @click="${() => this.dispatchEvent(new CustomEvent('back-to-list', { bubbles: true }))}"
-      >
-        ←
-        Back 
-      </button>
+      <div class="sr-product-navigation">
+        <button 
+          class="sr-back-button" 
+          @click="${() => this.dispatchEvent(new CustomEvent('back-to-list', { bubbles: true }))}"
+        >
+          ←
+          Back
+        </button>
+        
+        <div class="sr-product-nav-buttons">
+          <button 
+            class="sr-nav-button sr-nav-prev ${!this.prevProduct ? 'disabled' : ''}"
+            ?disabled="${!this.prevProduct}"
+            @click="${() => this.navigateToProduct(this.prevProduct)}"
+          >
+            ← Previous
+          </button>
+          <button 
+            class="sr-nav-button sr-nav-next ${!this.nextProduct ? 'disabled' : ''}"
+            ?disabled="${!this.nextProduct}"
+            @click="${() => this.navigateToProduct(this.nextProduct)}"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
     `;
   }
 
