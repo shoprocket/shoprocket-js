@@ -187,6 +187,7 @@
   /* Product Image */
   --sr-product-image-bg: var(--color-hover);
   --sr-product-image-radius: 0; /* Top corners handled by card */
+  --sr-product-image-aspect-ratio: 3/4; /* Default aspect ratio, can be overridden */
 
   /* Product Info */
   --sr-product-title-color: var(--color-text);
@@ -270,7 +271,7 @@
   /* Product Image Container */
   .sr-product-image-container {
     @apply relative w-full overflow-hidden flex-shrink-0 mb-4;
-    aspect-ratio: 3/4;
+    aspect-ratio: var(--sr-product-image-aspect-ratio);
     background: var(--sr-product-image-bg);
     border-radius: var(--sr-product-image-radius);
   }
@@ -1260,10 +1261,10 @@
 
 /* Product Card Skeleton Styles */
 .sr-product-card-skeleton {
-  @apply bg-white rounded-lg shadow-md overflow-hidden;
+  @apply bg-white rounded-lg overflow-hidden;
   background: var(--color-surface);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-md);
+  /* box-shadow: var(--shadow-md); */
 }
 
 .sr-product-card-skeleton-content {
@@ -1271,11 +1272,11 @@
 }
 
 .sr-skeleton-title {
-  @apply h-8 w-3/4 rounded mb-4;
+  @apply h-5 w-3/4 rounded mb-4;
 }
 
 .sr-skeleton-price {
-  @apply h-10 w-24 rounded mb-6;
+  @apply h-3 w-24 rounded mb-6;
 }
 
 .sr-skeleton-button {
@@ -1311,7 +1312,8 @@
 }
 
 .sr-skeleton-image {
-  @apply relative aspect-square;
+  @apply relative;
+  aspect-ratio: var(--sr-product-image-aspect-ratio);
 }
 
 .sr-skeleton-summary {
@@ -1742,4 +1744,47 @@
 
 .sr-catalog-list-view.hidden {
   display: none;
+}
+
+/* Pagination */
+.sr-pagination {
+  @apply flex items-center justify-center gap-2 mt-8 py-4;
+}
+
+.sr-pagination-pages {
+  @apply flex items-center gap-1;
+}
+
+.sr-pagination-button {
+  @apply px-3 py-2 bg-transparent border rounded-md cursor-pointer text-sm font-medium transition-all;
+  border-color: var(--color-border);
+  color: var(--color-on-surface);
+}
+
+.sr-pagination-button:hover:not(:disabled) {
+  background: var(--color-hover);
+}
+
+.sr-pagination-button:disabled {
+  @apply cursor-not-allowed opacity-40;
+}
+
+.sr-pagination-page {
+  @apply min-w-[2.5rem] text-center;
+}
+
+.sr-pagination-page.active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+  @apply cursor-default opacity-100;
+}
+
+.sr-pagination-page.active:hover {
+  background: var(--color-primary);
+}
+
+.sr-pagination-ellipsis {
+  @apply px-2 text-sm;
+  color: var(--color-text-muted);
 }
