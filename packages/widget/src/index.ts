@@ -19,7 +19,6 @@ import { ProductCatalog } from './components/product-catalog';
 import { ProductDetail } from './components/product-detail';
 import { CartWidget } from './components/cart';
 import { initializeConfig, getConfig } from './core/config';
-import { Tooltip } from './components/tooltip';
 
 // ProductGrid and CartWidget are now imported from their respective files
 

@@ -96,7 +96,6 @@ export class WidgetManager {
         // Create new session
         const session = await this.sdk!.session.create() as unknown as Session | ApiResponse<Session>;
         const sessionToken = 'data' in session ? session.data.session_token : session.session_token;
-        const sessionId = 'data' in session ? session.data.id : session.id;
         if (sessionToken) {
           this.sdk!.setSessionToken(sessionToken);
           setCookie(sessionKey, sessionToken);

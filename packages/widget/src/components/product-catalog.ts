@@ -70,7 +70,7 @@ export class ProductCatalog extends ShoprocketElement {
       await this.showList();
     } else if (state.view === 'list' && this.currentView === 'list') {
       // We're in list view - check if page changed
-      const targetPage = state.params.page ? parseInt(state.params.page, 10) : 1;
+      const targetPage = state.params['page'] ? parseInt(state.params['page'], 10) : 1;
       if (targetPage !== this.currentPage) {
         await this.loadProducts(targetPage);
         this.scrollToTop();
@@ -172,7 +172,7 @@ export class ProductCatalog extends ShoprocketElement {
       // Handle initial state - either product view or list with page
       if (initialState.view === 'list') {
         // Load products for the initial page (default 1 or from URL)
-        const pageToLoad = initialState.page || 1;
+        const pageToLoad = initialState.params['page'] ? parseInt(initialState.params['page'], 10) : 1;
         await this.loadProducts(pageToLoad);
       } else {
         // Product view will be handled by updateViewFromState

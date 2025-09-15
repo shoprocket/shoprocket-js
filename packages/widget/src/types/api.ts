@@ -54,6 +54,8 @@ export interface Product {
   track_inventory?: boolean;
   in_stock?: boolean;
   total_inventory?: number;
+  category?: string;
+  brand?: string;
 }
 
 export interface CartItem {

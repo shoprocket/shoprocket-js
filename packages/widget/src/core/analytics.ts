@@ -1,4 +1,13 @@
-import type { ShoprocketCore, EventData } from '@shoprocket/core';
+import type { ShoprocketCore } from '@shoprocket/core';
+
+interface EventData {
+  event: string;
+  timestamp?: number;
+  store_id?: string;
+  context?: Record<string, any>;
+  properties?: Record<string, any>;
+  ecommerce?: Record<string, any>;
+}
 import { getCookie, setCookie } from '../utils/cookie-utils';
 
 export interface AnalyticsConfig {
@@ -10,7 +19,6 @@ export class Analytics {
   private sdk: ShoprocketCore;
   private config: AnalyticsConfig;
   private pageLoadTime: number;
-  private pendingEvents: EventData[] = []; // Only for page unload
 
   constructor(sdk: ShoprocketCore, config: AnalyticsConfig = {}) {
     this.sdk = sdk;
@@ -67,7 +75,10 @@ export class Analytics {
     };
 
     // Send immediately via beacon
-    this.sdk.events.track(eventData);
+    const publishableKey = (this.sdk as any).getPublishableKey?.() || 
+                          (this.sdk as any).getConfig?.()?.publicKey;
+    const url = `${(this.sdk as any).getApiUrl?.() || (this.sdk as any).config?.apiUrl}/public/${publishableKey}/events`;
+    navigator.sendBeacon(url, JSON.stringify(eventData));
 
     // Broadcast to third-party trackers
     if (this.config.broadcast) {
@@ -106,7 +117,7 @@ export class Analytics {
    */
   private getContext(): EventData['context'] {
     // Get session ID from cookie (it's the same as the token)
-    const publishableKey = this.sdk.getPublishableKey?.() || 
+    const publishableKey = (this.sdk as any).getPublishableKey?.() || 
                           (this.sdk as any).getConfig?.()?.publicKey;
     const sessionId = getCookie(`shoprocket_session_${publishableKey}`);
     
