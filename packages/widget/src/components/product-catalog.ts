@@ -67,7 +67,7 @@ export class ProductCatalog extends ShoprocketElement {
       await this.showProductBySlug(state.productSlug);
     } else if (this.currentView === 'product') {
       // Only call showList when actually transitioning FROM product view
-      this.showList();
+      await this.showList();
     } else if (state.view === 'list' && this.currentView === 'list') {
       // We're in list view - check if page changed
       const targetPage = state.page || 1; // Default to page 1 if no page specified
@@ -418,10 +418,15 @@ export class ProductCatalog extends ShoprocketElement {
     // });
   }
 
-  private showList(): void {
+  private async showList(): Promise<void> {
     this.currentView = 'list';
     this.selectedProduct = undefined;
     this.productSlugToLoad = undefined;
+    
+    // Load products if we don't have any yet
+    if (this.products.length === 0) {
+      await this.loadProducts(this.currentPage);
+    }
     
     // Restore scroll position after DOM updates
     requestAnimationFrame(() => {
@@ -436,13 +441,13 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
 
-  private backToList(): void {
+  private async backToList(): Promise<void> {
     if (this.isPrimary) {
       // Primary instance updates URL
       this.hashRouter.navigateToList();
     } else {
       // Non-primary instances just update local state
-      this.showList();
+      await this.showList();
     }
   }
   
