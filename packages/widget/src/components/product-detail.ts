@@ -146,9 +146,14 @@ export class ProductDetail extends ShoprocketElement {
         requestAnimationFrame(() => {
           this.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load product:', err);
-        this.showError('Unable to load product details. Please try again later.');
+        // Check if it's a 404 error
+        if (err.response?.status === 404 || err.status === 404) {
+          this.showError('Product not found. This product may no longer be available.', 0); // Don't auto-hide
+        } else {
+          this.showError('Unable to load product details. Please try again later.');
+        }
       }
     });
     
@@ -158,6 +163,21 @@ export class ProductDetail extends ShoprocketElement {
 
 
   protected override render(): TemplateResult {
+    // Show error state if there's an error
+    if (this.errorMessage) {
+      return html`
+        <div class="sr-product-detail" data-shoprocket="product-detail">
+          ${this.renderBackButton()}
+          <div class="sr-empty-state">
+            <h3 class="sr-empty-state-title">Product not found</h3>
+            <p class="sr-empty-state-message">
+              ${this.errorMessage}
+            </p>
+          </div>
+        </div>
+      `;
+    }
+    
     // Use full product if available, otherwise use basic product data
     const displayProduct = this.fullProduct || this.product;
     

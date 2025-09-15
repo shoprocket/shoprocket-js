@@ -1788,3 +1788,29 @@
   @apply px-2 text-sm;
   color: var(--color-text-muted);
 }
+
+/* Empty State */
+.sr-empty-state {
+  @apply text-center py-12 px-6;
+  grid-column: 1 / -1; /* Span full width of grid */
+  color: var(--color-text-muted);
+}
+
+.sr-empty-state-title {
+  @apply text-xl font-semibold mb-2;
+  color: var(--color-text);
+}
+
+.sr-empty-state-message {
+  @apply text-base max-w-md mx-auto;
+  color: var(--color-text-muted);
+}
+
+/* Product Detail Error State */
+.sr-product-detail-error {
+  @apply py-12 px-6 text-center;
+}
+
+.sr-product-detail-error .sr-error-message {
+  @apply max-w-md mx-auto;
+}

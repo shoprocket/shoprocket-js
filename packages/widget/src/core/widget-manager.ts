@@ -58,6 +58,9 @@ export class WidgetManager {
 
       // Auto-mount any widgets already in DOM
       this.autoMount();
+
+      // Auto-render floating cart button unless disabled
+      this.autoRenderCart();
     } catch (error) {
       // Initialization failed
       throw error;
@@ -84,8 +87,12 @@ export class WidgetManager {
         }
       }
 
-      // Get store info (also non-blocking)
-      await this.sdk!.store.get();
+      // Get store info and cache it (also non-blocking)
+      const storeData = await this.sdk!.store.get();
+      // Store it globally for components to use
+      (window as any).ShoprocketWidget = (window as any).ShoprocketWidget || {};
+      (window as any).ShoprocketWidget.store = storeData;
+      (window as any).ShoprocketWidget.sdk = this.sdk;
     } catch (error) {
       // Session initialization failed - log but don't throw
       console.warn('Failed to initialize session:', error);
@@ -107,6 +114,34 @@ export class WidgetManager {
    */
   getConfig(): WidgetConfig {
     return this.config;
+  }
+
+  /**
+   * Auto-render floating cart button
+   */
+  private autoRenderCart(): void {
+    // Check if cart is already mounted manually
+    const existingCart = document.querySelector('shoprocket-cart');
+    if (existingCart) {
+      // Cart already exists, don't auto-render
+      return;
+    }
+
+    // Check for opt-out via data attribute on script tag
+    const scriptTag = document.querySelector('script[src*="shoprocket"][data-no-cart]');
+    if (scriptTag) {
+      // User explicitly disabled auto-cart
+      return;
+    }
+
+    // Create floating cart button
+    const floatingCart = document.createElement('div');
+    floatingCart.setAttribute('data-shoprocket', 'cart');
+    floatingCart.setAttribute('data-floating', 'true');
+    document.body.appendChild(floatingCart);
+
+    // Mount the cart widget
+    this.mount(floatingCart, 'cart', { floating: 'true' });
   }
 
   /**

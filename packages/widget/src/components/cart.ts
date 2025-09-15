@@ -21,6 +21,9 @@ export class CartWidget extends ShoprocketElement {
   @property({ type: String, attribute: 'data-style' })
   widgetStyle = 'bubble';
 
+  @property({ type: Boolean })
+  floating = false;
+
   @state()
   private isOpen = false;
 
@@ -99,16 +102,16 @@ export class CartWidget extends ShoprocketElement {
       get data(): Cart | null { return self.cart; }
     };
     
-    // Store SDK reference globally for formatters
-    (window as any).ShoprocketWidget.sdk = this.sdk;
-    
-    // Fetch and store store data for currency formatting
-    try {
-      const storeData = await this.sdk.store.get();
-      (window as any).ShoprocketWidget.store = storeData;
-    } catch (e) {
-      // Store data fetch failed, will fallback to USD
+    // Store SDK reference globally for formatters if not already there
+    if (!(window as any).ShoprocketWidget) {
+      (window as any).ShoprocketWidget = {};
     }
+    if (!(window as any).ShoprocketWidget.sdk) {
+      (window as any).ShoprocketWidget.sdk = this.sdk;
+    }
+    
+    // Store data should already be cached by widget manager
+    // If not available yet, wait a bit or skip (formatters will use defaults)
     
     // Load cart data
     await this.loadCart();
@@ -431,7 +434,7 @@ export class CartWidget extends ShoprocketElement {
       ></div>
       
       <!-- Cart Toggle Button -->
-      <div class="sr-cart-toggle-container sr-cart-toggle-${this.position}" data-shoprocket="cart-toggle">
+      <div class="sr-cart-toggle-container sr-cart-toggle-${this.position} ${this.floating ? 'sr-cart-floating' : ''}" data-shoprocket="cart-toggle">
         <button 
           class="sr-cart-toggle-button ${this.isOpen ? 'hidden' : ''}"
           @click="${this.toggleCart}"

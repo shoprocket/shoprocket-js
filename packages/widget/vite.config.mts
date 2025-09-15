@@ -6,11 +6,12 @@ export default defineConfig({
   plugins: [tailwindcss()],
   publicDir: 'public',
   build: {
+    emptyOutDir: false, // Don't clear dist folder (loader is already there)
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
       name: 'Shoprocket',
       formats: ['iife'], // Single file for CDN
-      fileName: () => 'shoprocket.js'
+      fileName: () => 'shoprocket-bundle.js'
     },
     rollupOptions: {
       output: {
@@ -44,7 +45,7 @@ export default defineConfig({
     target: 'es2020'
   },
   server: {
-    port: 3000,
+    port: 5173,
     open: '/index.html'
   },
   // Optimize dependencies

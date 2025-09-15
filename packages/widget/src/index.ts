@@ -23,13 +23,7 @@ import { Tooltip } from './components/tooltip';
 
 // ProductGrid and CartWidget are now imported from their respective files
 
-// Capture script info immediately while currentScript is available
-const scriptUrl = (document.currentScript as HTMLScriptElement)?.src || '';
-
-// Create global instance
-const shoprocket = new WidgetManager();
-
-// Expose to window
+// Declare global types
 declare global {
   interface Window {
     Shoprocket: WidgetManager;
@@ -40,8 +34,19 @@ declare global {
         toggle: () => void;
       };
     };
+    __shoprocketComponents: Record<string, typeof ShoprocketElement>;
   }
 }
+
+// The loader ensures this script only runs once, so we can proceed directly
+
+// Capture script info immediately while currentScript is available
+const scriptUrl = (document.currentScript as HTMLScriptElement)?.src || '';
+
+// Create global instance
+const shoprocket = new WidgetManager();
+
+// Expose to window
 window.Shoprocket = shoprocket;
 
 // Create SDK object using events for clean component communication
@@ -86,11 +91,6 @@ function autoInit(): void {
 }
 
 // Register components globally for the widget manager
-declare global {
-  interface Window {
-    __shoprocketComponents: Record<string, typeof ShoprocketElement>;
-  }
-}
 window.__shoprocketComponents = {
   'catalog': ProductCatalog,      // Full browsable catalog
   'products': ProductCatalog,      // Alias for backward compatibility
