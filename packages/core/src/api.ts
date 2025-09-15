@@ -162,4 +162,16 @@ export class ApiClient {
   async delete<T = any>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
+
+  getStoreId(): string {
+    return this.config.publishableKey;
+  }
+
+  getPublishableKey(): string {
+    return this.config.publishableKey;
+  }
+
+  getApiUrl(): string {
+    return this.config.apiUrl;
+  }
 }

@@ -140,6 +140,21 @@ export class ProductDetail extends ShoprocketElement {
           this.selectedVariant = productData.variants[0];
         }
         
+        // Track product view
+        if (this.fullProduct) {
+          this.trackEcommerce('view_item', {
+            currency: this.getStoreCurrency(),
+            value: this.fullProduct.price,
+            items: [{
+              item_id: this.fullProduct.id,
+              item_name: this.fullProduct.name,
+              price: this.fullProduct.price,
+              item_category: this.fullProduct.category,
+              item_brand: this.fullProduct.brand
+            }]
+          });
+        }
+        
         this.clearError();
         
         // Scroll to top after full product loads to avoid layout shift
@@ -474,7 +489,8 @@ export class ProductDetail extends ShoprocketElement {
       variant_name: this.getSelectedVariantText() || undefined,
       quantity: 1,
       price: { amount: this.getSelectedPrice() }, // Format as Money object
-      media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined
+      media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined,
+      source_url: window.location.href
     };
     
     // Include stock info for validation

@@ -265,17 +265,39 @@ export class CartWidget extends ShoprocketElement {
           id: item.product_id,
           name: item.product_name,
           price: item.price,
-          media: item.media?.[0],
+          media: item.image || item.media?.[0],
           variantText: item.variant_name
         }
       }
     }));
     
-    // Fire and forget API call
+    // Track add to cart event
+    this.trackEcommerce('add_to_cart', {
+      currency: this.getStoreCurrency(),
+      value: item.price * item.quantity,
+      items: [{
+        item_id: item.product_id,
+        item_name: item.product_name,
+        price: item.price,
+        quantity: item.quantity,
+        item_variant: item.variant_id,
+        item_category: item.category
+      }]
+    });
+    
+    // Make API call and refresh cart with real data
     this.sdk.cart.addItem({
       product_id: item.product_id,
       variant_id: item.variant_id,
-      quantity: item.quantity
+      quantity: item.quantity,
+      source_url: item.source_url
+    }).then(response => {
+      // Replace optimistic cart with real cart data
+      if (response) {
+        this.cart = response;
+        this.requestUpdate();
+        this.dispatchCartUpdatedEvent();
+      }
     }).catch(error => {
       console.error('Failed to add to cart:', error);
       // Don't rollback - keep optimistic update
@@ -416,10 +438,22 @@ export class CartWidget extends ShoprocketElement {
   
   private openCart(): void {
     this.hashRouter.openCart();
+    
+    // Track cart opened
+    this.trackEvent('cart_opened', {
+      cart_value: this.cart?.totals?.subtotal || 0,
+      items_count: this.cart?.items?.length || 0
+    });
   }
   
   private closeCart(): void {
     this.hashRouter.closeCart();
+    
+    // Track cart closed
+    this.trackEvent('cart_closed', {
+      cart_value: this.cart?.totals?.subtotal || 0,
+      items_count: this.cart?.items?.length || 0
+    });
   }
 
   protected override render(): TemplateResult {
@@ -505,7 +539,7 @@ export class CartWidget extends ShoprocketElement {
           <div class="sr-cart-item-image"
                @click="${() => this.navigateToProduct(item)}">
             <img 
-              src="${this.getMediaUrl(item.media?.[0], 'w=128,h=128,fit=cover')}" 
+              src="${this.getMediaUrl(item.image, 'w=128,h=128,fit=cover')}" 
               alt="${item.product_name}"
               @error="${(e: Event) => this.handleImageError(e)}"
             >

@@ -101,6 +101,33 @@ export class BaseComponent extends LitElement {
       }, duration);
     }
   }
+
+  /**
+   * Track an analytics event
+   */
+  protected trackEvent(eventName: string, properties: Record<string, any> = {}): void {
+    const analytics = (window as any).Shoprocket?.analytics;
+    if (analytics) {
+      analytics.track(eventName, properties);
+    }
+  }
+
+  /**
+   * Track an e-commerce event
+   */
+  protected trackEcommerce(eventName: string, data: Record<string, any>): void {
+    const analytics = (window as any).Shoprocket?.analytics;
+    if (analytics) {
+      analytics.trackEcommerce(eventName, data);
+    }
+  }
+
+  /**
+   * Get the store currency
+   */
+  protected getStoreCurrency(): string {
+    return (window as any).ShoprocketWidget?.store?.currency || 'USD';
+  }
 }
 
 // Re-export as ShoprocketElement for backwards compatibility

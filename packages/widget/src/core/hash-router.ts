@@ -1,25 +1,26 @@
 /**
  * Centralized Hash Router - Single source of truth for URL hash state
  * 
- * Hash format: #!/[product-slug][/~/cart][?page=N]
+ * Hash format: #!/[product-slug][&param=value...][/~/cart]
  * Examples:
  * - "" or "#" -> list view, cart closed
  * - "#/~/cart" -> list view, cart open  
- * - "#?page=2" -> list view page 2
+ * - "#!/page=2" -> list view page 2
  * - "#!/product-slug" -> product view, cart closed
  * - "#!/product-slug/~/cart" -> product view, cart open
+ * - "#!/currency=GBP&page=3&sort=created/~/cart" -> list with params, cart open
  */
 
 export interface HashState {
   view: 'list' | 'product';
   productSlug?: string;
   cartOpen: boolean;
-  page?: number;
+  params: Record<string, string>; // Flexible parameters
 }
 
 export class HashRouter extends EventTarget {
   private static instance: HashRouter | null = null;
-  private currentState: HashState = { view: 'list', cartOpen: false };
+  private currentState: HashState = { view: 'list', cartOpen: false, params: {} };
 
   private constructor() {
     super();
@@ -63,61 +64,80 @@ export class HashRouter extends EventTarget {
     const hash = window.location.hash;
     
     if (!hash || hash === '#') {
-      return { view: 'list', cartOpen: false };
+      return { view: 'list', cartOpen: false, params: {} };
     }
 
-    // Extract page number from hash - supports both page=N and ~pN formats
-    let page: number | undefined;
-    const pageMatch = hash.match(/page=(\d+)|~p(\d+)/);
-    if (pageMatch) {
-      const pageStr = pageMatch[1] || pageMatch[2];
-      if (pageStr) {
-        page = parseInt(pageStr, 10);
-      }
-    }
-
-    // Check for cart state
+    // Check for cart state first (it's always at the end)
     const cartOpen = hash.includes('/~/cart');
     
-    // Check if this is just pagination (#!/page=N or #!/~pN)
-    if (hash.match(/^#!\/(page=\d+|~p\d+)$/)) {
-      return { view: 'list', cartOpen: false, page };
+    // Remove cart suffix to parse the rest
+    const hashWithoutCart = hash.replace('/~/cart', '');
+    
+    // Just cart open with no other params: #/~/cart
+    if (hashWithoutCart === '#' || hashWithoutCart === '') {
+      return { view: 'list', cartOpen: true, params: {} };
     }
     
-    // Extract product slug
-    if (hash.startsWith('#!/')) {
-      const hashPath = hash.substring(3); // Remove #!/
+    // Parse the main part
+    if (hashWithoutCart.startsWith('#!/')) {
+      const content = hashWithoutCart.substring(3); // Remove #!/
       
-      // Check if it's a page parameter first
-      if (hashPath.startsWith('page=') || hashPath.startsWith('~p')) {
-        return { view: 'list', cartOpen: false, page };
+      // Parse parameters (key=value pairs separated by &)
+      const params: Record<string, string> = {};
+      let productSlug: string | undefined;
+      
+      // Split by & to get all parts
+      const parts = content.split('&');
+      
+      // Check if first part is a product slug (doesn't contain =)
+      if (parts[0] && !parts[0].includes('=')) {
+        productSlug = parts[0];
+        // Remove the product slug from parts
+        parts.shift();
       }
       
-      // Split by / or ? but exclude page parameter
-      const parts = hashPath.split(/[/?]/);
-      const productSlug = parts[0];
+      // Parse remaining parameters
+      for (const part of parts) {
+        if (part.includes('=')) {
+          const [key, value] = part.split('=', 2);
+          params[key] = decodeURIComponent(value);
+        }
+      }
       
-      // Only treat as product if it's not a page parameter
-      if (productSlug && productSlug !== '~' && !productSlug.startsWith('page=')) {
-        return { view: 'product', productSlug, cartOpen, page };
+      // Determine view type
+      if (productSlug) {
+        return { view: 'product', productSlug, cartOpen, params };
+      } else {
+        return { view: 'list', cartOpen, params };
       }
     }
     
-    // Just cart open on list view: #/~/cart
-    if (hash === '#/~/cart') {
-      return { view: 'list', cartOpen: true, page };
-    }
-
-    return { view: 'list', cartOpen: false, page };
+    return { view: 'list', cartOpen: false, params: {} };
   }
 
   private hasStateChanged(oldState: HashState, newState: HashState): boolean {
-    return (
-      oldState.view !== newState.view ||
-      oldState.productSlug !== newState.productSlug ||
-      oldState.cartOpen !== newState.cartOpen ||
-      oldState.page !== newState.page
-    );
+    // Check basic properties
+    if (oldState.view !== newState.view ||
+        oldState.productSlug !== newState.productSlug ||
+        oldState.cartOpen !== newState.cartOpen) {
+      return true;
+    }
+    
+    // Check if params changed
+    const oldKeys = Object.keys(oldState.params);
+    const newKeys = Object.keys(newState.params);
+    
+    if (oldKeys.length !== newKeys.length) {
+      return true;
+    }
+    
+    for (const key of oldKeys) {
+      if (oldState.params[key] !== newState.params[key]) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   // Public API for components to update state
@@ -128,16 +148,12 @@ export class HashRouter extends EventTarget {
       return; // Already open
     }
 
-    let newHash: string;
-    if (currentHash && currentHash !== '#' && currentHash.startsWith('#!/')) {
-      // On product page: #!/product-slug -> #!/product-slug/~/cart
-      newHash = currentHash + '/~/cart';
+    // Simply append /~/cart to whatever hash we have
+    if (!currentHash || currentHash === '#') {
+      window.location.hash = '#/~/cart';
     } else {
-      // On list view: '' or '#' -> #/~/cart
-      newHash = '#/~/cart';
+      window.location.hash = currentHash + '/~/cart';
     }
-    
-    window.location.hash = newHash;
   }
 
   closeCart(): void {
@@ -151,31 +167,114 @@ export class HashRouter extends EventTarget {
     window.location.hash = newHash === '#!' ? '' : newHash;
   }
 
-  navigateToProduct(productSlug: string): void {
-    const cartSuffix = this.currentState.cartOpen ? '/~/cart' : '';
-    window.location.hash = `#!/${productSlug}${cartSuffix}`;
+  navigateToProduct(productSlug: string, preserveParams: boolean = false): void {
+    let newHash = `#!/${productSlug}`;
+    
+    // Optionally preserve existing parameters
+    if (preserveParams && Object.keys(this.currentState.params).length > 0) {
+      const paramString = Object.entries(this.currentState.params)
+        .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+        .join('&');
+      newHash += `&${paramString}`;
+    }
+    
+    // Preserve cart state
+    if (this.currentState.cartOpen) {
+      newHash += '/~/cart';
+    }
+    
+    window.location.hash = newHash;
   }
 
-  navigateToList(): void {
-    const cartSuffix = this.currentState.cartOpen ? '/~/cart' : '';
-    window.location.hash = cartSuffix ? '#/~/cart' : '';
+  navigateToList(preserveParams: boolean = true): void {
+    if (preserveParams && Object.keys(this.currentState.params).length > 0) {
+      // Build hash with parameters
+      const paramString = Object.entries(this.currentState.params)
+        .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+        .join('&');
+      
+      let newHash = `#!/${paramString}`;
+      if (this.currentState.cartOpen) {
+        newHash += '/~/cart';
+      }
+      window.location.hash = newHash;
+    } else {
+      // Simple navigation
+      const cartSuffix = this.currentState.cartOpen ? '/~/cart' : '';
+      window.location.hash = cartSuffix ? '#/~/cart' : '';
+    }
   }
 
   getCurrentState(): HashState {
-    return { ...this.currentState };
+    return { 
+      ...this.currentState,
+      params: { ...this.currentState.params }
+    };
   }
   
-  updateCatalogState(updates: { page?: number }): void {
-    let newHash: string;
-    if (updates.page && updates.page > 1) {
-      newHash = `#!/page=${updates.page}`;
-    } else {
-      // Use #!/page=1 for page 1 to maintain consistent format and prevent jump
-      newHash = '#!/page=1';
+  // Generic method to update any parameters while preserving others
+  updateParams(updates: Record<string, string | undefined>, preserveCart: boolean = true): void {
+    const newParams = { ...this.currentState.params };
+    
+    // Apply updates (undefined values remove the param)
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined) {
+        delete newParams[key];
+      } else {
+        newParams[key] = value;
+      }
     }
     
-    if (window.location.hash !== newHash) {
-      window.location.hash = newHash;
+    // Build new hash
+    let newHash = '#!/';
+    
+    // Add product slug if on product view
+    if (this.currentState.view === 'product' && this.currentState.productSlug) {
+      newHash += this.currentState.productSlug;
+      if (Object.keys(newParams).length > 0) {
+        newHash += '&';
+      }
     }
+    
+    // Add parameters
+    if (Object.keys(newParams).length > 0) {
+      const paramString = Object.entries(newParams)
+        .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+        .join('&');
+      newHash += paramString;
+    }
+    
+    // Preserve cart state if requested
+    if (preserveCart && this.currentState.cartOpen) {
+      newHash += '/~/cart';
+    }
+    
+    // Handle empty state
+    if (newHash === '#!/') {
+      newHash = '';
+    }
+    
+    window.location.hash = newHash;
+  }
+  
+  // Convenience method for catalog-specific updates
+  updateCatalogState(updates: { page?: number; sort?: string; limit?: number; currency?: string }): void {
+    const params: Record<string, string | undefined> = {};
+    
+    // Convert numbers to strings, handle undefined
+    if (updates.page !== undefined) {
+      params.page = updates.page > 1 ? String(updates.page) : undefined;
+    }
+    if (updates.sort !== undefined) {
+      params.sort = updates.sort || undefined;
+    }
+    if (updates.limit !== undefined) {
+      params.limit = updates.limit ? String(updates.limit) : undefined;
+    }
+    if (updates.currency !== undefined) {
+      params.currency = updates.currency || undefined;
+    }
+    
+    this.updateParams(params);
   }
 }
