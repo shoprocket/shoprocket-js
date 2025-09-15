@@ -67,10 +67,10 @@ jobs:
             -H "Content-Type: application/json" \
             --data '{
               "prefixes": [
-                "https://cdn.shoprocket.io/shoprocket.js",
-                "https://cdn.shoprocket.io/shoprocket-bundle.js",
-                "https://dev-cdn.shoprocket.io/shoprocket.js",
-                "https://dev-cdn.shoprocket.io/shoprocket-bundle.js"
+                "cdn.shoprocket.io/shoprocket.js",
+                "cdn.shoprocket.io/shoprocket-bundle.js",
+                "dev-cdn.shoprocket.io/shoprocket.js",
+                "dev-cdn.shoprocket.io/shoprocket-bundle.js"
               ]
             }'
           
