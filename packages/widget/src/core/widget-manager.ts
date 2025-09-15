@@ -3,6 +3,7 @@ import type { Session, ApiResponse } from '../types/api';
 import type { BaseComponent } from './base-component';
 import type { LitElement } from 'lit';
 import { getCookie, setCookie } from '../utils/cookie-utils';
+import { Analytics } from './analytics';
 
 export interface WidgetConfig {
   publicKey?: string;
@@ -26,6 +27,7 @@ export class WidgetManager {
   private initialized = false;
   private mountedWidgets = new Map<Element, LitElement>();
   private config: WidgetConfig = {};
+  public analytics: Analytics | null = null;
 
   /**
    * Initialize the widget with a public key
@@ -53,6 +55,9 @@ export class WidgetManager {
       // Initialize session asynchronously (non-blocking)
       this.initializeSessionAsync(publicKey);
 
+      // Initialize analytics
+      this.analytics = new Analytics(this.sdk);
+
       // Mark as initialized immediately so components can start loading
       this.initialized = true;
 
@@ -77,21 +82,38 @@ export class WidgetManager {
       
       if (storedToken) {
         this.sdk!.setSessionToken(storedToken);
+        // For existing sessions, we don't have the session ID readily available
+        // Analytics will still work but without session_id in context
+        // Wait for store data before initializing analytics
+        this.sdk!.store.get().then(storeData => {
+          (window as any).ShoprocketWidget = (window as any).ShoprocketWidget || {};
+          (window as any).ShoprocketWidget.store = storeData;
+          if (this.analytics) {
+            this.analytics.init();
+          }
+        });
       } else {
         // Create new session
         const session = await this.sdk!.session.create() as unknown as Session | ApiResponse<Session>;
         const sessionToken = 'data' in session ? session.data.session_token : session.session_token;
+        const sessionId = 'data' in session ? session.data.id : session.id;
         if (sessionToken) {
           this.sdk!.setSessionToken(sessionToken);
           setCookie(sessionKey, sessionToken);
+          
+          // Get store data then initialize analytics
+          const storeData = await this.sdk!.store.get();
+          (window as any).ShoprocketWidget = (window as any).ShoprocketWidget || {};
+          (window as any).ShoprocketWidget.store = storeData;
+          
+          if (this.analytics) {
+            this.analytics.init();
+          }
         }
       }
 
-      // Get store info and cache it (also non-blocking)
-      const storeData = await this.sdk!.store.get();
-      // Store it globally for components to use
+      // Store SDK reference globally
       (window as any).ShoprocketWidget = (window as any).ShoprocketWidget || {};
-      (window as any).ShoprocketWidget.store = storeData;
       (window as any).ShoprocketWidget.sdk = this.sdk;
     } catch (error) {
       // Session initialization failed - log but don't throw

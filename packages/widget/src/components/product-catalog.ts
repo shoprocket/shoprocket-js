@@ -70,7 +70,7 @@ export class ProductCatalog extends ShoprocketElement {
       await this.showList();
     } else if (state.view === 'list' && this.currentView === 'list') {
       // We're in list view - check if page changed
-      const targetPage = state.page || 1; // Default to page 1 if no page specified
+      const targetPage = state.params.page ? parseInt(state.params.page, 10) : 1;
       if (targetPage !== this.currentPage) {
         await this.loadProducts(targetPage);
         this.scrollToTop();
@@ -110,6 +110,21 @@ export class ProductCatalog extends ShoprocketElement {
             // Fallback to standard pagination structure if it exists
             this.totalPages = response.meta.pagination.total_pages;
           }
+        }
+        
+        // Track product list view
+        if (this.products.length > 0) {
+          this.trackEcommerce('view_item_list', {
+            item_list_id: this.category || 'all_products',
+            item_list_name: this.category || 'All Products',
+            items: this.products.slice(0, 10).map((product, index) => ({
+              item_id: product.id,
+              item_name: product.name,
+              price: product.price,
+              item_category: product.category,
+              index
+            }))
+          });
         }
         
         this.clearError();
@@ -216,6 +231,18 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   private handleProductClick(product: Product): void {
+    // Track product selection
+    this.trackEcommerce('select_item', {
+      item_list_id: this.category || 'all_products',
+      item_list_name: this.category || 'All Products',
+      items: [{
+        item_id: product.id,
+        item_name: product.name,
+        price: product.price,
+        item_category: product.category
+      }]
+    });
+    
     this.showProductDetail(product);
   }
   
@@ -254,7 +281,8 @@ export class ProductCatalog extends ShoprocketElement {
       variant_name: undefined, // No variant text for default variant
       quantity: 1,
       price: product.price, // Already in correct format from API
-      media: product.media?.[0] ? [product.media[0]] : undefined
+      media: product.media?.[0] ? [product.media[0]] : undefined,
+      source_url: window.location.href
     };
     
     // Include stock info for validation

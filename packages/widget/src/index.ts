@@ -107,5 +107,5 @@ if (document.readyState === 'loading') {
   autoInit();
 }
 
-// Export for module usage
-export { WidgetManager, ShoprocketElement, ProductCatalog, ProductDetail, CartWidget, Tooltip };
+// Note: We don't export anything because this is bundled as IIFE
+// The window.Shoprocket assignment above is what exposes our API
