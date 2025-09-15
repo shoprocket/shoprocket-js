@@ -100,7 +100,9 @@ export class HashRouter extends EventTarget {
       for (const part of parts) {
         if (part.includes('=')) {
           const [key, value] = part.split('=', 2);
-          params[key] = decodeURIComponent(value);
+          if (key && value) {
+            params[key] = decodeURIComponent(value);
+          }
         }
       }
       
@@ -263,16 +265,16 @@ export class HashRouter extends EventTarget {
     
     // Convert numbers to strings, handle undefined
     if (updates.page !== undefined) {
-      params.page = updates.page > 1 ? String(updates.page) : undefined;
+      params['page'] = updates.page > 1 ? String(updates.page) : undefined;
     }
     if (updates.sort !== undefined) {
-      params.sort = updates.sort || undefined;
+      params['sort'] = updates.sort || undefined;
     }
     if (updates.limit !== undefined) {
-      params.limit = updates.limit ? String(updates.limit) : undefined;
+      params['limit'] = updates.limit ? String(updates.limit) : undefined;
     }
     if (updates.currency !== undefined) {
-      params.currency = updates.currency || undefined;
+      params['currency'] = updates.currency || undefined;
     }
     
     this.updateParams(params);
