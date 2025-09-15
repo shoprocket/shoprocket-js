@@ -31,6 +31,16 @@ export class ProductListTemplates {
       return ProductListTemplates.renderSkeletonGrid(limit);
     }
 
+    // Empty content for when no products are found
+    const emptyContent = !isLoading && !products.length && !errorMessage ? html`
+      <div class="sr-empty-state">
+        <h3 class="sr-empty-state-title">No products found</h3>
+        <p class="sr-empty-state-message">
+          There are no products available at the moment.<br> Please check back later.
+        </p>
+      </div>
+    ` : '';
+
     return html`
       ${errorMessage ? html`
         <div class="sr-error-message">
@@ -43,7 +53,10 @@ export class ProductListTemplates {
         </div>
       ` : ''}
       <div class="sr-product-grid" data-shoprocket="product-list">
-        ${products.map(product => ProductListTemplates.renderProduct(product, addedToCartProducts, handlers))}
+        ${products.length > 0 
+          ? products.map(product => ProductListTemplates.renderProduct(product, addedToCartProducts, handlers))
+          : emptyContent
+        }
       </div>
     `;
   }
