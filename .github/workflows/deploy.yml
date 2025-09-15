@@ -61,12 +61,12 @@ jobs:
         run: |
           echo "🔄 Clearing Cloudflare cache for widget files..."
           
-          # Clear specific files (loader and bundle)
+          # Clear specific files (loader and bundle) using prefixes to handle query parameters
           curl -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json" \
             --data '{
-              "files": [
+              "prefixes": [
                 "https://cdn.shoprocket.io/shoprocket.js",
                 "https://cdn.shoprocket.io/shoprocket-bundle.js",
                 "https://dev-cdn.shoprocket.io/shoprocket.js",
