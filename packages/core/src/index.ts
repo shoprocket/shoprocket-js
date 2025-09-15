@@ -8,6 +8,7 @@ import { SessionService } from './services/session';
 import { ProductsService } from './services/products';
 import { CartService } from './services/cart';
 import { StoreService } from './services/store';
+import { EventsService } from './services/events';
 
 export interface ShoprocketConfig {
   publicKey: string;
@@ -24,6 +25,7 @@ export class ShoprocketCore {
   public products: ProductsService;
   public cart: CartService;
   public store: StoreService;
+  public events: EventsService;
 
   constructor(config: ShoprocketConfig) {
     this.config = {
@@ -45,6 +47,7 @@ export class ShoprocketCore {
     this.products = new ProductsService(this.api);
     this.cart = new CartService(this.api);
     this.store = new StoreService(this.api);
+    this.events = new EventsService(this.api);
   }
 
   /**
@@ -91,6 +94,7 @@ export * from './services/session';
 export * from './services/products';
 export * from './services/cart';
 export * from './services/store';
+export * from './services/events';
 
 // Default export for convenience
 export default ShoprocketCore;
