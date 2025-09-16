@@ -2,7 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { repeat } from 'lit/directives/repeat.js';
-import { ShoprocketElement } from '../core/base-component';
+import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Cart, ApiResponse } from '../types/api';
 import { HashRouter, type HashState } from '../core/hash-router';
 import './tooltip';
@@ -272,18 +272,7 @@ export class CartWidget extends ShoprocketElement {
     }));
     
     // Track add to cart event
-    this.trackEcommerce('add_to_cart', {
-      currency: this.getStoreCurrency(),
-      value: item.price * item.quantity,
-      items: [{
-        item_id: item.product_id,
-        item_name: item.product_name,
-        price: item.price,
-        quantity: item.quantity,
-        item_variant: item.variant_id,
-        item_category: item.category
-      }]
-    });
+    this.track(EVENTS.ADD_TO_CART, item);
     
     // Make API call and refresh cart with real data
     this.sdk.cart.addItem({
@@ -440,20 +429,14 @@ export class CartWidget extends ShoprocketElement {
     this.hashRouter.openCart();
     
     // Track cart opened
-    this.trackEvent('cart_opened', {
-      cart_value: this.cart?.totals?.subtotal || 0,
-      items_count: this.cart?.items?.length || 0
-    });
+    this.track(EVENTS.CART_OPENED, this.cart);
   }
   
   private closeCart(): void {
     this.hashRouter.closeCart();
     
     // Track cart closed
-    this.trackEvent('cart_closed', {
-      cart_value: this.cart?.totals?.subtotal || 0,
-      items_count: this.cart?.items?.length || 0
-    });
+    this.track(EVENTS.CART_CLOSED, this.cart);
   }
 
   protected override render(): TemplateResult {
@@ -617,6 +600,9 @@ export class CartWidget extends ShoprocketElement {
     const item = this.cart?.items.find((i: any) => i.id === itemId);
     if (!item) return;
     
+    // Store original quantity for analytics
+    const originalQuantity = item.quantity;
+    
     // Check if we're increasing quantity and need stock validation
     if (quantity > item.quantity) {
       // Check if item has inventory policy and stock info
@@ -670,6 +656,10 @@ export class CartWidget extends ShoprocketElement {
     // Dispatch cart updated event
     this.dispatchCartUpdatedEvent();
     
+    // Track quantity change
+    const eventType = quantity > originalQuantity ? EVENTS.ADD_TO_CART : EVENTS.REMOVE_FROM_CART;
+    this.track(eventType, item, { quantity: Math.abs(quantity - originalQuantity) });
+    
     // Cancel any pending update for this item
     if (this.pendingUpdates.has(itemId)) {
       clearTimeout(this.pendingUpdates.get(itemId));
@@ -695,6 +685,12 @@ export class CartWidget extends ShoprocketElement {
   private async removeItem(itemId: string): Promise<void> {
     const itemIndex = this.cart?.items.findIndex((i: any) => i.id === itemId);
     if (itemIndex === undefined || itemIndex < 0) return;
+    
+    // Store item data for analytics before removing
+    const item = this.cart?.items[itemIndex];
+    if (!item) return;
+    
+    const itemPrice = typeof item.price === 'object' ? item.price.amount : item.price;
     
     // Store current open state
     const wasOpen = this.isOpen;
@@ -752,6 +748,9 @@ export class CartWidget extends ShoprocketElement {
       
       // Dispatch cart updated event
       this.dispatchCartUpdatedEvent();
+      
+      // Track item removal
+      this.track(EVENTS.REMOVE_FROM_CART, item);
     }, 300); // Wait for slide out animation
   }
 

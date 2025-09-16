@@ -849,21 +849,7 @@
   }
 
   .sr-product-detail-image-main {
-    @apply relative w-full aspect-square rounded mb-4 overflow-hidden cursor-zoom-in;
-    background: var(--color-hover);
-  }
-
-  .sr-product-detail-image {
-    @apply absolute inset-0 w-full h-full object-cover transition-opacity;
-    background: var(--color-surface);
-  }
-
-  .sr-product-detail-image.zoom-hidden {
-    @apply opacity-0;
-  }
-
-  .sr-product-detail-image.zoom-visible {
-    @apply opacity-100;
+    @apply w-full aspect-square mb-4 cursor-zoom-in;
   }
 
   /* Image Thumbnails */
@@ -872,8 +858,9 @@
   }
 
   .sr-product-detail-thumbnail {
-    @apply relative aspect-square rounded-lg overflow-hidden cursor-pointer transition-all;
+    @apply relative aspect-square overflow-hidden cursor-pointer transition-all;
     border: 2px solid transparent;
+    border-radius: var(--radius-lg, 0.5rem);
   }
 
   .sr-product-detail-thumbnail:hover {
@@ -883,10 +870,6 @@
 
   .sr-product-detail-thumbnail.active {
     border-color: var(--color-primary);
-  }
-
-  .sr-product-detail-thumbnail img {
-    @apply w-full h-full object-cover;
   }
 
   /* Product Detail Content */
@@ -1259,101 +1242,100 @@
   color: var(--color-success, #22c55e);
 }
 
-/* Product Card Skeleton Styles */
-.sr-product-card-skeleton {
-  @apply bg-white rounded-lg overflow-hidden;
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  /* box-shadow: var(--shadow-md); */
+/* Skeleton Base Styles */
+.sr-skeleton {
+  @apply rounded;
+  /* Animation defined elsewhere */
 }
 
-.sr-product-card-skeleton-content {
-  @apply p-3 space-y-3;
+/* Common skeleton sizes */
+.sr-skeleton { @apply h-4 w-full; } /* Default: text line */
+.sr-skeleton.short { @apply w-3/4; }
+
+/* Specific skeleton types */
+.sr-skeleton-title { @apply h-5 w-3/4 mb-4; }
+.sr-skeleton-price { @apply h-3 w-24 mb-6; }
+.sr-skeleton-button { @apply h-12 w-full; }
+.sr-skeleton-option { @apply h-12 w-20; }
+.sr-skeleton-option-label { @apply h-4 w-20 mb-3; }
+.sr-skeleton-stock { @apply h-4 w-28; }
+.sr-skeleton-description-title { @apply h-6 w-32 mb-4; }
+.sr-skeleton-image { @apply relative; aspect-ratio: var(--sr-product-image-aspect-ratio); }
+
+/* Skeleton containers */
+.sr-skeleton-values { @apply flex flex-wrap gap-3; }
+.sr-skeleton-lines { @apply space-y-3; }
+.sr-skeleton-container { /* For components showing skeleton state */ }
+.sr-product-description .sr-skeleton-lines { @apply space-y-2; }
+
+/* Unified Media Container System */
+.sr-media-container {
+  @apply relative w-full h-full overflow-hidden;
+  background: var(--media-bg, var(--color-surface-secondary, #f9fafb));
 }
 
-.sr-skeleton-title {
-  @apply h-5 w-3/4 rounded mb-4;
+/* Only apply border-radius when media container is the outermost element */
+.sr-media-container.sr-product-detail-image-main {
+  border-radius: var(--radius-lg, 0.5rem);
 }
 
-.sr-skeleton-price {
-  @apply h-3 w-24 rounded mb-6;
+/* For containers inside bordered elements, no border-radius needed - parent's overflow:hidden handles it */
+.sr-product-thumbnail .sr-media-container,
+.sr-product-detail-thumbnail .sr-media-container {
+  border-radius: 0;
 }
 
-.sr-skeleton-button {
-  @apply h-12 w-full rounded;
+.sr-media-container[data-loaded="false"] .sr-media-image {
+  opacity: 0;
 }
 
-.sr-skeleton-option-label {
-  @apply h-4 w-20 rounded mb-3;
+.sr-media-container[data-loaded="true"] .sr-media-image {
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
-.sr-skeleton-option {
-  @apply h-12 w-20 rounded;
+.sr-media-skeleton {
+  @apply absolute inset-0;
+  background: linear-gradient(
+    90deg,
+    var(--color-skeleton-base, #e5e7eb) 0%,
+    var(--color-skeleton-highlight, #f3f4f6) 50%,
+    var(--color-skeleton-base, #e5e7eb) 100%
+  );
+  background-size: 200% 100%;
+  animation: srShimmer 1.5s ease-in-out infinite;
 }
 
-.sr-skeleton-option-values {
-  @apply flex flex-wrap gap-3;
+.sr-media-image {
+  @apply absolute inset-0 w-full h-full object-cover;
 }
 
-.sr-product-option-values {
-  @apply flex flex-wrap gap-3;
+/* Specific implementations */
+.sr-product-detail-image-main .sr-media-image {
+  @apply cursor-zoom-in;
 }
 
-.sr-skeleton-option-group {
-  @apply space-y-3;
+.sr-product-detail-image-main[data-zoom-active="true"] .sr-media-image {
+  @apply cursor-zoom-out;
 }
 
-.sr-skeleton-options {
-  @apply space-y-6 mb-8;
+/* Zoom functionality */
+.sr-product-detail-image-main[data-zoom-active="true"] {
+  @apply cursor-zoom-out;
 }
 
-.sr-product-options-skeleton {
-  @apply space-y-6;
+.sr-product-detail-image-zoom {
+  @apply absolute inset-0 pointer-events-none;
+  transform: scale(2);
+  transform-origin: var(--zoom-x) var(--zoom-y);
 }
 
-.sr-skeleton-image {
-  @apply relative;
-  aspect-ratio: var(--sr-product-image-aspect-ratio);
-}
-
-.sr-skeleton-summary {
-  @apply space-y-2 mb-6;
-}
-
-.sr-skeleton-summary .sr-skeleton {
-  @apply h-4 w-full rounded;
-}
-
-.sr-skeleton-summary .sr-skeleton.short {
-  @apply w-3/4;
-}
-
-.sr-skeleton-description-title {
-  @apply h-6 w-32 rounded mb-4;
-}
-
-.sr-description-skeleton {
-  @apply space-y-2;
-}
-
-.sr-description-skeleton .sr-skeleton {
-  @apply h-4 w-full rounded;
-}
-
-.sr-description-skeleton .sr-skeleton.short {
-  @apply w-3/4;
-}
-
-.sr-skeleton-container {
-  /* For components that show skeleton state */
-}
-
-.sr-product-image-skeleton {
-  @apply absolute inset-0 rounded-lg z-10;
-}
-
-.sr-thumbnail-skeleton {
-  @apply absolute inset-0 rounded z-10;
+.sr-zoom-lens {
+  @apply absolute w-32 h-32 border-2 border-white rounded-full pointer-events-none shadow-lg;
+  left: var(--lens-x);
+  top: var(--lens-y);
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .sr-product-thumbnails {
@@ -1361,11 +1343,20 @@
 }
 
 .sr-product-thumbnail {
-  @apply relative aspect-square overflow-hidden rounded cursor-pointer bg-gray-50 border-2 border-transparent;
+  @apply relative aspect-square overflow-hidden cursor-pointer border-2 border-transparent;
+  border-radius: var(--radius-sm, 0.25rem);
+  background-color: var(--color-surface-secondary, var(--color-gray-50));
 }
 
 .sr-product-thumbnail.active {
   border-color: var(--color-primary);
+  @apply ring-2;
+  --tw-ring-color: var(--color-primary);
+  --tw-ring-opacity: 0.2;
+}
+
+.sr-product-thumbnail:hover:not(.active) {
+  border-color: var(--color-border-hover, var(--color-gray-300));
 }
 
 .sr-product-thumbnail-image {

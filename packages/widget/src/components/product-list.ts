@@ -1,5 +1,6 @@
 import { html, type TemplateResult } from 'lit';
 import type { Product } from '../types/api';
+import { skeleton } from '../utils/skeleton';
 import { formatProductPrice } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
@@ -68,19 +69,11 @@ export class ProductListTemplates {
       <div class="sr-product-grid" data-shoprocket="product-list-skeleton">
         ${Array(skeletonCount).fill(0).map(() => html`
           <div class="sr-product-card-skeleton">
-            <!-- Image skeleton -->
-            <div class="sr-skeleton sr-skeleton-image"></div>
-            
-            <!-- Content skeleton -->
+            ${skeleton('image')}
             <div class="sr-product-card-skeleton-content">
-              <!-- Title skeleton -->
-              <div class="sr-skeleton sr-skeleton-title"></div>
-              
-              <!-- Price skeleton -->
-              <div class="sr-skeleton sr-skeleton-price"></div>
-              
-              <!-- Button skeleton -->
-              <div class="sr-skeleton sr-skeleton-button"></div>
+              ${skeleton('title')}
+              ${skeleton('price')}
+              ${skeleton('button')}
             </div>
           </div>
         `)}

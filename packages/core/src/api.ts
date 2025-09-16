@@ -101,7 +101,7 @@ export class ApiClient {
     }
   }
 
-  async get<T = any>(endpoint: string): Promise<T> {
+  async get<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
     // For GET requests, use simple headers to avoid preflight
     const url = this.getUrl(endpoint);
     
@@ -119,8 +119,12 @@ export class ApiClient {
       }
       
       const response = await fetch(url, {
+        ...options, // Allow passing signal and other options
         method: 'GET',
-        headers,
+        headers: {
+          ...headers,
+          ...(options?.headers || {})
+        }
       });
 
       const data = await response.json();
@@ -135,6 +139,11 @@ export class ApiClient {
 
       return data;
     } catch (error: any) {
+      // Check if it's an abort error
+      if (error.name === 'AbortError') {
+        throw error; // Re-throw abort errors as-is
+      }
+      
       if (error.message) {
         throw error;
       }
