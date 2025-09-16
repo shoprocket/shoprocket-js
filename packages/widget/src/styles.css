@@ -1258,7 +1258,7 @@
 .sr-skeleton-button { @apply h-12 w-full; }
 .sr-skeleton-option { @apply h-12 w-20; }
 .sr-skeleton-option-label { @apply h-4 w-20 mb-3; }
-.sr-skeleton-stock { @apply h-4 w-28; }
+.sr-skeleton-stock { @apply h-4 w-28 mb-6; }
 .sr-skeleton-description-title { @apply h-6 w-32 mb-4; }
 .sr-skeleton-image { @apply relative; aspect-ratio: var(--sr-product-image-aspect-ratio); }
 
