@@ -8,6 +8,29 @@ interface EventData {
   properties?: Record<string, any>;
   ecommerce?: Record<string, any>;
 }
+
+// GA4 standard event names
+export const EVENTS = {
+  // Discovery & Browsing
+  VIEW_ITEM_LIST: 'view_item_list',
+  VIEW_ITEM: 'view_item',
+  SELECT_ITEM: 'select_item',
+  VIEW_CART: 'view_cart',
+  
+  // Shopping behavior
+  ADD_TO_CART: 'add_to_cart',
+  REMOVE_FROM_CART: 'remove_from_cart',
+  
+  // Custom events
+  CART_OPENED: 'cart_opened',
+  CART_CLOSED: 'cart_closed',
+  PAGE_VIEW: 'page_view',
+  TIME_ON_PAGE: 'time_on_page',
+  AFFILIATE_LINK_CLICKED: 'affiliate_link_clicked'
+} as const;
+
+type EventName = typeof EVENTS[keyof typeof EVENTS];
+
 import { getCookie, setCookie } from '../utils/cookie-utils';
 
 export interface AnalyticsConfig {
@@ -28,6 +51,133 @@ export class Analytics {
       ...config
     };
     this.pageLoadTime = Date.now();
+  }
+
+  /**
+   * Smart entity-based tracking - dramatically reduces code needed for tracking
+   */
+  trackEntity(eventName: EventName, entity?: any, extra?: any): void {
+    if (!this.config.enabled) return;
+
+    // Handle simple events without entities
+    if (!entity) {
+      this.track(eventName);
+      return;
+    }
+
+    // Detect entity type and build appropriate payload
+    const payload = this.buildEventPayload(eventName, entity, extra);
+    this.track(eventName, payload);
+  }
+
+  /**
+   * Build event payload based on entity type
+   */
+  private buildEventPayload(eventName: EventName, entity: any, extra?: any): Record<string, any> {
+    const store = (window as any).ShoprocketWidget?.store;
+    const currency = store?.currency || 'USD';
+
+    // Handle cart events
+    if (entity.totals && entity.items) {
+      return {
+        cart_value: entity.totals?.subtotal || 0,
+        items_count: entity.items?.length || 0
+      };
+    }
+
+    // Handle product/item events
+    if (entity.product_id || entity.id) {
+      const items = this.buildItemsArray(entity, extra);
+      const value = this.calculateValue(entity, extra);
+      
+      // For list events, include list metadata
+      if (eventName === EVENTS.VIEW_ITEM_LIST || eventName === EVENTS.SELECT_ITEM) {
+        return {
+          item_list_id: extra?.category || 'all_products',
+          item_list_name: extra?.category || 'All Products',
+          ...(value && { value }),
+          items
+        };
+      }
+
+      // For item events, include currency and value
+      return {
+        currency,
+        value,
+        items
+      };
+    }
+
+    // Handle page events
+    if (eventName === EVENTS.PAGE_VIEW) {
+      return {
+        page_location: window.location.href,
+        page_title: document.title,
+        page_path: window.location.pathname,
+        page_search: window.location.search,
+        page_hash: window.location.hash
+      };
+    }
+
+    // Handle time on page
+    if (eventName === EVENTS.TIME_ON_PAGE) {
+      return {
+        duration_seconds: Math.round((Date.now() - this.pageLoadTime) / 1000),
+        page_url: window.location.href
+      };
+    }
+
+    // Default to passing through extra data
+    return extra || {};
+  }
+
+  /**
+   * Build items array from various entity types
+   */
+  private buildItemsArray(entity: any, extra?: any): any[] {
+    // If entity is already an array (product list)
+    if (Array.isArray(entity)) {
+      return entity.slice(0, 10).map((item, index) => this.mapToItem(item, index));
+    }
+
+    // Single item
+    return [this.mapToItem(entity, 0, extra)];
+  }
+
+  /**
+   * Map entity to GA4 item structure
+   */
+  private mapToItem(entity: any, index: number = 0, extra?: any): any {
+    const price = this.extractPrice(entity.price);
+    
+    return {
+      item_id: entity.product_id || entity.id,
+      item_name: entity.product_name || entity.name,
+      price,
+      quantity: extra?.quantity || entity.quantity || 1,
+      ...(entity.variant_id && { item_variant: entity.variant_id }),
+      ...(entity.category && { item_category: entity.category }),
+      ...(entity.brand && { item_brand: entity.brand }),
+      ...(index > 0 && { index })
+    };
+  }
+
+  /**
+   * Extract numeric price from various formats
+   */
+  private extractPrice(price: any): number {
+    if (typeof price === 'number') return price;
+    if (typeof price === 'object' && price.amount) return price.amount;
+    return 0;
+  }
+
+  /**
+   * Calculate total value for event
+   */
+  private calculateValue(entity: any, extra?: any): number {
+    const price = this.extractPrice(entity.price);
+    const quantity = extra?.quantity || entity.quantity || 1;
+    return price * quantity;
   }
 
   /**

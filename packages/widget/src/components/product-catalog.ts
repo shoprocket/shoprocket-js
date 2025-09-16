@@ -1,6 +1,6 @@
 import { html, type TemplateResult, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { ShoprocketElement } from '../core/base-component';
+import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ApiResponse } from '../types/api';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { ProductListTemplates } from './product-list';
@@ -65,6 +65,11 @@ export class ProductCatalog extends ShoprocketElement {
     if (state.view === 'product' && state.productSlug) {
       // Show product view
       await this.showProductBySlug(state.productSlug);
+      
+      // Load products in background if not already loaded (for prev/next navigation)
+      if (this.products.length === 0) {
+        this.loadProducts(1); // Don't await - load in background
+      }
     } else if (this.currentView === 'product') {
       // Only call showList when actually transitioning FROM product view
       await this.showList();
@@ -114,16 +119,8 @@ export class ProductCatalog extends ShoprocketElement {
         
         // Track product list view
         if (this.products.length > 0) {
-          this.trackEcommerce('view_item_list', {
-            item_list_id: this.category || 'all_products',
-            item_list_name: this.category || 'All Products',
-            items: this.products.slice(0, 10).map((product, index) => ({
-              item_id: product.id,
-              item_name: product.name,
-              price: product.price,
-              item_category: product.category,
-              index
-            }))
+          this.track(EVENTS.VIEW_ITEM_LIST, this.products, { 
+            category: this.category 
           });
         }
         
@@ -222,7 +219,7 @@ export class ProductCatalog extends ShoprocketElement {
           .product="${this.selectedProduct}"
           .prevProduct="${this.getPrevProduct()}"
           .nextProduct="${this.getNextProduct()}"
-          product-slug="${this.productSlugToLoad || ''}"
+          product-slug="${this.selectedProduct ? '' : (this.productSlugToLoad || '')}"
           @back-to-list="${() => this.backToList()}"
           @navigate-product="${(e: CustomEvent) => this.handleProductNavigation(e)}"
         ></shoprocket-product-detail>
@@ -232,15 +229,8 @@ export class ProductCatalog extends ShoprocketElement {
 
   private handleProductClick(product: Product): void {
     // Track product selection
-    this.trackEcommerce('select_item', {
-      item_list_id: this.category || 'all_products',
-      item_list_name: this.category || 'All Products',
-      items: [{
-        item_id: product.id,
-        item_name: product.name,
-        price: product.price,
-        item_category: product.category
-      }]
+    this.track(EVENTS.SELECT_ITEM, product, { 
+      category: this.category 
     });
     
     this.showProductDetail(product);

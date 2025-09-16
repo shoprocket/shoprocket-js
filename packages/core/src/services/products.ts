@@ -78,7 +78,7 @@ export class ProductsService {
     };
   }
 
-  async get(productId: string, includes?: string[]): Promise<Product> {
+  async get(productId: string, includes?: string[], options?: RequestInit): Promise<Product> {
     const queryParams = new URLSearchParams();
     
     if (includes && includes.length > 0) {
@@ -86,7 +86,7 @@ export class ProductsService {
     }
 
     const endpoint = `/products/${productId}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await this.api.get<any>(endpoint);
+    const response = await this.api.get<any>(endpoint, options);
     
     return response.data || response;
   }

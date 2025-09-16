@@ -43,7 +43,7 @@ declare module '@shoprocket/core' {
   export class ProductsService {
     constructor(api: ApiClient);
     list(params?: any): Promise<any>;
-    get(id: string): Promise<any>;
+    get(id: string, includes?: string[], options?: RequestInit): Promise<any>;
   }
 
   export class CartService {

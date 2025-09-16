@@ -51,9 +51,12 @@ export interface Product {
   options?: ProductOption[];
   quick_add_eligible?: boolean;
   default_variant_id?: string;
-  track_inventory?: boolean;
+  track_inventory: boolean;
   in_stock?: boolean;
   total_inventory?: number;
+  has_variants?: boolean;
+  variant_count?: number;
+  has_required_options?: boolean;
   category?: string;
   brand?: string;
 }
