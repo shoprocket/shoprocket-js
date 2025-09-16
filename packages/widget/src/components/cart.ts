@@ -1,5 +1,5 @@
 import { html, type TemplateResult } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
@@ -13,7 +13,6 @@ import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
 /**
  * Cart Widget Component
  */
-@customElement('shoprocket-cart')
 export class CartWidget extends ShoprocketElement {
   @property({ type: String })
   position = 'bottom-right';

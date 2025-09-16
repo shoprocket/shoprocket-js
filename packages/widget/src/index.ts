@@ -17,6 +17,7 @@ import { WidgetManager } from './core/widget-manager';
 import { ShoprocketElement } from './core/base-component';
 import { ProductCatalog } from './components/product-catalog';
 import { ProductDetail } from './components/product-detail';
+import { ProductView } from './components/product-view';
 import { CartWidget } from './components/cart';
 import { initializeConfig, getConfig } from './core/config';
 
@@ -68,6 +69,20 @@ function getPublicKey(): string | null {
 }
 
 
+// Register components globally for the widget manager - MUST happen before autoInit
+window.__shoprocketComponents = {
+  'catalog': ProductCatalog,
+  'product': ProductDetail,
+  'product-view': ProductView,
+  'cart': CartWidget
+};
+
+// Register all custom elements upfront - much simpler!
+customElements.define('shoprocket-catalog', ProductCatalog);
+customElements.define('shoprocket-product', ProductDetail);
+customElements.define('shoprocket-product-view', ProductView);
+customElements.define('shoprocket-cart', CartWidget);
+
 /**
  * Initialize when DOM is ready
  */
@@ -88,16 +103,6 @@ function autoInit(): void {
   
   shoprocket.init(publicKey, { apiUrl }).catch(console.error);
 }
-
-// Register components globally for the widget manager
-window.__shoprocketComponents = {
-  'catalog': ProductCatalog,      // Full browsable catalog
-  'products': ProductCatalog,      // Alias for backward compatibility
-  'product-catalog': ProductCatalog,
-  'product': ProductDetail,       // Single product detail
-  'product-detail': ProductDetail,
-  'cart': CartWidget
-};
 
 // Auto-initialize on DOMContentLoaded or immediately if already loaded
 if (document.readyState === 'loading') {

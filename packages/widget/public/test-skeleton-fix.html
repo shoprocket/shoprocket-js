@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Skeleton Loading Fix</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .test-section {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    h1, h2 {
+      color: #333;
+      margin-bottom: 1rem;
+    }
+    .test-info {
+      background: #e8f4f8;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    .widget-container {
+      margin: 2rem 0;
+      padding: 1rem;
+      border: 2px dashed #e0e0e0;
+      border-radius: 8px;
+    }
+    code {
+      background: #f5f5f5;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 0.875em;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-section">
+    <h1>Skeleton Loading Fix Test</h1>
+    
+    <div class="test-info">
+      <strong>What we're testing:</strong>
+      <ul>
+        <li>Options skeleton should show based on <code>has_variants</code> and <code>has_required_options</code> from catalog API</li>
+        <li>Button text should show correctly during loading:
+          <ul>
+            <li>"Add to Cart" for products without required options or with <code>quick_add_eligible: true</code></li>
+            <li>"Select Options" only for products with required options</li>
+            <li>"Out of Stock" for out of stock products</li>
+          </ul>
+        </li>
+        <li>Skeleton should handle race conditions during rapid navigation</li>
+      </ul>
+    </div>
+    
+    <h2>Test Instructions:</h2>
+    <ol>
+      <li>Open DevTools Network tab and throttle to "Slow 3G"</li>
+      <li>Navigate between products using Next/Previous buttons</li>
+      <li>Observe:
+        <ul>
+          <li>Products with variants should show options skeleton</li>
+          <li>Products without variants should NOT show skeleton</li>
+          <li>Button text should be appropriate for each product type</li>
+        </ul>
+      </li>
+      <li>Try clicking rapidly between products to test race conditions</li>
+    </ol>
+    
+    <h2>Product Catalog View</h2>
+    <div class="widget-container">
+      <div data-shoprocket="product-catalog"></div>
+    </div>
+    
+    <h2>Direct Product Links for Testing</h2>
+    <p>Test these with throttled connection:</p>
+    <ul>
+      <li><a href="#!/rose-tasmanian-lavender-handbody-wash-1">Product with variants</a> - Should show options skeleton</li>
+      <li><a href="#!/argan-liquid-gold-soft-oil-1">Product without variants</a> - Should NOT show skeleton</li>
+      <li><a href="#!/ylang-ylang-lily-hand-body-wash-1">Another variant product</a> - Should show skeleton</li>
+    </ul>
+  </div>
+  
+  <!-- Shopping Cart Widget -->
+  <div data-shoprocket="cart"></div>
+  
+  <!-- Load widget script -->
+  <script src="shoprocket.js?pk=pk_hAWEyUyNBfhvO62wCxMRY"></script>
+  
+  <script>
+    // Add some debug logging
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log('Test page loaded. Instructions:');
+      console.log('1. Open DevTools Network tab');
+      console.log('2. Set throttling to "Slow 3G"');
+      console.log('3. Navigate between products');
+      console.log('4. Watch for skeleton loading and button text');
+    });
+  </script>
+</body>
+</html>

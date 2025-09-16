@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feature System Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .test-section {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    h1, h2 {
+      color: #333;
+      margin-bottom: 1rem;
+    }
+    .example-code {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.875rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    .widget-container {
+      margin: 2rem 0;
+      padding: 1rem;
+      border: 2px dashed #e0e0e0;
+      border-radius: 8px;
+    }
+    .feature-list {
+      background: #e8f4f8;
+      padding: 1rem;
+      border-radius: 4px;
+      margin: 1rem 0;
+    }
+    .feature-list code {
+      background: #fff;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 0.875em;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-section">
+    <h1>Feature System Test</h1>
+    
+    <div class="feature-list">
+      <strong>Available features:</strong>
+      <code>navigation</code>, <code>breadcrumbs</code>, <code>media</code>, <code>zoom</code>, 
+      <code>gallery</code>, <code>title</code>, <code>price</code>, <code>stock</code>, 
+      <code>sku</code>, <code>description</code>, <code>short-description</code>, 
+      <code>variants</code>, <code>quantity</code>, <code>add-to-cart</code>, 
+      <code>wishlist</code>, <code>reviews</code>, <code>share</code>, 
+      <code>scroll</code>, <code>analytics</code>
+    </div>
+    
+    <h2>Example 1: Default Product View</h2>
+    <p>Shows default features based on widget type</p>
+    <div class="example-code">
+&lt;div data-shoprocket="product-view" data-product-id="prod_xakgvd3flBm91rgJILsDd"&gt;&lt;/div&gt;
+    </div>
+    <div class="widget-container">
+      <div data-shoprocket="product-view" data-product-id="prod_xakgvd3flBm91rgJILsDd"></div>
+    </div>
+    
+    <h2>Example 2: Hide Specific Features</h2>
+    <p>Default features minus navigation, scroll, and stock</p>
+    <div class="example-code">
+&lt;div data-shoprocket="product-view" 
+     data-product-id="prod_YbXf8tuxCCCcjKxk1RQPf"
+     data-hide="navigation,scroll,stock"&gt;&lt;/div&gt;
+    </div>
+    <div class="widget-container">
+      <div data-shoprocket="product-view" 
+           data-product-id="prod_YbXf8tuxCCCcjKxk1RQPf"
+           data-hide="navigation,scroll,stock"></div>
+    </div>
+    
+    <h2>Example 3: Show Only Specific Features</h2>
+    <p>Minimal view with only essential features</p>
+    <div class="example-code">
+&lt;div data-shoprocket="product-view" 
+     data-product-slug="rose-tasmanian-lavender-handbody-wash-1"
+     data-show="media,title,price,add-to-cart"&gt;&lt;/div&gt;
+    </div>
+    <div class="widget-container">
+      <div data-shoprocket="product-view" 
+           data-product-slug="rose-tasmanian-lavender-handbody-wash-1"
+           data-show="media,title,price,add-to-cart"></div>
+    </div>
+    
+    <h2>Example 4: Catalog with Custom Features</h2>
+    <p>Product catalog with specific features hidden</p>
+    <div class="example-code">
+&lt;div data-shoprocket="product-catalog" 
+     data-hide="breadcrumbs"&gt;&lt;/div&gt;
+    </div>
+    <div class="widget-container">
+      <div data-shoprocket="product-catalog" 
+           data-hide="breadcrumbs"></div>
+    </div>
+  </div>
+  
+  <!-- Shopping Cart Widget -->
+  <div data-shoprocket="cart"></div>
+  
+  <!-- Load widget script -->
+  <script src="shoprocket.js?pk=pk_hAWEyUyNBfhvO62wCxMRY"></script>
+  
+  <script>
+    // Log feature system activity
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log('Feature System Test Page Loaded');
+      console.log('Check the different examples to see how features are controlled');
+    });
+  </script>
+</body>
+</html>
