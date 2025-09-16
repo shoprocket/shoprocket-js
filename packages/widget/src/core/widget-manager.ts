@@ -135,12 +135,6 @@ export class WidgetManager {
     return this.sdk;
   }
 
-  /**
-   * Get widget configuration
-   */
-  getConfig(): WidgetConfig {
-    return this.config;
-  }
 
   /**
    * Auto-render floating cart button
@@ -213,8 +207,9 @@ export class WidgetManager {
       return;
     }
 
-    // Create component instance
-    const component = new ComponentClass();
+    // Create component instance using document.createElement
+    const tagName = `shoprocket-${widgetType}`;
+    const component = document.createElement(tagName) as BaseComponent;
     
     // Set properties
     // Map 'style' to 'widgetStyle' to avoid conflict with HTMLElement.style
@@ -223,7 +218,15 @@ export class WidgetManager {
       mappedOptions['widgetStyle'] = mappedOptions['style'];
       delete mappedOptions['style'];
     }
-    Object.assign(component, mappedOptions);
+    // For web components, we need to set attributes, not properties
+    // Convert camelCase back to kebab-case for attributes
+    Object.entries(mappedOptions).forEach(([key, value]) => {
+      // Convert camelCase to kebab-case
+      const attrName = key.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
+      component.setAttribute(attrName, value);
+    });
+    
+    // Set SDK as a property
     if ('sdk' in component && component instanceof HTMLElement) {
       (component as BaseComponent).sdk = this.sdk;
     }

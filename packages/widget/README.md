@@ -52,16 +52,32 @@ Optional attributes:
 - `data-limit="12"` - Products per page (default: 24)
 - `data-style="grid"` - Display style: `grid` or `list`
 
-#### Single Product
+#### Single Product View
 Embed a specific product:
 
 ```html
-<div data-shoprocket="product" data-product-id="123"></div>
+<div data-shoprocket="product-view" data-product-id="prod_123"></div>
 ```
 
 Or use the product slug:
 ```html
-<div data-shoprocket="product" data-product-slug="awesome-tshirt"></div>
+<div data-shoprocket="product-view" data-product-slug="awesome-tshirt"></div>
+```
+
+#### Feature Control
+Show/hide specific features using data attributes:
+
+```html
+<!-- Hide specific features -->
+<div data-shoprocket="product-view" 
+     data-product-id="prod_123"
+     data-hide="reviews,share">
+</div>
+
+<!-- Show only specific features -->
+<div data-shoprocket="catalog" 
+     data-show="title,price,add-to-cart">
+</div>
 ```
 
 ### Navigation
@@ -114,6 +130,14 @@ Stock display options:
 - `always` - Always show stock quantity
 - `low-only` - Only show when stock is low
 - `off` - Never show stock
+
+#### Widget Types Summary
+
+| Widget | Purpose | Example |
+|--------|---------|---------|
+| `catalog` | Product listing with pagination | `<div data-shoprocket="catalog"></div>` |
+| `product-view` | Standalone product embed | `<div data-shoprocket="product-view" data-product-id="123"></div>` |
+| `cart` | Shopping cart (auto-rendered by default) | `<div data-shoprocket="cart"></div>` |
 
 ## Development
 

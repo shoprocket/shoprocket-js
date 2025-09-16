@@ -1,16 +1,14 @@
 import { html, type TemplateResult, type PropertyValues } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ApiResponse } from '../types/api';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { ProductListTemplates } from './product-list';
-import './product-detail';
 
 /**
  * Product Catalog Component - Orchestrates between list and detail views
  * Uses Shadow DOM for proper isolation in client-side embeds
  */
-@customElement('shoprocket-product-catalog')
 export class ProductCatalog extends ShoprocketElement {
   // Track primary instance for routing
   private static primaryInstance: ProductCatalog | null = null;
@@ -214,7 +212,7 @@ export class ProductCatalog extends ShoprocketElement {
         ${this.currentView === 'list' && this.totalPages > 1 ? this.renderPagination() : ''}
       </div>
       ${this.currentView === 'product' ? html`
-        <shoprocket-product-detail
+        <shoprocket-product
           .sdk="${this.sdk}"
           .product="${this.selectedProduct}"
           .prevProduct="${this.getPrevProduct()}"
@@ -222,7 +220,7 @@ export class ProductCatalog extends ShoprocketElement {
           product-slug="${this.selectedProduct ? '' : (this.productSlugToLoad || '')}"
           @back-to-list="${() => this.backToList()}"
           @navigate-product="${(e: CustomEvent) => this.handleProductNavigation(e)}"
-        ></shoprocket-product-detail>
+        ></shoprocket-product>
       ` : ''}
     `;
   }

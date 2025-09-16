@@ -1,5 +1,5 @@
 import { html, type TemplateResult } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ProductVariant, ProductOption } from '../types/api';
@@ -9,7 +9,6 @@ import { isAllStockInCart } from '../utils/cart-utils';
 import { skeleton, skeletonLines, skeletonGroup } from '../utils/skeleton';
 import './tooltip'; // Register tooltip component
 
-@customElement('shoprocket-product-detail')
 export class ProductDetail extends ShoprocketElement {
   // Render in light DOM so merchant CSS variables flow directly into content
   protected override createRenderRoot(): HTMLElement {
@@ -74,6 +73,7 @@ export class ProductDetail extends ShoprocketElement {
 
   @property({ type: String, attribute: 'product-slug' })
   productSlug?: string;
+  
 
   @state()
   private fullProduct?: Product;
@@ -134,9 +134,10 @@ export class ProductDetail extends ShoprocketElement {
         this.fullProduct = undefined;
         
         // Mark that we're loading options for this product
+        const hasOptions = this.product.has_required_options === true;
         const hasVariants = this.product.has_variants === true || 
                            (this.product.variant_count && this.product.variant_count > 1);
-        this.loadingOptionsFor = hasVariants ? this.product.id : undefined;
+        this.loadingOptionsFor = (hasOptions || hasVariants) ? this.product.id : undefined;
         
         this.requestUpdate();
         
@@ -218,8 +219,11 @@ export class ProductDetail extends ShoprocketElement {
         
         this.clearError();
         
-        // Only scroll if still the current product
-        if (this.currentProductId === identifier || this.currentProductId === productData.id) {
+        // Only scroll if enabled and appropriate
+        const hasUrlSlug = window.location.hash.includes('/');
+        const scrollEnabled = this.hasFeature('scroll');
+        
+        if (scrollEnabled && hasUrlSlug && (this.currentProductId === identifier || this.currentProductId === productData.id)) {
           // Scroll to top after full product loads to avoid layout shift
           requestAnimationFrame(() => {
             this.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -382,7 +386,11 @@ export class ProductDetail extends ShoprocketElement {
     const currentId = this.product?.id || this.currentProductId || product.id;
     
     // If we're explicitly loading options for this product, show skeleton
-    if (this.loadingOptionsFor && this.loadingOptionsFor === currentId) {
+    // Check both the loading ID and the product ID to handle race conditions
+    if (this.loadingOptionsFor && 
+        (this.loadingOptionsFor === currentId || 
+         this.loadingOptionsFor === product.id || 
+         this.loadingOptionsFor === product.slug)) {
       return html`
         <div class="sr-product-options-skeleton">
           ${skeletonGroup('option-label', 3)}
@@ -434,18 +442,29 @@ export class ProductDetail extends ShoprocketElement {
     // If we can add, always show "Add to Cart"
     if (canAdd) return 'Add to Cart';
     
-    // During loading, use catalog data to determine appropriate text
-    const hasVariants = product.has_variants === true || 
-                       (product.variant_count && product.variant_count > 1) ||
-                       // For URL loads, check price range
-                       (product.price_min !== undefined && product.price_max !== undefined && product.price_min !== product.price_max);
+    // If out of stock
+    if (product.in_stock === false) return 'Out of Stock';
     
-    // If product has no variants or is quick add eligible, show "Add to Cart"
-    if (!hasVariants || product.quick_add_eligible) {
+    // During loading, determine text based on catalog data
+    const hasRequiredOptions = product.has_required_options === true;
+    const hasVariants = product.has_variants === true || 
+                       (product.variant_count && product.variant_count > 1);
+    
+    // If loading full product and has options/variants, check if we have full data
+    if ((hasRequiredOptions || hasVariants) && !this.fullProduct && this.loadingOptionsFor) {
+      // Still loading, but we can make educated guess
+      if (product.quick_add_eligible === true) {
+        return 'Add to Cart';
+      }
+      return hasRequiredOptions ? 'Select Options' : 'Add to Cart';
+    }
+    
+    // If product has no required options or variants, or is quick add eligible
+    if (!hasRequiredOptions || product.quick_add_eligible === true) {
       return 'Add to Cart';
     }
     
-    // Only show "Select Options" if we know the product has variants
+    // Has required options that need selection
     return 'Select Options';
   }
   
@@ -682,20 +701,12 @@ export class ProductDetail extends ShoprocketElement {
   }
   
   private renderStockStatus(product: Product | undefined): TemplateResult | string {
-    if (!product || !product.track_inventory) {
+    if (!product || !product.track_inventory || !this.hasFeature('stock')) {
       return '';
     }
     
-    // Get config from data attribute or global config
-    const stockDisplay = this.getAttribute('data-stock-display') as 'off' | 'low-only' | 'always' | null
-      || (window as any).Shoprocket?.getConfig?.()?.stockDisplay 
-      || 'always';
-      
-    if (stockDisplay === 'off') return '';
-      
-    const lowStockThreshold = parseInt(this.getAttribute('data-low-stock-threshold') || '') 
-      || (window as any).Shoprocket?.getConfig?.()?.lowStockThreshold 
-      || 10;
+    // Simple low stock threshold (future: from theme/config)
+    const lowStockThreshold = 10;
     
     // Determine stock based on selected variant or product total
     let stockQuantity: number;
@@ -722,20 +733,16 @@ export class ProductDetail extends ShoprocketElement {
     
     const isLowStock = stockQuantity <= lowStockThreshold;
     
-    // Show based on config
-    if (stockDisplay === 'always' || (stockDisplay === 'low-only' && isLowStock)) {
-      return html`
-        <div class="sr-stock-status ${isLowStock ? 'sr-low-stock' : 'sr-in-stock'}">
-          ${isLowStock ? html`
-            <sr-tooltip text="Limited availability - order soon to avoid disappointment">
-              Only ${stockQuantity} left in stock
-            </sr-tooltip>
-          ` : `${stockQuantity} in stock`}
-        </div>
-      `;
-    }
-    
-    return '';
+    // Always show stock when feature is enabled
+    return html`
+      <div class="sr-stock-status ${isLowStock ? 'sr-low-stock' : 'sr-in-stock'}">
+        ${isLowStock ? html`
+          <sr-tooltip text="Limited availability - order soon to avoid disappointment">
+            Only ${stockQuantity} left in stock
+          </sr-tooltip>
+        ` : `${stockQuantity} in stock`}
+      </div>
+    `;
   }
 
   private renderStockStatusSkeleton(): TemplateResult {
@@ -747,16 +754,7 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private shouldShowStockSkeleton(product: Product | undefined): boolean {
-    if (!product) return true;
-
-    // Don't show skeleton if stock display is off
-    const stockDisplay = this.getAttribute('data-stock-display') as 'off' | 'low-only' | 'always' | null
-      || (window as any).Shoprocket?.getConfig?.()?.stockDisplay
-      || 'always';
-
-    if (stockDisplay === 'off') {
-      return false;
-    }
+    if (!product || !this.hasFeature('stock')) return false;
 
     // Don't show skeleton if not tracking inventory
     if (!product.track_inventory) {
@@ -894,6 +892,11 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private renderBackButton(): TemplateResult {
+    // Check if navigation feature is enabled
+    if (!this.hasFeature('navigation')) {
+      return html``;
+    }
+    
     return html`
       <div class="sr-product-navigation">
         <button 

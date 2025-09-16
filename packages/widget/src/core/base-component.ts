@@ -5,21 +5,29 @@ import { formatPrice, getMediaUrl, handleImageError, dispatchCartEvents } from '
 import { sharedStyles, sharedStylesheet } from './shared-styles';
 import { baseStyles } from './base-styles';
 import { EVENTS } from './analytics';
+import type { FeatureKey } from '../types/features';
+import { parseFeatures } from '../types/features';
+
+// Type for constructor functions
+export type Constructor<T = {}> = new (...args: any[]) => T;
 
 /**
  * Base class for Shoprocket components with Shadow DOM
  */
 export class BaseComponent extends LitElement {
+  private features: Set<FeatureKey> = new Set();
   // Apply shared styles to all components
   // Base styles reset font-size to prevent parent page scaling
   static override styles: CSSResultGroup = [baseStyles, sharedStyles];
   
   // Use constructable stylesheets for better performance
+  // This method can be overridden by child components to use Light DOM
   protected override createRenderRoot(): HTMLElement | ShadowRoot {
+    // Default behavior: create shadow root
     const root = super.createRenderRoot() as HTMLElement | ShadowRoot;
     
-    // Adopt the shared stylesheet if the browser supports it
-    if ('adoptedStyleSheets' in root) {
+    // Only adopt stylesheets if it's actually a shadow root (not 'this' element)
+    if (root !== this && 'adoptedStyleSheets' in root) {
       (root as any).adoptedStyleSheets = [sharedStylesheet];
     }
     
@@ -36,6 +44,51 @@ export class BaseComponent extends LitElement {
 
   @state()
   protected successMessage: string | null = null;
+  
+  override connectedCallback(): void {
+    super.connectedCallback();
+    this.initializeFeatures();
+  }
+  
+  private initializeFeatures(): void {
+    // Get widget type from data attribute
+    const widgetType = this.getAttribute('data-shoprocket') || 
+                      this.getAttribute('data-widget-type') || 
+                      this.tagName.toLowerCase().replace('shoprocket-', '');
+    
+    // Parse features from attributes
+    this.features = parseFeatures(this, widgetType);
+  }
+  
+  /**
+   * Check if a feature is enabled
+   */
+  protected hasFeature(feature: FeatureKey): boolean {
+    return this.features.has(feature);
+  }
+  
+  /**
+   * Enable a feature programmatically
+   */
+  protected enableFeature(feature: FeatureKey): void {
+    this.features.add(feature);
+    this.requestUpdate();
+  }
+  
+  /**
+   * Disable a feature programmatically
+   */
+  protected disableFeature(feature: FeatureKey): void {
+    this.features.delete(feature);
+    this.requestUpdate();
+  }
+  
+  /**
+   * Get all enabled features
+   */
+  protected getFeatures(): FeatureKey[] {
+    return Array.from(this.features);
+  }
 
   // Shadow DOM is enabled by default in Lit
   // To use Light DOM, override createRenderRoot() to return this
