@@ -3,7 +3,7 @@ import type { Session, ApiResponse } from '../types/api';
 import type { BaseComponent } from './base-component';
 import type { LitElement } from 'lit';
 import { getCookie, setCookie } from '../utils/cookie-utils';
-import { Analytics } from './analytics';
+import { Analytics, EVENTS } from './analytics';
 
 export interface WidgetConfig {
   publicKey?: string;
@@ -57,6 +57,11 @@ export class WidgetManager {
 
       // Initialize analytics
       this.analytics = new Analytics(this.sdk);
+      
+      // Expose analytics and event constants globally
+      (window as any).Shoprocket = (window as any).Shoprocket || {};
+      (window as any).Shoprocket.analytics = this.analytics;
+      (window as any).Shoprocket.EVENTS = EVENTS;
 
       // Mark as initialized immediately so components can start loading
       this.initialized = true;

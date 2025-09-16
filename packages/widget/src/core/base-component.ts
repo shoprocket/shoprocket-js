@@ -4,6 +4,7 @@ import { ShoprocketCore } from '@shoprocket/core';
 import { formatPrice, getMediaUrl, handleImageError, dispatchCartEvents } from '../utils/formatters';
 import { sharedStyles, sharedStylesheet } from './shared-styles';
 import { baseStyles } from './base-styles';
+import { EVENTS } from './analytics';
 
 /**
  * Base class for Shoprocket components with Shadow DOM
@@ -103,22 +104,12 @@ export class BaseComponent extends LitElement {
   }
 
   /**
-   * Track an analytics event
+   * Track any event with minimal code using entity-based tracking
    */
-  protected trackEvent(eventName: string, properties: Record<string, any> = {}): void {
+  protected track(eventName: string, entity?: any, extra?: any): void {
     const analytics = (window as any).Shoprocket?.analytics;
-    if (analytics) {
-      analytics.track(eventName, properties);
-    }
-  }
-
-  /**
-   * Track an e-commerce event
-   */
-  protected trackEcommerce(eventName: string, data: Record<string, any>): void {
-    const analytics = (window as any).Shoprocket?.analytics;
-    if (analytics) {
-      analytics.trackEcommerce(eventName, data);
+    if (analytics?.trackEntity) {
+      analytics.trackEntity(eventName, entity, extra);
     }
   }
 
@@ -132,3 +123,6 @@ export class BaseComponent extends LitElement {
 
 // Re-export as ShoprocketElement for backwards compatibility
 export { BaseComponent as ShoprocketElement };
+
+// Re-export EVENTS for easy access in all components
+export { EVENTS };
