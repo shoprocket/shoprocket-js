@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Product View Widget</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    h1, h2 {
+      color: #333;
+      margin-bottom: 1rem;
+    }
+    .widget-container {
+      margin: 2rem 0;
+      padding: 2rem;
+      border: 2px dashed #e0e0e0;
+      border-radius: 8px;
+    }
+    .example-code {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.875rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    /* Custom theming example */
+    /* shoprocket-product-view {
+      --color-primary: #007bff;
+      --color-primary-hover: #0056b3;
+      --color-surface: #ffffff;
+      --color-text: #333333;
+    } */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Product View Widget Test</h1>
+    <p>Testing the standalone product view widget that merchants can embed to show a single product.</p>
+    
+    <h2>Example 1: Product by ID</h2>
+    <div class="example-code">
+      &lt;div data-shoprocket="product-view" data-product-id="prod_xakgvd3flBm91rgJILsDd"&gt;&lt;/div&gt;
+    </div>
+    <div class="widget-container">
+      <div data-shoprocket="product-view" data-product-id="prod_xakgvd3flBm91rgJILsDd"></div>
+    </div>
+    
+    <h2>Example 2: Product by Slug</h2>
+    <div class="example-code">
+      &lt;div data-shoprocket="product-view" data-product-slug="rose-tasmanian-lavender-handbody-wash-1"&gt;&lt;/div&gt;
+    </div>
+    <div class="widget-container">
+      <div data-shoprocket="product-view" data-product-slug="rose-tasmanian-lavender-handbody-wash-1"></div>
+    </div>
+    
+    <h2>Example 3: React/Vue/Framework Usage</h2>
+    <div class="example-code">
+      &lt;!-- Same as above - works in any framework --&gt;
+      &lt;div data-shoprocket="product-view" data-product-id="prod_YbXf8tuxCCCcjKxk1RQPf"&gt;&lt;/div&gt;
+    </div>
+    <div class="widget-container">
+      <div data-shoprocket="product-view" data-product-id="prod_YbXf8tuxCCCcjKxk1RQPf"></div>
+    </div>
+  </div>
+  
+  <!-- Shopping Cart Widget -->
+  <div data-shoprocket="cart"></div>
+  
+  <!-- Load widget script -->
+  <script src="shoprocket.js?pk=pk_hAWEyUyNBfhvO62wCxMRY"></script>
+</body>
+</html>
