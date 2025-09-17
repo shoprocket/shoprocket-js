@@ -70,7 +70,12 @@ export class ProductCatalog extends ShoprocketElement {
         this.loadProducts(1); // Don't await - load in background
       }
     } else if (this.currentView === 'product') {
-      // Only call showList when actually transitioning FROM product view
+      // Transitioning FROM product view to list
+      // Update current page from state params before showing list
+      const targetPage = state.params['page'] ? parseInt(state.params['page'], 10) : 1;
+      if (targetPage !== this.currentPage) {
+        this.currentPage = targetPage;
+      }
       await this.showList();
     } else if (state.view === 'list' && this.currentView === 'list') {
       // We're in list view - check if page changed
@@ -165,11 +170,16 @@ export class ProductCatalog extends ShoprocketElement {
       // Set initial view based on current hash state
       const initialState = this.hashRouter.getCurrentState();
       
+      // Always extract page from params, even if we're in product view
+      // This ensures when going back to list, we're on the correct page
+      if (initialState.params['page']) {
+        this.currentPage = parseInt(initialState.params['page'], 10);
+      }
+      
       // Handle initial state - either product view or list with page
       if (initialState.view === 'list') {
-        // Load products for the initial page (default 1 or from URL)
-        const pageToLoad = initialState.params['page'] ? parseInt(initialState.params['page'], 10) : 1;
-        await this.loadProducts(pageToLoad);
+        // Load products for the current page
+        await this.loadProducts(this.currentPage);
       } else {
         // Product view will be handled by updateViewFromState
         await this.updateViewFromState(initialState);
@@ -404,7 +414,7 @@ export class ProductCatalog extends ShoprocketElement {
     
     if (this.isPrimary) {
       // Primary instance updates URL
-      this.hashRouter.navigateToProduct(productSlug);
+      this.hashRouter.navigateToProduct(productSlug, true); // Preserve catalog params
     } else {
       // Non-primary instances just update local state
       this.currentView = 'product';
@@ -440,10 +450,9 @@ export class ProductCatalog extends ShoprocketElement {
     this.selectedProduct = undefined;
     this.productSlugToLoad = undefined;
     
-    // Load products if we don't have any yet
-    if (this.products.length === 0) {
-      await this.loadProducts(this.currentPage);
-    }
+    // Always load products for the current page when showing list
+    // This ensures we show the correct page when coming back from product view
+    await this.loadProducts(this.currentPage);
     
     // Restore scroll position after DOM updates
     requestAnimationFrame(() => {
