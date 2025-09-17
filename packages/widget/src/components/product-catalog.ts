@@ -7,8 +7,41 @@ import { ProductListTemplates } from './product-list';
 import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
 
 /**
- * Product Catalog Component - Orchestrates between list and detail views
- * Uses Shadow DOM for proper isolation in client-side embeds
+ * Product Catalog Component - Displays a grid of products with pagination
+ * 
+ * @element shoprocket-catalog
+ * @fires navigate-product - When a product is selected for viewing
+ * @fires back-to-list - When returning from product detail view
+ * 
+ * @attr {string} data-shoprocket - Must be "catalog" to initialize this component
+ * @attr {string} [data-store-id] - Store ID for loading products (if not using global config)
+ * @attr {string} [data-category] - Filter products by category slug
+ * @attr {number} [data-limit=12] - Number of products per page
+ * @attr {boolean} [data-routable=false] - Enable URL hash synchronization for this catalog
+ * @attr {string} [data-show] - Comma-separated features to show (replaces defaults)
+ * @attr {string} [data-hide] - Comma-separated features to hide (removes from defaults)
+ * 
+ * @example
+ * <!-- Basic product catalog -->
+ * <div data-shoprocket="catalog"></div>
+ * 
+ * @example
+ * <!-- Filtered catalog with pagination -->
+ * <div data-shoprocket="catalog" 
+ *      data-category="t-shirts" 
+ *      data-limit="8"></div>
+ * 
+ * @example
+ * <!-- Catalog with URL routing enabled -->
+ * <div data-shoprocket="catalog" 
+ *      data-routable="true"
+ *      data-limit="20"></div>
+ * 
+ * @example
+ * <!-- Catalog with custom features -->
+ * <div data-shoprocket="catalog"
+ *      data-hide="quick-add"
+ *      data-show="price,title,image"></div>
  */
 export class ProductCatalog extends ShoprocketElement {
   // Track primary instance for routing
@@ -29,9 +62,6 @@ export class ProductCatalog extends ShoprocketElement {
   routable = false;
 
   @state()
-  private selectedProduct?: Product;
-
-  @state()
   private currentView: 'list' | 'product' = 'list';
   
   @state()
@@ -50,7 +80,7 @@ export class ProductCatalog extends ShoprocketElement {
   // private totalProducts = 0; // Reserved for showing total count
 
   @state()
-  private productSlugToLoad?: string;
+  private currentProductSlug?: string;
 
   private savedScrollPosition = 0;
   private hashRouter!: HashRouter;
@@ -62,12 +92,21 @@ export class ProductCatalog extends ShoprocketElement {
 
   private async updateViewFromState(state: HashState): Promise<void> {
     if (state.view === 'product' && state.productSlug) {
-      // Show product view
-      await this.showProductBySlug(state.productSlug);
+      // Always update current page from state params when in product view
+      // This ensures we load the correct page for prev/next navigation
+      if (state.params['page']) {
+        this.currentPage = parseInt(state.params['page'], 10);
+      }
+      
+      // Only show product if we're not already showing this product
+      if (this.currentView !== 'product' || this.currentProductSlug !== state.productSlug) {
+        // Show product view
+        await this.showProductBySlug(state.productSlug);
+      }
       
       // Load products in background if not already loaded (for prev/next navigation)
       if (this.products.length === 0) {
-        this.loadProducts(1); // Don't await - load in background
+        this.loadProducts(this.currentPage); // Don't await - load in background
       }
     } else if (this.currentView === 'product') {
       // Transitioning FROM product view to list
@@ -225,10 +264,9 @@ export class ProductCatalog extends ShoprocketElement {
       ${this.currentView === 'product' ? html`
         <shoprocket-product
           .sdk="${this.sdk}"
-          .product="${this.selectedProduct}"
           .prevProduct="${this.getPrevProduct()}"
           .nextProduct="${this.getNextProduct()}"
-          product-slug="${this.selectedProduct ? '' : (this.productSlugToLoad || '')}"
+          product-slug="${this.currentProductSlug || ''}"
           @back-to-list="${() => this.backToList()}"
           @navigate-product="${(e: CustomEvent) => this.handleProductNavigation(e)}"
         ></shoprocket-product>
@@ -297,12 +335,10 @@ export class ProductCatalog extends ShoprocketElement {
   }
   
   private getPrevProduct(): Product | null {
-    if (!this.products) return null;
+    if (!this.products || !this.currentProductSlug) return null;
     
-    // Find current product by slug or ID (works even when loading directly via URL)
-    const currentProduct = this.selectedProduct || 
-      this.products.find(p => p.slug === this.productSlugToLoad || p.id === this.productSlugToLoad);
-    
+    // Find current product by slug
+    const currentProduct = this.products.find(p => p.slug === this.currentProductSlug || p.id === this.currentProductSlug);
     if (!currentProduct) return null;
     
     const currentIndex = this.products.findIndex(p => p.id === currentProduct.id);
@@ -310,12 +346,10 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   private getNextProduct(): Product | null {
-    if (!this.products) return null;
+    if (!this.products || !this.currentProductSlug) return null;
     
-    // Find current product by slug or ID (works even when loading directly via URL)
-    const currentProduct = this.selectedProduct || 
-      this.products.find(p => p.slug === this.productSlugToLoad || p.id === this.productSlugToLoad);
-    
+    // Find current product by slug
+    const currentProduct = this.products.find(p => p.slug === this.currentProductSlug || p.id === this.currentProductSlug);
     if (!currentProduct) return null;
     
     const currentIndex = this.products.findIndex(p => p.id === currentProduct.id);
@@ -408,9 +442,7 @@ export class ProductCatalog extends ShoprocketElement {
   private showProductDetail(product: Product): void {
     const productSlug = product.slug || product.id;
     
-    // Store the basic product data to pass along
-    this.selectedProduct = product;
-    this.productSlugToLoad = productSlug;
+    this.currentProductSlug = productSlug;
     
     if (this.isPrimary) {
       // Primary instance updates URL
@@ -423,35 +455,20 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   private async showProductBySlug(productSlug: string): Promise<void> {
-    
     // Save current scroll position
     this.savedScrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
     
-    // Check if we have the product in our list to show immediately
-    if (this.products.length > 0) {
-      const productInList = this.products.find((p: Product) => p.slug === productSlug || p.id === productSlug);
-      if (productInList) {
-        this.selectedProduct = productInList;
-      }
-    }
-    
-    // Always set the slug so product-detail can load full details
-    this.productSlugToLoad = productSlug;
+    // Set the slug so product-detail can load details
+    this.currentProductSlug = productSlug;
     this.currentView = 'product';
-    
-    // Scroll to catalog widget immediately when showing product view
-    // requestAnimationFrame(() => {
-    //   this.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    // });
   }
 
   private async showList(): Promise<void> {
     this.currentView = 'list';
-    this.selectedProduct = undefined;
-    this.productSlugToLoad = undefined;
+    this.currentProductSlug = undefined;
     
-    // Always load products for the current page when showing list
-    // This ensures we show the correct page when coming back from product view
+    // Always load products - browser/CDN caching makes this fast
+    // This ensures we always show the correct page and fresh data
     await this.loadProducts(this.currentPage);
     
     // Restore scroll position after DOM updates

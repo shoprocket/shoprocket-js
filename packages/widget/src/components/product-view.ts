@@ -5,7 +5,50 @@ import type { Product } from '../types/api';
 
 /**
  * Product View Component - Standalone widget for embedding a single product
- * Uses Shadow DOM for isolation, renders product detail in Light DOM inside
+ * 
+ * @element shoprocket-product-view
+ * @fires shoprocket:product:added - When product is added to cart
+ * 
+ * @attr {string} data-shoprocket - Must be "product-view" to initialize this component
+ * @attr {string} [data-product-id] - Product ID to display
+ * @attr {string} [data-product-slug] - Product slug to display (alternative to ID)
+ * @attr {string} [data-show] - Comma-separated features to show (replaces defaults)
+ * @attr {string} [data-hide] - Comma-separated features to hide from defaults
+ * 
+ * Available features for show/hide:
+ * - media: Product images
+ * - gallery: Image gallery navigation
+ * - zoom: Image zoom on hover
+ * - title: Product title
+ * - price: Product price
+ * - stock: Stock availability
+ * - variants: Variant selector
+ * - quantity: Quantity selector
+ * - add-to-cart: Add to cart button
+ * - description: Product description
+ * - sku: Product SKU
+ * 
+ * @example
+ * <!-- Basic product embed -->
+ * <div data-shoprocket="product-view" 
+ *      data-product-id="prod_abc123"></div>
+ * 
+ * @example
+ * <!-- Product by slug -->
+ * <div data-shoprocket="product-view" 
+ *      data-product-slug="awesome-t-shirt"></div>
+ * 
+ * @example
+ * <!-- Minimal product view -->
+ * <div data-shoprocket="product-view"
+ *      data-product-slug="awesome-t-shirt"
+ *      data-show="media,title,price,add-to-cart"></div>
+ * 
+ * @example
+ * <!-- Product without certain features -->
+ * <div data-shoprocket="product-view"
+ *      data-product-id="prod_123"
+ *      data-hide="zoom,description,sku"></div>
  */
 export class ProductView extends ShoprocketElement {
   // Keep Shadow DOM for this top-level widget
