@@ -6,7 +6,6 @@ import type { Product, ProductVariant, ProductOption } from '../types/api';
 import { loadingSpinner } from './loading-spinner';
 import { formatProductPrice } from '../utils/formatters';
 import { isAllStockInCart } from '../utils/cart-utils';
-import { skeleton, skeletonLines, skeletonGroup } from '../utils/skeleton';
 import { TIMEOUTS, STOCK_THRESHOLDS, IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 import './tooltip'; // Register tooltip component
 
@@ -37,9 +36,6 @@ export class ProductDetail extends ShoprocketElement {
     if (this.zoomTimeout) {
       clearTimeout(this.zoomTimeout);
     }
-    // Cancel any in-flight requests
-    this.activeRequests.forEach(controller => controller.abort());
-    this.activeRequests.clear();
   }
   
   private handleCartUpdate = async (): Promise<void> => {
@@ -48,7 +44,7 @@ export class ProductDetail extends ShoprocketElement {
   
   private handleProductAdded = (event: CustomEvent): void => {
     const { product } = event.detail;
-    const currentProduct = this.fullProduct || this.product;
+    const currentProduct = this.product;
     
     // Only show success if this was our product
     if (currentProduct && product.id === currentProduct.id) {
@@ -61,23 +57,15 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   @property({ type: Object })
-  product?: Product;
+  product?: Product; // Optional to support skeleton state
 
   @property({ type: Object })
   prevProduct?: Product | null;
   
   @property({ type: Object })
   nextProduct?: Product | null;
-
-  @property({ type: String, attribute: 'product-id' })
-  productId?: string;
-
-  @property({ type: String, attribute: 'product-slug' })
-  productSlug?: string;
   
 
-  @state()
-  private fullProduct?: Product;
 
   @state()
   private selectedOptions: { [optionId: string]: string } = {};
@@ -104,22 +92,16 @@ export class ProductDetail extends ShoprocketElement {
   private loadedImages: Set<string> = new Set();
 
   private zoomTimeout?: number;
-  private activeRequests = new Map<string, AbortController>();
-  private currentProductId?: string;
-  private loadingOptionsFor?: string;
 
   protected override async updated(changedProperties: Map<string, any>): Promise<void> {
     super.updated(changedProperties);
     
-    // Handle navigation via product prop (from next/prev)
+    // When product changes, reset component state
     if (changedProperties.has('product') && this.product) {
-      // Check if it's actually a different product
-      const isDifferentProduct = !this.currentProductId || 
-                                this.currentProductId !== this.product.id;
+      const oldProduct = changedProperties.get('product') as Product | undefined;
       
-      if (isDifferentProduct) {
-        // Update current product ID immediately
-        this.currentProductId = this.product.id;
+      // Only reset if it's actually a different product
+      if (!oldProduct || oldProduct.id !== this.product.id) {
         
         // Reset state for new product
         this.selectedOptions = {};
@@ -131,166 +113,30 @@ export class ProductDetail extends ShoprocketElement {
         // Reset loaded image tracking so cached images still trigger display
         this.loadedImages = new Set();
         
-        // Clear full product to show basic data while loading
-        this.fullProduct = undefined;
-        
-        // Mark that we're loading options for this product
-        const hasOptions = this.product.has_required_options === true;
-        const hasVariants = this.product.has_variants === true || 
-                           (this.product.variant_count && this.product.variant_count > 1);
-        this.loadingOptionsFor = (hasOptions || hasVariants) ? this.product.id : undefined;
-        
-        this.requestUpdate();
-        
-        // Load full details in background
-        this.loadProductById(this.product.id);
-      }
-    }
-    
-    // Handle direct loading via productId or slug (only if no product prop)
-    if (!this.product) {
-      const identifier = this.productId || this.productSlug;
-      // Skip empty strings - they're not valid identifiers
-      const needsLoad = (changedProperties.has('productId') || changedProperties.has('productSlug')) && 
-                       identifier && identifier.trim() !== '' &&
-                       (!this.fullProduct || (this.fullProduct.id !== identifier && this.fullProduct.slug !== identifier));
-      
-      if (needsLoad) {
-        // Update current product ID immediately
-        this.currentProductId = identifier;
-        
-        // Reset state when loading new product
-        this.selectedOptions = {};
-        this.selectedVariant = undefined;
-        this.selectedMediaIndex = 0;
-        this.zoomActive = false;
-        this.addedToCart = false;
-        this.isInCart = false;
-        this.loadedImages = new Set();
-        
-        // For URL loads, we don't know if it has variants yet
-        // so always show skeleton initially
-        this.loadingOptionsFor = identifier;
-        
-        this.requestUpdate();
-        
-        await this.loadProductById(identifier);
-      }
-    }
-  }
-
-  private async loadProductById(identifier: string): Promise<void> {
-    // Cancel ALL previous requests
-    this.activeRequests.forEach((controller, id) => {
-      if (import.meta.env.DEV) console.log('Aborting request for:', id);
-      controller.abort();
-    });
-    this.activeRequests.clear();
-    
-    // Create new controller for this request
-    const abortController = new AbortController();
-    this.activeRequests.set(identifier, abortController);
-    const signal = abortController.signal;
-    if (import.meta.env.DEV) console.log('Starting request for:', identifier);
-    
-    await this.withLoading('product', async () => {
-      try {
-        const productData = await this.sdk.products.get(identifier, [], { signal });
-        
-        // Check if this is still the current product before updating
-        if (this.currentProductId !== identifier && this.currentProductId !== productData.id) {
-          return; // User has navigated away
-        }
-        
-        this.fullProduct = productData;
-        
-        // Clear loading options flag now that we have full data
-        if (this.loadingOptionsFor === identifier || this.loadingOptionsFor === productData.id) {
-          this.loadingOptionsFor = undefined;
-        }
         
         // If single variant, pre-select it
-        if (productData.variants?.length === 1) {
-          this.selectedVariant = productData.variants[0];
+        if (this.product.variants?.length === 1) {
+          this.selectedVariant = this.product.variants[0];
         }
         
         // Track product view
-        if (this.fullProduct) {
-          this.track(EVENTS.VIEW_ITEM, this.fullProduct);
-        }
+        this.track(EVENTS.VIEW_ITEM, this.product);
         
-        this.clearError();
+        // Check if in cart
+        await this.checkIfInCart();
         
-        // Only scroll if enabled and appropriate
-        const hasUrlSlug = window.location.hash.includes('/');
-        const scrollEnabled = this.hasFeature('scroll');
-        
-        if (scrollEnabled && hasUrlSlug && (this.currentProductId === identifier || this.currentProductId === productData.id)) {
-          // Scroll to top after full product loads to avoid layout shift
+        // Scroll to top if enabled
+        if (this.hasFeature('scroll') && window.location.hash.includes('/')) {
           requestAnimationFrame(() => {
             this.scrollIntoView({ behavior: 'smooth', block: 'start' });
           });
         }
-      } catch (err: any) {
-        // Ignore abort errors - user navigated away
-        if (err.name === 'AbortError') {
-          if (import.meta.env.DEV) console.log('Request aborted for:', identifier);
-          return;
-        }
-        
-        // Check if this is still the current product before showing error
-        if (this.currentProductId !== identifier) {
-          return; // User has navigated away
-        }
-        
-        console.error('Failed to load product:', err);
-        // Check if it's a 404 error
-        if (err.response?.status === 404 || err.status === 404) {
-          this.showError('Product not found. This product may no longer be available.', 0); // Don't auto-hide
-        } else {
-          this.showError('Unable to load product details. Please try again later.');
-        }
-      } finally {
-        // Remove this request from active requests
-        this.activeRequests.delete(identifier);
       }
-    });
-    
-    // Check if in cart after loading (only if still current product)
-    if (this.currentProductId === identifier || (this.fullProduct && this.currentProductId === this.fullProduct.id)) {
-      await this.checkIfInCart();
     }
   }
 
-
   protected override render(): TemplateResult {
-    // Show error state if there's an error
-    if (this.errorMessage) {
-      return html`
-        <div class="sr-product-detail" data-shoprocket="product-detail">
-          ${this.renderBackButton()}
-          <div class="sr-empty-state">
-            <h3 class="sr-empty-state-title">Product not found</h3>
-            <p class="sr-empty-state-message">
-              ${this.errorMessage}
-            </p>
-          </div>
-        </div>
-      `;
-    }
-    
-    // Use full product if available, otherwise use basic product data
-    const displayProduct = this.fullProduct || this.product;
-    
-    // Show skeleton if no product data yet
-    if (!displayProduct) {
-      return this.renderSkeleton();
-    }
-
-    // We're loading if we don't have full product yet but we need it (for variants/options)
-    // OR if we have a fullProduct but it's for a different product than what we're displaying
-    const isLoadingFull: boolean = this.isLoading('product') || 
-                                  (!!displayProduct && !!this.fullProduct && this.fullProduct.id !== displayProduct.id);
+    // Render full structure immediately, with skeletons for missing data
 
     return html`
       <div class="sr-product-detail" data-shoprocket="product-detail">
@@ -307,33 +153,34 @@ export class ProductDetail extends ShoprocketElement {
                 ${this.renderMediaContainer(
                   this.getSelectedMedia(),
                   IMAGE_SIZES.MAIN,
-                  displayProduct.name,
-                  'sr-product-detail-image-main'
+                  this.product?.name || 'Product image',
+                  'sr-product-detail-image-main',
+                  !this.product
                 )}
                 
                 <!-- Thumbnail gallery -->
-                ${this.renderThumbnails(displayProduct)}
+                ${this.renderThumbnails(this.product)}
               </div>
             </div>
             
             <!-- Product Info - Right side -->
             <div class="sr-product-detail-info">
-              <h1 class="sr-product-detail-title">${displayProduct.name}</h1>
+              <h1 class="sr-product-detail-title ${!this.product ? 'sr-skeleton' : ''}">
+                ${this.product?.name || ''}
+              </h1>
               
-              <div class="sr-product-detail-price">
-                ${this.formatProductPrice(displayProduct)}
+              <div class="sr-product-detail-price ${!this.product ? 'sr-skeleton' : ''}">
+                ${this.product ? this.formatProductPrice(this.product) : ''}
               </div>
               
-              ${this.shouldShowStockSkeleton(displayProduct)
-                ? this.renderStockStatusSkeleton()
-                : this.renderStockStatus(displayProduct)}
+              ${this.renderStockStatus(this.product)}
               
-              ${displayProduct.summary ? html`
-                <p class="sr-product-detail-summary">${displayProduct.summary}</p>
-              ` : ''}
+              <p class="sr-product-detail-summary ${!this.product ? 'sr-skeleton' : ''}">
+                ${this.product?.summary || ''}
+              </p>
               
               <!-- Variant Options -->
-              ${this.renderProductOptions(displayProduct)}
+              ${this.renderProductOptions(this.product)}
               
               <!-- Add to Cart Section -->
               <div class="sr-product-detail-actions">
@@ -343,7 +190,7 @@ export class ProductDetail extends ShoprocketElement {
                 </div>
                 
                 <!-- Product Description -->
-                ${this.renderDescription(displayProduct, isLoadingFull)}
+                ${this.renderDescription(this.product)}
                 
                 <!-- Additional info -->
                 <div class="sr-product-detail-info-text">
@@ -359,9 +206,9 @@ export class ProductDetail extends ShoprocketElement {
     `;
   }
 
-  private renderThumbnails = (product: Product): TemplateResult => {
+  private renderThumbnails = (product: Product | undefined): TemplateResult => {
     // Don't show thumbnails if no media or only one image
-    if (!product.media || product.media.length <= 1) return html``;
+    if (!product?.media || product.media.length <= 1) return html``;
 
     return html`
       <div class="sr-product-thumbnails">
@@ -383,26 +230,14 @@ export class ProductDetail extends ShoprocketElement {
     `;
   }
 
-  private renderProductOptions = (product: Product): TemplateResult => {
-    // Get the current product ID we're displaying
-    const currentId = this.product?.id || this.currentProductId || product.id;
-    
-    // If we're explicitly loading options for this product, show skeleton
-    // Check both the loading ID and the product ID to handle race conditions
-    if (this.loadingOptionsFor && 
-        (this.loadingOptionsFor === currentId || 
-         this.loadingOptionsFor === product.id || 
-         this.loadingOptionsFor === product.slug)) {
-      return html`
-        <div class="sr-product-options-skeleton">
-          ${skeletonGroup('option-label', 3)}
-        </div>
-      `;
+  private renderProductOptions = (product: Product | undefined): TemplateResult => {
+    // For now, only show options when product is loaded
+    // Future: could show skeleton options based on has_required_options flag
+    if (!product?.options || product.options.length === 0) {
+      return html``;
     }
     
-    // Always check if the passed-in product has actual options data first
-    if (product.options && product.options.length > 0) {
-      return html`
+    return html`
         <div class="sr-product-options">
           ${product.options.map((option: ProductOption) => html`
             <div class="sr-product-option">
@@ -434,10 +269,6 @@ export class ProductDetail extends ShoprocketElement {
           `)}
         </div>
       `;
-    }
-    
-    // No options to display
-    return html``;
   }
 
   private getButtonText(product: Product, canAdd: boolean): string {
@@ -453,7 +284,7 @@ export class ProductDetail extends ShoprocketElement {
                        (product.variant_count && product.variant_count > 1);
     
     // If loading full product and has options/variants, check if we have full data
-    if ((hasRequiredOptions || hasVariants) && !this.fullProduct && this.loadingOptionsFor) {
+    if ((hasRequiredOptions || hasVariants) && !this.product) {
       // Still loading, but we can make educated guess
       if (product.quick_add_eligible === true) {
         return 'Add to Cart';
@@ -471,7 +302,11 @@ export class ProductDetail extends ShoprocketElement {
   }
   
   private renderAddToCartButton = (): TemplateResult => {
-    if (!this.product) return html``;
+    const buttonClasses = `sr-button sr-add-to-cart-button ${!this.product ? 'sr-skeleton' : ''}`;
+    
+    if (!this.product) {
+      return html`<button class="${buttonClasses}" disabled></button>`;
+    }
 
     const loadingKey = `addToCart-${this.product.id}`;
     const isLoading = this.isLoading(loadingKey);
@@ -527,30 +362,14 @@ export class ProductDetail extends ShoprocketElement {
     }, 0);
   }
 
-  private renderDescription = (product: Product, isLoading: boolean): TemplateResult => {
-    // Show skeleton if loading and either no full product or different product
-    const needsDescriptionSkeleton = isLoading && 
-      (!this.fullProduct || this.fullProduct.id !== product.id);
-      
-    if (needsDescriptionSkeleton) {
-      return html`
-        <div class="sr-product-description">
-          <h3 class="sr-product-description-title">Description</h3>
-          <div class="sr-skeleton-lines">
-            ${skeletonLines(4)}
-          </div>
-        </div>
-      `;
-    }
-
-    const displayProduct = this.fullProduct || product;
-    if (!displayProduct.description) return html``;
+  private renderDescription = (product: Product | undefined): TemplateResult => {
+    if (!product?.description) return html``;
 
     return html`
       <div class="sr-product-description">
         <h3 class="sr-product-description-title">Description</h3>
         <div class="sr-product-description-content">
-          ${unsafeHTML(displayProduct.description)}
+          ${unsafeHTML(product.description)}
         </div>
       </div>
     `;
@@ -601,18 +420,17 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private updateSelectedVariant(): void {
-    const product = this.fullProduct || this.product;
-    if (!product?.variants || !product?.options) return;
+    if (!this.product?.variants || !this.product?.options) return;
     
     // Only look for exact match if all options are selected
-    if (Object.keys(this.selectedOptions).length !== product.options.length) {
+    if (Object.keys(this.selectedOptions).length !== this.product.options.length) {
       this.selectedVariant = undefined;
       return;
     }
 
     const selectedOptionValues = Object.values(this.selectedOptions);
     
-    this.selectedVariant = product.variants.find((variant: ProductVariant) => {
+    this.selectedVariant = this.product.variants.find((variant: ProductVariant) => {
       const variantOptionValues = variant.option_values || variant.option_value_ids || [];
       
       // Check if variant has exactly the selected values (no more, no less)
@@ -621,8 +439,8 @@ export class ProductDetail extends ShoprocketElement {
     });
     
     // If variant has specific media, find its index and select it
-    if (this.selectedVariant?.media_id && product.media) {
-      const mediaIndex = product.media.findIndex((m: any) => m.id === this.selectedVariant!.media_id);
+    if (this.selectedVariant?.media_id && this.product.media) {
+      const mediaIndex = this.product.media.findIndex((m: any) => m.id === this.selectedVariant!.media_id);
       if (mediaIndex !== -1) {
         this.selectedMediaIndex = mediaIndex;
       }
@@ -656,9 +474,8 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private getSelectedPrice(): number {
-    const product = this.fullProduct || this.product;
-    if (!product) return 0;
-    return this.selectedVariant?.price?.amount || product.price?.amount || 0;
+    if (!this.product) return 0;
+    return this.selectedVariant?.price?.amount || this.product.price?.amount || 0;
   }
   
   private formatProductPrice(product: Product): string {
@@ -700,7 +517,11 @@ export class ProductDetail extends ShoprocketElement {
   }
   
   private renderStockStatus(product: Product | undefined): TemplateResult | string {
-    if (!product || !product.track_inventory || !this.hasFeature('stock')) {
+    if (!this.hasFeature('stock')) {
+      return '';
+    }
+    
+    if (!product || !product.track_inventory) {
       return '';
     }
     
@@ -744,38 +565,26 @@ export class ProductDetail extends ShoprocketElement {
     `;
   }
 
-  private renderStockStatusSkeleton(): TemplateResult {
-    return html`
-      <div class="sr-stock-status sr-stock-status-skeleton">
-        ${skeleton('stock')}
-      </div>
-    `;
-  }
 
-  private shouldShowStockSkeleton(product: Product | undefined): boolean {
-    if (!product || !this.hasFeature('stock')) return false;
-
-    // Don't show skeleton if not tracking inventory
-    if (!product.track_inventory) {
-      return false;
-    }
-
-    // If we have stock data already, show the real stock status instead of skeleton
-    const hasStockData = product.total_inventory !== undefined || product.in_stock !== undefined;
-    return !hasStockData && this.isLoading('product');
-  }
 
   private getSelectedMedia(): any {
-    const product = this.fullProduct || this.product;
+    const product = this.product;
     return product?.media?.[this.selectedMediaIndex] || product?.media?.[0];
   }
 
-  private renderMediaContainer(media: any, size: string, alt: string, className: string = ''): TemplateResult {
+  private renderMediaContainer(media: any, size: string, alt: string, className: string = '', showSkeleton: boolean = false): TemplateResult {
+    if (showSkeleton) {
+      // Pure skeleton - no image
+      return html`
+        <div class="sr-media-container ${className} sr-skeleton"></div>
+      `;
+    }
+    
     if (!media) {
-      // Show placeholder image when no media
+      // Show placeholder when no media but product is loaded
       const placeholderUrl = this.getMediaUrl(null, size);
       return html`
-        <div class="sr-media-container sr-media-placeholder ${className}">
+        <div class="sr-media-container ${className} sr-media-placeholder">
           <img 
             src="${placeholderUrl}"
             alt="${alt}"
@@ -835,7 +644,7 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private getSelectedVariantText(): string | null {
-    const product = this.fullProduct || this.product;
+    const product = this.product;
     if (!product?.options || !this.selectedOptions) return null;
     
     const variantParts: string[] = [];
@@ -854,7 +663,7 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private async checkIfInCart(): Promise<void> {
-    const product = this.fullProduct || this.product;
+    const product = this.product;
     if (!product) return;
     
     // Use global cart data instead of making API call
@@ -937,57 +746,4 @@ export class ProductDetail extends ShoprocketElement {
     `;
   }
 
-  private renderSkeleton(): TemplateResult {
-    // Render the same structure as normal but with all skeleton content
-    return html`
-      <div class="sr-product-detail sr-skeleton-container" data-shoprocket="product-detail-skeleton">
-        ${this.renderBackButton()}
-        
-        <div class="sr-product-detail-content">
-          <div class="sr-product-detail-grid">
-            <!-- Images -->
-            <div class="sr-product-detail-media">
-              <div class="sr-product-detail-media-sticky">
-                <div class="sr-media-container sr-product-detail-image-main">
-                  <div class="sr-media-skeleton"></div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Info -->
-            <div class="sr-product-detail-info">
-              ${skeleton('title')}
-              ${skeleton('price')}
-              ${skeleton('stock')}
-              
-              <div class="sr-skeleton-lines mb-6">
-                ${skeletonLines(3)}
-              </div>
-              
-              <div class="mb-8">
-                ${skeletonGroup('option-label', 3)}
-              </div>
-              
-              <div class="sr-product-detail-actions">
-                <div class="sr-product-detail-buttons">
-                  ${skeleton('button')}
-                </div>
-                
-                <div class="sr-product-description">
-                  <h3 class="sr-product-description-title">Description</h3>
-                  <div class="sr-skeleton-lines">
-                    ${skeletonLines(4)}
-                  </div>
-                </div>
-                
-                <div class="sr-product-detail-info-text">
-                  ${skeleton()}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
 }

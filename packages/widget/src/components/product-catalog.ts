@@ -64,23 +64,34 @@ export class ProductCatalog extends ShoprocketElement {
   @state()
   private currentView: 'list' | 'product' = 'list';
   
+  // Virtual pagination: Store all loaded products by their absolute position
   @state()
-  private products: Product[] = [];
+  private allProducts: Map<number, Product> = new Map();
+  
+  @state()
+  private currentProductIndex: number = 0; // Absolute position in the full list
   
   @state()
   private addedToCartProducts: Set<string> = new Set();
   
   @state()
-  private currentPage = 1;
+  private currentPage = 1; // Keep for URL and API calls
   
   @state()
   private totalPages = 1;
   
-  // @state()
-  // private totalProducts = 0; // Reserved for showing total count
+  @state()
+  private totalProducts = 0; // Total count of all products
 
   @state()
   private currentProductSlug?: string;
+  
+  // Keep track of which pages we've loaded
+  private loadedPages: Set<number> = new Set();
+  // Track in-flight requests to prevent duplicates
+  private loadingPages: Map<number, Promise<void>> = new Map();
+  // AbortController for cancelling product detail loading
+  private productLoadAbortController?: AbortController;
 
   private savedScrollPosition = 0;
   private hashRouter!: HashRouter;
@@ -92,34 +103,31 @@ export class ProductCatalog extends ShoprocketElement {
 
   private async updateViewFromState(state: HashState): Promise<void> {
     if (state.view === 'product' && state.productSlug) {
-      // Always update current page from state params when in product view
-      // This ensures we load the correct page for prev/next navigation
-      if (state.params['page']) {
-        this.currentPage = parseInt(state.params['page'], 10);
-      }
+      // Extract page from params
+      const targetPage = state.params['page'] ? parseInt(state.params['page'], 10) : 1;
       
-      // Only show product if we're not already showing this product
+      // Update current page
+      this.currentPage = targetPage;
+      
+      // Ensure the page is loaded
+      await this.loadProducts(targetPage);
+      
+      // Show the product
       if (this.currentView !== 'product' || this.currentProductSlug !== state.productSlug) {
-        // Show product view
         await this.showProductBySlug(state.productSlug);
       }
       
-      // Load products in background if not already loaded (for prev/next navigation)
-      if (this.products.length === 0) {
-        this.loadProducts(this.currentPage); // Don't await - load in background
-      }
     } else if (this.currentView === 'product') {
       // Transitioning FROM product view to list
-      // Update current page from state params before showing list
       const targetPage = state.params['page'] ? parseInt(state.params['page'], 10) : 1;
-      if (targetPage !== this.currentPage) {
-        this.currentPage = targetPage;
-      }
+      this.currentPage = targetPage;
       await this.showList();
+      
     } else if (state.view === 'list' && this.currentView === 'list') {
       // We're in list view - check if page changed
       const targetPage = state.params['page'] ? parseInt(state.params['page'], 10) : 1;
       if (targetPage !== this.currentPage) {
+        this.currentPage = targetPage;
         await this.loadProducts(targetPage);
         this.scrollToTop();
       }
@@ -135,7 +143,20 @@ export class ProductCatalog extends ShoprocketElement {
   }
   
   private async loadProducts(page: number = 1): Promise<void> {
-    await this.withLoading('products', async () => {
+    // Skip if we've already loaded this page
+    if (this.loadedPages.has(page)) {
+      this.currentPage = page;
+      return;
+    }
+    
+    // Check if this page is already being loaded
+    const existingRequest = this.loadingPages.get(page);
+    if (existingRequest) {
+      return existingRequest;
+    }
+    
+    // Create and store the loading promise
+    const loadingPromise = this.withLoading('products', async () => {
       try {
         const response = await this.sdk.products.list({
           page,
@@ -143,26 +164,33 @@ export class ProductCatalog extends ShoprocketElement {
           category: this.category,
         }) as ApiResponse<Product[]>;
 
-        this.products = response.data || [];
+        const products = response.data || [];
+        const pageSize = this.limit || 12;
+        
+        // Store products by their absolute position in the full list
+        products.forEach((product, index) => {
+          const absoluteIndex = (page - 1) * pageSize + index;
+          this.allProducts.set(absoluteIndex, product);
+        });
+        
+        // Mark this page as loaded
+        this.loadedPages.add(page);
         this.currentPage = page;
         
         // Update pagination info from API response
-        // The API returns meta directly with total and per_page
         if (response.meta) {
           const meta = response.meta as any;
           if (meta.total && meta.per_page) {
-            // Calculate total pages from total items and per_page
             this.totalPages = Math.ceil(meta.total / meta.per_page);
-            // this.totalProducts = meta.total; // For future use
+            this.totalProducts = meta.total;
           } else if (response.meta?.pagination) {
-            // Fallback to standard pagination structure if it exists
             this.totalPages = response.meta.pagination.total_pages;
           }
         }
         
         // Track product list view
-        if (this.products.length > 0) {
-          this.track(EVENTS.VIEW_ITEM_LIST, this.products, { 
+        if (products.length > 0) {
+          this.track(EVENTS.VIEW_ITEM_LIST, products, { 
             category: this.category 
           });
         }
@@ -171,9 +199,15 @@ export class ProductCatalog extends ShoprocketElement {
       } catch (err) {
         console.error('Failed to load products:', err);
         this.showError('Unable to load products. Please try again later.');
-        this.products = [];
+      } finally {
+        // Clean up the loading promise
+        this.loadingPages.delete(page);
       }
     });
+    
+    // Store the promise to prevent duplicate requests
+    this.loadingPages.set(page, loadingPromise);
+    return loadingPromise;
   }
 
   override async connectedCallback(): Promise<void> {
@@ -229,6 +263,11 @@ export class ProductCatalog extends ShoprocketElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     
+    // Cancel any in-flight product loading
+    if (this.productLoadAbortController) {
+      this.productLoadAbortController.abort();
+    }
+    
     window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
@@ -241,10 +280,12 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   protected override render(): TemplateResult {
+    const pageProducts = this.getPageProducts();
+    
     return html`
       <div class="sr-catalog-list-view ${this.currentView === 'list' ? 'visible' : 'hidden'}">
         ${ProductListTemplates.renderProductList(
-          this.products,
+          pageProducts,
           this.isLoading('products'),
           this.limit || 12,
           this.errorMessage,
@@ -264,6 +305,7 @@ export class ProductCatalog extends ShoprocketElement {
       ${this.currentView === 'product' ? html`
         <shoprocket-product
           .sdk="${this.sdk}"
+          .product="${this.getCurrentProduct()}"
           .prevProduct="${this.getPrevProduct()}"
           .nextProduct="${this.getNextProduct()}"
           product-slug="${this.currentProductSlug || ''}"
@@ -274,13 +316,21 @@ export class ProductCatalog extends ShoprocketElement {
     `;
   }
 
-  private handleProductClick(product: Product): void {
+  private async handleProductClick(product: Product): Promise<void> {
     // Track product selection
     this.track(EVENTS.SELECT_ITEM, product, { 
       category: this.category 
     });
     
-    this.showProductDetail(product);
+    // Find the product's index
+    const targetIndex = this.findProductIndex(product.slug || product.id);
+    if (targetIndex === -1) {
+      console.error('Product not found in loaded products');
+      return;
+    }
+    
+    this.currentProductIndex = targetIndex;
+    await this.showProductDetail(product);
   }
   
   private handleProductAdded = (event: CustomEvent): void => {
@@ -334,33 +384,122 @@ export class ProductCatalog extends ShoprocketElement {
     }));
   }
   
+  private getCurrentProduct(): Product | undefined {
+    // Use the product at the current index
+    return this.allProducts.get(this.currentProductIndex);
+  }
+
   private getPrevProduct(): Product | null {
-    if (!this.products || !this.currentProductSlug) return null;
+    if (this.currentProductIndex <= 0) return null;
     
-    // Find current product by slug
-    const currentProduct = this.products.find(p => p.slug === this.currentProductSlug || p.id === this.currentProductSlug);
-    if (!currentProduct) return null;
+    const prevIndex = this.currentProductIndex - 1;
+    const prevProduct = this.allProducts.get(prevIndex);
     
-    const currentIndex = this.products.findIndex(p => p.id === currentProduct.id);
-    return currentIndex > 0 ? this.products[currentIndex - 1] || null : null;
+    // If we don't have the previous product loaded, we need to load its page
+    if (!prevProduct && prevIndex >= 0) {
+      this.ensureProductLoaded(prevIndex);
+    }
+    
+    return prevProduct || null;
   }
 
   private getNextProduct(): Product | null {
-    if (!this.products || !this.currentProductSlug) return null;
+    if (this.currentProductIndex >= this.totalProducts - 1) return null;
     
-    // Find current product by slug
-    const currentProduct = this.products.find(p => p.slug === this.currentProductSlug || p.id === this.currentProductSlug);
-    if (!currentProduct) return null;
+    const nextIndex = this.currentProductIndex + 1;
+    const nextProduct = this.allProducts.get(nextIndex);
     
-    const currentIndex = this.products.findIndex(p => p.id === currentProduct.id);
-    return currentIndex < this.products.length - 1 ? this.products[currentIndex + 1] || null : null;
+    // If we don't have the next product loaded, we need to load its page
+    if (!nextProduct && nextIndex < this.totalProducts) {
+      this.ensureProductLoaded(nextIndex);
+    }
+    
+    return nextProduct || null;
+  }
+  
+  // Get products for the current page view
+  private getPageProducts(): Product[] {
+    const pageSize = this.limit || 12;
+    const startIndex = (this.currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    const products: Product[] = [];
+    for (let i = startIndex; i < endIndex && i < this.totalProducts; i++) {
+      const product = this.allProducts.get(i);
+      if (product) {
+        products.push(product);
+      }
+    }
+    
+    return products;
+  }
+  
+  // Ensure a product at a specific index is loaded
+  private async ensureProductLoaded(index: number): Promise<void> {
+    const pageSize = this.limit || 12;
+    const pageNumber = Math.floor(index / pageSize) + 1;
+    
+    // Load the current page if needed
+    if (!this.loadedPages.has(pageNumber)) {
+      await this.loadProducts(pageNumber);
+    }
+    
+    // Determine position within the page
+    const positionInPage = index % pageSize;
+    const isNearPageStart = positionInPage <= 1; // First two products
+    const isNearPageEnd = positionInPage >= pageSize - 2; // Last two products
+    
+    // Only preload adjacent pages if we're near page boundaries
+    if (isNearPageStart && pageNumber > 1 && !this.loadedPages.has(pageNumber - 1)) {
+      this.loadProducts(pageNumber - 1); // Don't await - background load
+    }
+    if (isNearPageEnd && pageNumber < this.totalPages && !this.loadedPages.has(pageNumber + 1)) {
+      this.loadProducts(pageNumber + 1); // Don't await - background load
+    }
+  }
+  
+  // Find product index by slug or ID
+  private findProductIndex(identifier: string): number {
+    for (const [index, product] of this.allProducts.entries()) {
+      if (product.slug === identifier || product.id === identifier) {
+        return index;
+      }
+    }
+    return -1;
   }
 
-  private handleProductNavigation(event: CustomEvent): void {
+  private async handleProductNavigation(event: CustomEvent): Promise<void> {
     const { product } = event.detail;
-    if (product) {
-      this.showProductDetail(product);
+    if (!product) return;
+    
+    // Find the index of the target product
+    const targetIndex = this.findProductIndex(product.slug || product.id);
+    if (targetIndex === -1) {
+      // Product not found in loaded products, try to load it
+      await this.loadFullProduct(product.slug || product.id);
+      return;
     }
+    
+    // Update our position
+    this.currentProductIndex = targetIndex;
+    
+    // Calculate which page this product is on
+    const pageSize = this.limit || 12;
+    const targetPage = Math.floor(targetIndex / pageSize) + 1;
+    
+    // Update URL with product and page
+    if (this.isPrimary) {
+      // The hash change will trigger updateViewFromState -> showProductBySlug -> loadFullProduct
+      this.hashRouter.navigateToProduct(product.slug || product.id, false, { page: targetPage });
+    } else {
+      // Non-primary instances need to load the product directly
+      this.currentView = 'product';
+      this.currentProductSlug = product.slug || product.id;
+      await this.loadFullProduct(product.slug || product.id);
+    }
+    
+    // Ensure adjacent products are loaded for smooth navigation
+    await this.ensureProductLoaded(targetIndex);
   }
 
   private renderPagination(): TemplateResult {
@@ -425,50 +564,135 @@ export class ProductCatalog extends ShoprocketElement {
   private async goToPage(page: number): Promise<void> {
     if (page < 1 || page > this.totalPages || page === this.currentPage) return;
     
-    // Clear products to show loading skeleton
-    this.products = [];
-    
     if (this.isPrimary) {
       // Update URL hash with page number - this will trigger updateViewFromState
+      // DON'T update currentPage here, let updateViewFromState handle it
       this.hashRouter.updateCatalogState({ page });
       // The hash change will handle loading and scrolling
     } else {
       // Non-primary instances load directly
+      this.currentPage = page;
       await this.loadProducts(page);
       this.scrollToTop();
     }
   }
 
-  private showProductDetail(product: Product): void {
+  private async showProductDetail(product: Product): Promise<void> {
     const productSlug = product.slug || product.id;
     
     this.currentProductSlug = productSlug;
     
+    // Calculate which page this product is on
+    const pageSize = this.limit || 12;
+    const targetPage = Math.floor(this.currentProductIndex / pageSize) + 1;
+    
     if (this.isPrimary) {
-      // Primary instance updates URL
-      this.hashRouter.navigateToProduct(productSlug, true); // Preserve catalog params
+      // Primary instance updates URL - this will trigger updateViewFromState -> showProductBySlug -> loadFullProduct
+      this.hashRouter.navigateToProduct(productSlug, false, { page: targetPage });
     } else {
-      // Non-primary instances just update local state
+      // Non-primary instances need to load the product directly
       this.currentView = 'product';
       this.savedScrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+      await this.loadFullProduct(productSlug);
     }
+    
+    // Ensure adjacent products are loaded
+    this.ensureProductLoaded(this.currentProductIndex);
   }
 
   private async showProductBySlug(productSlug: string): Promise<void> {
     // Save current scroll position
     this.savedScrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
     
-    // Set the slug so product-detail can load details
     this.currentProductSlug = productSlug;
     this.currentView = 'product';
+    
+    // Try to find the product in our loaded products
+    let targetIndex = this.findProductIndex(productSlug);
+    
+    // Always load full product details (even if we have it in the list)
+    await this.loadFullProduct(productSlug);
+    
+    // If it wasn't in our list before, find its index now
+    if (targetIndex === -1) {
+      targetIndex = this.findProductIndex(productSlug);
+    }
+    
+    if (targetIndex !== -1) {
+      this.currentProductIndex = targetIndex;
+      // Ensure adjacent products are loaded
+      await this.ensureProductLoaded(targetIndex);
+    }
   }
+  
+  private async loadFullProduct(identifier: string): Promise<void> {
+    // Cancel any previous product loading
+    if (this.productLoadAbortController) {
+      this.productLoadAbortController.abort();
+    }
+    
+    // Create new AbortController for this request
+    this.productLoadAbortController = new AbortController();
+    const signal = this.productLoadAbortController.signal;
+    
+    await this.withLoading('product', async () => {
+      try {
+        const fullProduct = await this.sdk.products.get(identifier, undefined, { signal });
+        
+        // Check if request was aborted
+        if (signal.aborted) {
+          return;
+        }
+        
+        // Try to find which index this product should be at
+        // This is tricky because we might not have the page loaded yet
+        // For now, just add it to the map at a temporary position
+        // and load the correct page
+        
+        // Find which page this product would be on based on its position in the catalog
+        // This requires knowing its position, which we might not have...
+        // For now, just ensure we can display it
+        const existingIndex = this.findProductIndex(fullProduct.slug || fullProduct.id);
+        if (existingIndex === -1) {
+          // Product not in our loaded set, add it temporarily
+          // We'll need to load the correct page to get its actual position
+          // For now, just store it so we can display it
+          const tempIndex = this.allProducts.size;
+          this.allProducts.set(tempIndex, fullProduct);
+          this.currentProductIndex = tempIndex;
+        } else {
+          // Update the existing product with full details
+          this.allProducts.set(existingIndex, fullProduct);
+          this.currentProductIndex = existingIndex;
+        }
+        
+      } catch (err: any) {
+        // Don't show error if request was aborted
+        if (err.name === 'AbortError') {
+          return;
+        }
+        
+        console.error('Failed to load product:', err);
+        if (err.response?.status === 404 || err.status === 404) {
+          this.showError('Product not found. This product may no longer be available.');
+        } else {
+          this.showError('Unable to load product details. Please try again later.');
+        }
+      }
+    });
+  }
+  
 
   private async showList(): Promise<void> {
+    // Cancel any in-flight product loading
+    if (this.productLoadAbortController) {
+      this.productLoadAbortController.abort();
+    }
+    
     this.currentView = 'list';
     this.currentProductSlug = undefined;
     
-    // Always load products - browser/CDN caching makes this fast
-    // This ensures we always show the correct page and fresh data
+    // Ensure current page is loaded
     await this.loadProducts(this.currentPage);
     
     // Restore scroll position after DOM updates

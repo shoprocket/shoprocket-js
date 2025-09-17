@@ -175,15 +175,30 @@ export class HashRouter extends EventTarget {
     this.setHash(userPart, newOurPart);
   }
 
-  navigateToProduct(productSlug: string, preserveParams: boolean = false): void {
+  navigateToProduct(productSlug: string, preserveParams: boolean = false, additionalParams?: Record<string, string | number>): void {
     const fullHash = window.location.hash;
     const [userPart = ''] = fullHash.split('#!/');
     
     let newOurPart = productSlug;
     
+    // Build parameters
+    const params: Record<string, string> = {};
+    
     // Optionally preserve existing parameters
-    if (preserveParams && Object.keys(this.currentState.params).length > 0) {
-      const paramString = Object.entries(this.currentState.params)
+    if (preserveParams) {
+      Object.assign(params, this.currentState.params);
+    }
+    
+    // Add additional parameters
+    if (additionalParams) {
+      for (const [key, value] of Object.entries(additionalParams)) {
+        params[key] = String(value);
+      }
+    }
+    
+    // Add parameters to URL
+    if (Object.keys(params).length > 0) {
+      const paramString = Object.entries(params)
         .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
         .join('&');
       newOurPart += `&${paramString}`;

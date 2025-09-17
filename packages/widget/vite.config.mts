@@ -15,6 +15,11 @@ export default defineConfig({
     })
   ],
   publicDir: 'public',
+  define: {
+    // Preserve dev mode detection for localhost/test environments
+    'import.meta.env.DEV': 'true',
+    'import.meta.env.PROD': 'false',
+  },
   build: {
     emptyOutDir: false, // Don't clear dist folder (loader is already there)
     lib: {
