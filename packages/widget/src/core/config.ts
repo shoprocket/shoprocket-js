@@ -25,7 +25,7 @@ export const initializeConfig = (scriptUrl: string): void => {
     if (scriptHost === 'dev-cdn.shoprocket.io') {
       apiUrl = 'https://dev.shoprocket.io/api/v3';
       cdnUrl = 'https://dev-cdn.shoprocket.io';
-    } else if (scriptHost.includes('localhost') || scriptHost.includes('.test') || scriptHost.includes('.local')) {
+    } else if (import.meta.env.DEV && (scriptHost.includes('localhost') || scriptHost.includes('.test') || scriptHost.includes('.local'))) {
       apiUrl = 'https://shoprocketv3.test/api/v3';
       cdnUrl = 'https://shoprocketv3.test';
     }

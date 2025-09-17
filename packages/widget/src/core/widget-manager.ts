@@ -28,6 +28,27 @@ export class WidgetManager {
   private mountedWidgets = new Map<Element, LitElement>();
   public analytics: Analytics | null = null;
 
+  // Public API namespaces
+  public cart = {
+    /**
+     * Opens the shopping cart
+     * @example Shoprocket.cart.open()
+     */
+    open: () => window.dispatchEvent(new CustomEvent('open-cart', { bubbles: true })),
+    
+    /**
+     * Closes the shopping cart
+     * @example Shoprocket.cart.close()
+     */
+    close: () => window.dispatchEvent(new CustomEvent('close-cart', { bubbles: true })),
+    
+    /**
+     * Toggles the shopping cart visibility
+     * @example Shoprocket.cart.toggle()
+     */
+    toggle: () => window.dispatchEvent(new CustomEvent('toggle-cart', { bubbles: true }))
+  };
+
   /**
    * Initialize the widget with a public key
    */

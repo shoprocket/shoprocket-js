@@ -150,8 +150,9 @@ export class ProductDetail extends ShoprocketElement {
     // Handle direct loading via productId or slug (only if no product prop)
     if (!this.product) {
       const identifier = this.productId || this.productSlug;
+      // Skip empty strings - they're not valid identifiers
       const needsLoad = (changedProperties.has('productId') || changedProperties.has('productSlug')) && 
-                       identifier &&
+                       identifier && identifier.trim() !== '' &&
                        (!this.fullProduct || (this.fullProduct.id !== identifier && this.fullProduct.slug !== identifier));
       
       if (needsLoad) {
@@ -181,7 +182,7 @@ export class ProductDetail extends ShoprocketElement {
   private async loadProductById(identifier: string): Promise<void> {
     // Cancel ALL previous requests
     this.activeRequests.forEach((controller, id) => {
-      console.log('Aborting request for:', id);
+      if (import.meta.env.DEV) console.log('Aborting request for:', id);
       controller.abort();
     });
     this.activeRequests.clear();
@@ -190,7 +191,7 @@ export class ProductDetail extends ShoprocketElement {
     const abortController = new AbortController();
     this.activeRequests.set(identifier, abortController);
     const signal = abortController.signal;
-    console.log('Starting request for:', identifier);
+    if (import.meta.env.DEV) console.log('Starting request for:', identifier);
     
     await this.withLoading('product', async () => {
       try {
@@ -233,7 +234,7 @@ export class ProductDetail extends ShoprocketElement {
       } catch (err: any) {
         // Ignore abort errors - user navigated away
         if (err.name === 'AbortError') {
-          console.log('Request aborted for:', identifier);
+          if (import.meta.env.DEV) console.log('Request aborted for:', identifier);
           return;
         }
         
@@ -470,19 +471,18 @@ export class ProductDetail extends ShoprocketElement {
   }
   
   private renderAddToCartButton = (): TemplateResult => {
-    const product = this.fullProduct || this.product;
-    if (!product) return html``;
+    if (!this.product) return html``;
 
-    const loadingKey = `addToCart-${product.id}`;
+    const loadingKey = `addToCart-${this.product.id}`;
     const isLoading = this.isLoading(loadingKey);
     const canAdd = this.canAddToCart();
     
     // Check stock status for button text
-    const variantId = this.selectedVariant?.id || product.default_variant_id;
+    const variantId = this.selectedVariant?.id || this.product.default_variant_id;
     const totalInventory = this.selectedVariant ? 
       this.selectedVariant.inventory_quantity : 
-      product.total_inventory;
-    const stockStatus = isAllStockInCart(product.id, variantId, totalInventory);
+      this.product.total_inventory;
+    const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
 
     return html`
       <button 
@@ -498,9 +498,9 @@ export class ProductDetail extends ShoprocketElement {
             Added to Cart
           </span>
         ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` : 
-            product.in_stock === false ? 'Out of Stock' :
+            this.product.in_stock === false ? 'Out of Stock' :
             stockStatus.allInCart ? `Max (${totalInventory}) in cart` :
-            this.getButtonText(product, canAdd)}
+            this.getButtonText(this.product, canAdd)}
       </button>
     `;
   }
@@ -557,10 +557,9 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private async handleAddToCart(): Promise<void> {
-    const product = this.fullProduct || this.product;
-    if (!product || !this.canAddToCart()) return;
+    if (!this.product || !this.canAddToCart()) return;
 
-    const variantId = this.selectedVariant?.id || product.default_variant_id;
+    const variantId = this.selectedVariant?.id || this.product.default_variant_id;
     if (!variantId) {
       this.showError('Please select all options before adding to cart.');
       return;
@@ -568,8 +567,8 @@ export class ProductDetail extends ShoprocketElement {
 
     // Prepare cart item data for optimistic update
     const cartItemData = {
-      product_id: product.id,
-      product_name: product.name,
+      product_id: this.product.id,
+      product_name: this.product.name,
       variant_id: variantId,
       variant_name: this.getSelectedVariantText() || undefined,
       quantity: 1,
@@ -580,10 +579,10 @@ export class ProductDetail extends ShoprocketElement {
     
     // Include stock info for validation
     const stockInfo = {
-      track_inventory: product.track_inventory,
+      track_inventory: this.product.track_inventory,
       available_quantity: this.selectedVariant ? 
         this.selectedVariant.inventory_quantity : 
-        product.total_inventory
+        this.product.total_inventory
     };
     
     // Dispatch event with full cart item data for optimistic update
@@ -631,28 +630,27 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private canAddToCart(): boolean {
-    const product = this.fullProduct || this.product;
-    if (!product) return false;
+    if (!this.product) return false;
     
     // Check if out of stock
-    if (product.in_stock === false) return false;
+    if (this.product.in_stock === false) return false;
     
     // Check if all stock is already in cart
-    const variantId = this.selectedVariant?.id || product.default_variant_id;
+    const variantId = this.selectedVariant?.id || this.product.default_variant_id;
     const totalInventory = this.selectedVariant ? 
       this.selectedVariant.inventory_quantity : 
-      product.total_inventory;
+      this.product.total_inventory;
     
-    const stockStatus = isAllStockInCart(product.id, variantId, totalInventory);
+    const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
     if (stockStatus.allInCart) return false;
     
     // For single variant products, can add if in stock
-    if (product.variants?.length === 1) return true;
+    if (this.product.variants?.length === 1) return true;
     
     // For multi-variant, need all options selected
-    if (!product.options) return false;
+    if (!this.product.options) return false;
     
-    return product.options.every((option: ProductOption) => 
+    return this.product.options.every((option: ProductOption) => 
       this.selectedOptions[option.id]
     );
   }

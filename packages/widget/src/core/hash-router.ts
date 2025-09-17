@@ -64,22 +64,32 @@ export class HashRouter extends EventTarget {
   private parseHash(): HashState {
     const fullHash = window.location.hash;
     
-    // Split on #!/ to separate user hash from our state
-    const [, ourPart = ''] = fullHash.split('#!/');
-    
-    if (!ourPart) {
+    // No hash or empty hash = list view
+    if (!fullHash || fullHash === '#') {
       return { view: 'list', cartOpen: false, params: {} };
     }
-
+    
+    // Split on #!/ to separate user hash from our state
+    const parts = fullHash.split('#!/');
+    if (parts.length < 2) {
+      return { view: 'list', cartOpen: false, params: {} };
+    }
+    
+    // Our part is everything after #!/
+    let ourPart = parts[1] || '';
+    
     // Check for cart state (always at the end)
-    const cartOpen = ourPart.includes('/~/cart');
+    const cartOpen = ourPart.endsWith('~/cart');
     
     // Remove cart suffix to parse the rest
-    const stateWithoutCart = ourPart.replace('/~/cart', '');
+    if (cartOpen) {
+      // Handle both /~/cart and ~/cart
+      ourPart = ourPart.replace(/\/?~\/cart$/, '');
+    }
     
-    // Just cart open: ~/cart
-    if (stateWithoutCart === '' || stateWithoutCart === '~') {
-      return { view: 'list', cartOpen: true, params: {} };
+    // Empty ourPart = list view
+    if (!ourPart) {
+      return { view: 'list', cartOpen, params: {} };
     }
     
     // Parse parameters and check for product
@@ -87,16 +97,16 @@ export class HashRouter extends EventTarget {
     let productSlug: string | undefined;
     
     // Split by & to get all parts
-    const parts = stateWithoutCart.split('&');
+    const paramParts = ourPart.split('&');
     
     // Check if first part is a product slug (doesn't contain =)
-    if (parts[0] && !parts[0].includes('=')) {
-      productSlug = parts[0];
-      parts.shift(); // Remove product slug from parts
+    if (paramParts[0] && !paramParts[0].includes('=')) {
+      productSlug = paramParts[0];
+      paramParts.shift(); // Remove product slug from parts
     }
     
     // Parse remaining parameters
-    for (const part of parts) {
+    for (const part of paramParts) {
       if (part.includes('=')) {
         const [key, value] = part.split('=', 2);
         if (key && value) {
@@ -143,11 +153,11 @@ export class HashRouter extends EventTarget {
     const fullHash = window.location.hash;
     const [userPart = '', ourPart = ''] = fullHash.split('#!/');
     
-    if (ourPart.includes('/~/cart')) {
+    if (ourPart.endsWith('~/cart')) {
       return; // Already open
     }
 
-    // Append /~/cart to our state
+    // Append ~/cart to our state (with leading slash only if needed)
     const newOurPart = ourPart ? ourPart + '/~/cart' : '~/cart';
     this.setHash(userPart, newOurPart);
   }
@@ -156,12 +166,12 @@ export class HashRouter extends EventTarget {
     const fullHash = window.location.hash;
     const [userPart = '', ourPart = ''] = fullHash.split('#!/');
     
-    if (!ourPart.includes('/~/cart')) {
+    if (!ourPart.endsWith('~/cart')) {
       return; // Already closed
     }
 
-    // Remove /~/cart from our state
-    const newOurPart = ourPart.replace('/~/cart', '').replace('~/cart', '');
+    // Remove ~/cart from our state (with or without leading slash)
+    const newOurPart = ourPart.replace(/\/?~\/cart$/, '');
     this.setHash(userPart, newOurPart);
   }
 
