@@ -1,4 +1,5 @@
 import type { ShoprocketCore } from '@shoprocket/core';
+import { LIMITS } from '../constants';
 
 interface EventData {
   event: string;
@@ -137,7 +138,7 @@ export class Analytics {
   private buildItemsArray(entity: any, extra?: any): any[] {
     // If entity is already an array (product list)
     if (Array.isArray(entity)) {
-      return entity.slice(0, 10).map((item, index) => this.mapToItem(item, index));
+      return entity.slice(0, LIMITS.MAX_ANALYTICS_ITEMS).map((item, index) => this.mapToItem(item, index));
     }
 
     // Single item
