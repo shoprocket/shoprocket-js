@@ -689,8 +689,6 @@ export class CartWidget extends ShoprocketElement {
     const item = this.cart?.items[itemIndex];
     if (!item) return;
     
-    const itemPrice = typeof item.price === 'object' ? item.price.amount : item.price;
-    
     // Store current open state
     const wasOpen = this.isOpen;
     

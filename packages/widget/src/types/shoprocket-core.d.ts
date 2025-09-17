@@ -49,7 +49,7 @@ declare module '@shoprocket/core' {
   export class CartService {
     constructor(api: ApiClient);
     get(): Promise<any>;
-    addItem(data: { product_id: string; quantity: number; variant_id?: string }): Promise<any>;
+    addItem(data: { product_id: string; quantity: number; variant_id?: string; source_url?: string }): Promise<any>;
     updateItem(itemId: string, quantity: number): Promise<any>;
     removeItem(itemId: string): Promise<any>;
     clear(): Promise<any>;

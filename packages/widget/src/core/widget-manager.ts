@@ -26,7 +26,6 @@ export class WidgetManager {
   private sdk: ShoprocketCore | null = null;
   private initialized = false;
   private mountedWidgets = new Map<Element, LitElement>();
-  private config: WidgetConfig = {};
   public analytics: Analytics | null = null;
 
   /**
@@ -39,13 +38,6 @@ export class WidgetManager {
     }
 
     try {
-      // Store config options with defaults
-      this.config = { 
-        stockDisplay: 'always',
-        lowStockThreshold: 10,
-        ...options 
-      };
-
       // Initialize SDK
       this.sdk = new ShoprocketCore({
         publicKey,
