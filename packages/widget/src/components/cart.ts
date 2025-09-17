@@ -738,10 +738,9 @@ export class CartWidget extends ShoprocketElement {
       this.isOpen = wasOpen;
       
       // If cart should be open, ensure URL has cart hash
-      if (wasOpen && !window.location.hash.includes('/~/cart')) {
-        const currentHash = window.location.hash;
-        const newHash = currentHash ? currentHash + '/~/cart' : '#/~/cart';
-        window.history.replaceState(null, '', newHash);
+      // Let the hash router handle this properly to preserve user hash
+      if (wasOpen) {
+        this.hashRouter.openCart();
       }
       
       // Dispatch cart updated event
@@ -760,7 +759,8 @@ export class CartWidget extends ShoprocketElement {
     } else if (item.product_slug) {
       // Fallback to hash navigation on current page
       this.closeCart();
-      window.location.hash = `!/${item.product_slug}`;
+      // Use hash router to navigate properly
+      this.hashRouter.navigateToProduct(item.product_slug);
     }
   }
 

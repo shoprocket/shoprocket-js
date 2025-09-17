@@ -1,14 +1,15 @@
 /**
  * Centralized Hash Router - Single source of truth for URL hash state
  * 
- * Hash format: #!/[product-slug][&param=value...][/~/cart]
+ * Non-destructive hash handling that preserves existing user hashes.
+ * 
+ * Hash format: [userHash]#!/[ourState]
+ * 
  * Examples:
- * - "" or "#" -> list view, cart closed
- * - "#/~/cart" -> list view, cart open  
- * - "#!/page=2" -> list view page 2
- * - "#!/product-slug" -> product view, cart closed
- * - "#!/product-slug/~/cart" -> product view, cart open
- * - "#!/currency=GBP&page=3&sort=created/~/cart" -> list with params, cart open
+ * - "#section-2#!/product-slug" -> user hash preserved, product view
+ * - "#section-2#!/~/cart" -> user hash preserved, cart open
+ * - "#!/page=2&sort=price" -> no user hash, catalog with params
+ * - "#my-app/route#!/product-slug/~/cart" -> complex user hash preserved
  */
 
 export interface HashState {
@@ -61,60 +62,55 @@ export class HashRouter extends EventTarget {
   }
 
   private parseHash(): HashState {
-    const hash = window.location.hash;
+    const fullHash = window.location.hash;
     
-    if (!hash || hash === '#') {
+    // Split on #!/ to separate user hash from our state
+    const [, ourPart = ''] = fullHash.split('#!/');
+    
+    if (!ourPart) {
       return { view: 'list', cartOpen: false, params: {} };
     }
 
-    // Check for cart state first (it's always at the end)
-    const cartOpen = hash.includes('/~/cart');
+    // Check for cart state (always at the end)
+    const cartOpen = ourPart.includes('/~/cart');
     
     // Remove cart suffix to parse the rest
-    const hashWithoutCart = hash.replace('/~/cart', '');
+    const stateWithoutCart = ourPart.replace('/~/cart', '');
     
-    // Just cart open with no other params: #/~/cart
-    if (hashWithoutCart === '#' || hashWithoutCart === '') {
+    // Just cart open: ~/cart
+    if (stateWithoutCart === '' || stateWithoutCart === '~') {
       return { view: 'list', cartOpen: true, params: {} };
     }
     
-    // Parse the main part
-    if (hashWithoutCart.startsWith('#!/')) {
-      const content = hashWithoutCart.substring(3); // Remove #!/
-      
-      // Parse parameters (key=value pairs separated by &)
-      const params: Record<string, string> = {};
-      let productSlug: string | undefined;
-      
-      // Split by & to get all parts
-      const parts = content.split('&');
-      
-      // Check if first part is a product slug (doesn't contain =)
-      if (parts[0] && !parts[0].includes('=')) {
-        productSlug = parts[0];
-        // Remove the product slug from parts
-        parts.shift();
-      }
-      
-      // Parse remaining parameters
-      for (const part of parts) {
-        if (part.includes('=')) {
-          const [key, value] = part.split('=', 2);
-          if (key && value) {
-            params[key] = decodeURIComponent(value);
-          }
+    // Parse parameters and check for product
+    const params: Record<string, string> = {};
+    let productSlug: string | undefined;
+    
+    // Split by & to get all parts
+    const parts = stateWithoutCart.split('&');
+    
+    // Check if first part is a product slug (doesn't contain =)
+    if (parts[0] && !parts[0].includes('=')) {
+      productSlug = parts[0];
+      parts.shift(); // Remove product slug from parts
+    }
+    
+    // Parse remaining parameters
+    for (const part of parts) {
+      if (part.includes('=')) {
+        const [key, value] = part.split('=', 2);
+        if (key && value) {
+          params[key] = decodeURIComponent(value);
         }
-      }
-      
-      // Determine view type
-      if (productSlug) {
-        return { view: 'product', productSlug, cartOpen, params };
-      } else {
-        return { view: 'list', cartOpen, params };
       }
     }
     
-    return { view: 'list', cartOpen: false, params: {} };
+    // Determine view type
+    if (productSlug) {
+      return { view: 'product', productSlug, cartOpen, params };
+    } else {
+      return { view: 'list', cartOpen, params };
+    }
   }
 
   private hasStateChanged(oldState: HashState, newState: HashState): boolean {
@@ -144,67 +140,73 @@ export class HashRouter extends EventTarget {
 
   // Public API for components to update state
   openCart(): void {
-    const currentHash = window.location.hash;
+    const fullHash = window.location.hash;
+    const [userPart = '', ourPart = ''] = fullHash.split('#!/');
     
-    if (currentHash.includes('/~/cart')) {
+    if (ourPart.includes('/~/cart')) {
       return; // Already open
     }
 
-    // Simply append /~/cart to whatever hash we have
-    if (!currentHash || currentHash === '#') {
-      window.location.hash = '#/~/cart';
-    } else {
-      window.location.hash = currentHash + '/~/cart';
-    }
+    // Append /~/cart to our state
+    const newOurPart = ourPart ? ourPart + '/~/cart' : '~/cart';
+    this.setHash(userPart, newOurPart);
   }
 
   closeCart(): void {
-    const currentHash = window.location.hash;
+    const fullHash = window.location.hash;
+    const [userPart = '', ourPart = ''] = fullHash.split('#!/');
     
-    if (!currentHash.includes('/~/cart')) {
+    if (!ourPart.includes('/~/cart')) {
       return; // Already closed
     }
 
-    const newHash = currentHash.replace('/~/cart', '');
-    window.location.hash = newHash === '#!' ? '' : newHash;
+    // Remove /~/cart from our state
+    const newOurPart = ourPart.replace('/~/cart', '').replace('~/cart', '');
+    this.setHash(userPart, newOurPart);
   }
 
   navigateToProduct(productSlug: string, preserveParams: boolean = false): void {
-    let newHash = `#!/${productSlug}`;
+    const fullHash = window.location.hash;
+    const [userPart = ''] = fullHash.split('#!/');
+    
+    let newOurPart = productSlug;
     
     // Optionally preserve existing parameters
     if (preserveParams && Object.keys(this.currentState.params).length > 0) {
       const paramString = Object.entries(this.currentState.params)
         .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
         .join('&');
-      newHash += `&${paramString}`;
+      newOurPart += `&${paramString}`;
     }
     
     // Preserve cart state
     if (this.currentState.cartOpen) {
-      newHash += '/~/cart';
+      newOurPart += '/~/cart';
     }
     
-    window.location.hash = newHash;
+    this.setHash(userPart, newOurPart);
   }
 
   navigateToList(preserveParams: boolean = true): void {
+    const fullHash = window.location.hash;
+    const [userPart = ''] = fullHash.split('#!/');
+    
+    let newOurPart = '';
+    
     if (preserveParams && Object.keys(this.currentState.params).length > 0) {
-      // Build hash with parameters
+      // Build params string
       const paramString = Object.entries(this.currentState.params)
         .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
         .join('&');
-      
-      let newHash = `#!/${paramString}`;
-      if (this.currentState.cartOpen) {
-        newHash += '/~/cart';
-      }
-      window.location.hash = newHash;
-    } else {
-      // Simple navigation
-      const cartSuffix = this.currentState.cartOpen ? '/~/cart' : '';
-      window.location.hash = cartSuffix ? '#/~/cart' : '';
+      newOurPart = paramString;
     }
+    
+    // Preserve cart state
+    if (this.currentState.cartOpen) {
+      newOurPart = newOurPart ? newOurPart + '/~/cart' : '~/cart';
+    }
+    
+    this.setHash(userPart, newOurPart);
   }
 
   getCurrentState(): HashState {
@@ -216,6 +218,9 @@ export class HashRouter extends EventTarget {
   
   // Generic method to update any parameters while preserving others
   updateParams(updates: Record<string, string | undefined>, preserveCart: boolean = true): void {
+    const fullHash = window.location.hash;
+    const [userPart = ''] = fullHash.split('#!/');
+    
     const newParams = { ...this.currentState.params };
     
     // Apply updates (undefined values remove the param)
@@ -227,14 +232,14 @@ export class HashRouter extends EventTarget {
       }
     }
     
-    // Build new hash
-    let newHash = '#!/';
+    // Build new our part
+    let newOurPart = '';
     
     // Add product slug if on product view
     if (this.currentState.view === 'product' && this.currentState.productSlug) {
-      newHash += this.currentState.productSlug;
+      newOurPart = this.currentState.productSlug;
       if (Object.keys(newParams).length > 0) {
-        newHash += '&';
+        newOurPart += '&';
       }
     }
     
@@ -243,20 +248,15 @@ export class HashRouter extends EventTarget {
       const paramString = Object.entries(newParams)
         .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
         .join('&');
-      newHash += paramString;
+      newOurPart += paramString;
     }
     
     // Preserve cart state if requested
     if (preserveCart && this.currentState.cartOpen) {
-      newHash += '/~/cart';
+      newOurPart = newOurPart ? newOurPart + '/~/cart' : '~/cart';
     }
     
-    // Handle empty state
-    if (newHash === '#!/') {
-      newHash = '';
-    }
-    
-    window.location.hash = newHash;
+    this.setHash(userPart, newOurPart);
   }
   
   // Convenience method for catalog-specific updates
@@ -278,5 +278,30 @@ export class HashRouter extends EventTarget {
     }
     
     this.updateParams(params);
+  }
+  
+  /**
+   * Helper method to set hash while preserving user's original hash
+   */
+  private setHash(userPart: string, ourPart: string): void {
+    if (!ourPart) {
+      // Remove our part entirely
+      if (!userPart || userPart === '#') {
+        // No user part and no our part = clear hash
+        window.location.hash = '';
+      } else {
+        // Keep user's hash only
+        window.location.hash = userPart;
+      }
+    } else {
+      // We have widget state
+      if (!userPart || userPart === '#') {
+        // No user part, just our state
+        window.location.hash = '#!/' + ourPart;
+      } else {
+        // Both user and our state
+        window.location.hash = userPart + '#!/' + ourPart;
+      }
+    }
   }
 }
