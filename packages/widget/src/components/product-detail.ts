@@ -773,7 +773,18 @@ export class ProductDetail extends ShoprocketElement {
 
   private renderMediaContainer(media: any, size: string, alt: string, className: string = ''): TemplateResult {
     if (!media) {
-      return html`<div class="sr-media-container sr-media-placeholder ${className}"></div>`;
+      // Show placeholder image when no media
+      const placeholderUrl = this.getMediaUrl(null, size);
+      return html`
+        <div class="sr-media-container sr-media-placeholder ${className}">
+          <img 
+            src="${placeholderUrl}"
+            alt="${alt}"
+            loading="lazy"
+            @error="${this.handleImageError}"
+          />
+        </div>
+      `;
     }
     
     const url = this.getMediaUrl(media, size);
