@@ -12,7 +12,44 @@ import './tooltip';
 import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
 
 /**
- * Cart Widget Component
+ * Cart Widget Component - Shopping cart with slide-out panel
+ * 
+ * @element shoprocket-cart
+ * @fires shoprocket:cart:updated - When cart contents change
+ * @fires shoprocket:cart:loaded - When cart is initially loaded
+ * @fires shoprocket:cart:error - When cart operations fail
+ * 
+ * @attr {string} data-shoprocket - Must be "cart" to initialize this component
+ * @attr {string} [data-position="bottom-right"] - Position of cart icon (bottom-right, bottom-left, top-right, top-left)
+ * @attr {string} [data-style="bubble"] - Visual style (bubble, minimal, custom)
+ * @attr {boolean} [data-floating=true] - Whether cart floats over page content
+ * @attr {string} [data-show] - Comma-separated features to show
+ * @attr {string} [data-hide] - Comma-separated features to hide
+ * 
+ * @listens open-cart - Opens the cart panel
+ * @listens close-cart - Closes the cart panel
+ * @listens toggle-cart - Toggles cart visibility
+ * @listens shoprocket:cart:add-item - Adds item to cart
+ * 
+ * @example
+ * <!-- Basic floating cart -->
+ * <div data-shoprocket="cart"></div>
+ * 
+ * @example
+ * <!-- Cart in top-left corner -->
+ * <div data-shoprocket="cart" 
+ *      data-position="top-left"></div>
+ * 
+ * @example
+ * <!-- Embedded cart (not floating) -->
+ * <div data-shoprocket="cart" 
+ *      data-floating="false"></div>
+ * 
+ * @example
+ * <!-- Minimal style cart -->
+ * <div data-shoprocket="cart"
+ *      data-style="minimal"
+ *      data-position="bottom-left"></div>
  */
 export class CartWidget extends ShoprocketElement {
   @property({ type: String })

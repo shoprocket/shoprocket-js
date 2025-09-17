@@ -10,15 +10,21 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "npm run clean && npm run build:loader && npm run build:bundle",
+    "build": "npm run build:dev",
+    "build:production": "npm run build:prod",
+    "build:dev": "npm run clean && npm run build:loader && npm run build:bundle",
+    "build:prod": "NODE_ENV=production npm run clean && npm run build:loader:prod && npm run build:bundle:prod",
     "build:loader": "vite build --config vite.config.loader.mts",
+    "build:loader:prod": "NODE_ENV=production vite build --config vite.config.loader.prod.mts",
     "build:bundle": "vite build",
+    "build:bundle:prod": "NODE_ENV=production vite build --config vite.config.prod.mts",
     "build:watch": "npm run build && vite build --watch",
     "preview": "vite preview",
     "test": "vitest",
     "lint": "eslint src",
     "clean": "rm -rf dist",
-    "size": "npm run build && ls -lh dist/"
+    "size": "npm run build && ls -lh dist/",
+    "size:prod": "npm run build:prod && ls -lh dist/shoprocket*.js"
   },
   "keywords": [
     "shoprocket",

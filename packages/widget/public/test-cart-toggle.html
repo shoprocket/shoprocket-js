@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Cart Toggle</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    .log {
+      background: #f3f4f6;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cart Toggle Debug Test</h1>
+  
+  <div class="test-section">
+    <h2>Current URL</h2>
+    <div id="current-url" class="log"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Hash Router State</h2>
+    <div id="router-state" class="log"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Actions</h2>
+    <button onclick="testCartToggle()">Toggle Cart (Shoprocket.cart.toggle())</button>
+    <button onclick="goToCartUrl()">Go to #!/~/cart</button>
+    <button onclick="goToListUrl()">Go to #!</button>
+    <button onclick="window.location.reload()">Reload Page</button>
+  </div>
+
+  <div class="test-section">
+    <h2>Widget</h2>
+    <div data-shoprocket="catalog" data-limit="3" data-routable="true"></div>
+    <div data-shoprocket="cart"></div>
+  </div>
+
+  <script src="http://localhost:5173/shoprocket.js?pk=pk_test_your_key"></script>
+
+  <script>
+    let hashRouter;
+    
+    function updateDisplay() {
+      document.getElementById('current-url').textContent = window.location.href;
+      
+      if (hashRouter) {
+        const state = hashRouter.getCurrentState();
+        document.getElementById('router-state').innerHTML = 
+          `<pre>${JSON.stringify(state, null, 2)}</pre>`;
+      }
+    }
+
+    function testCartToggle() {
+      console.log('Calling Shoprocket.cart.toggle()');
+      Shoprocket.cart.toggle();
+    }
+
+    function goToCartUrl() {
+      window.location.hash = '#!/~/cart';
+    }
+
+    function goToListUrl() {
+      window.location.hash = '#!/';
+    }
+
+    // Monitor changes
+    window.addEventListener('hashchange', updateDisplay);
+    
+    // Wait for Shoprocket to load
+    setTimeout(() => {
+      // Try to get the hash router instance for debugging
+      // This is a bit hacky but helps us see what's happening
+      const catalog = document.querySelector('shoprocket-catalog');
+      if (catalog && catalog.shadowRoot) {
+        // The catalog doesn't use shadow DOM anymore, so we can access its properties
+        console.log('Catalog element:', catalog);
+      }
+      
+      // Listen for state changes
+      window.addEventListener('state-change', (e) => {
+        console.log('State change event:', e.detail);
+        updateDisplay();
+      });
+      
+      updateDisplay();
+    }, 1000);
+  </script>
+</body>
+</html>

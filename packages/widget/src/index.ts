@@ -27,13 +27,6 @@ import { initializeConfig, getConfig } from './core/config';
 declare global {
   interface Window {
     Shoprocket: WidgetManager;
-    ShoprocketSDK: {
-      cart: {
-        open: () => void;
-        close: () => void;
-        toggle: () => void;
-      };
-    };
     __shoprocketComponents: Record<string, typeof ShoprocketElement>;
   }
 }
@@ -49,14 +42,76 @@ const shoprocket = new WidgetManager();
 // Expose to window
 window.Shoprocket = shoprocket;
 
-// Create SDK object using events for clean component communication
-window.ShoprocketSDK = {
-  cart: {
-    open: () => window.dispatchEvent(new CustomEvent('open-cart', { bubbles: true })),
-    close: () => window.dispatchEvent(new CustomEvent('close-cart', { bubbles: true })),
-    toggle: () => window.dispatchEvent(new CustomEvent('toggle-cart', { bubbles: true }))
-  }
-};
+/**
+ * Shoprocket Widget Events
+ * 
+ * The widget emits various events that you can listen to for integration:
+ * 
+ * @example
+ * // Listen for cart updates
+ * window.addEventListener('shoprocket:cart:updated', (event) => {
+ *   console.log('Cart updated:', event.detail.cart);
+ *   console.log('Total items:', event.detail.cart.total_items);
+ *   console.log('Total price:', event.detail.cart.total);
+ * });
+ * 
+ * @example
+ * // Listen for product added to cart
+ * window.addEventListener('shoprocket:product:added', (event) => {
+ *   console.log('Product added:', event.detail.product);
+ *   // Show custom success message
+ *   showNotification(`${event.detail.product.name} added to cart!`);
+ * });
+ * 
+ * @example
+ * // Listen for cart errors
+ * window.addEventListener('shoprocket:cart:error', (event) => {
+ *   console.error('Cart error:', event.detail.error);
+ *   // Handle error in your app
+ * });
+ * 
+ * Available events:
+ * - 'shoprocket:cart:updated' - Fired when cart contents change
+ *   @param {Object} event.detail.cart - Updated cart object with items, totals
+ * 
+ * - 'shoprocket:cart:loaded' - Fired when cart is initially loaded
+ *   @param {Object} event.detail.cart - Loaded cart object
+ * 
+ * - 'shoprocket:product:added' - Fired when a product is successfully added to cart
+ *   @param {Object} event.detail.product - Product that was added
+ *   @param {Object} event.detail.variant - Selected variant (if applicable)
+ *   @param {number} event.detail.quantity - Quantity added
+ * 
+ * - 'shoprocket:cart:error' - Fired when cart operations fail
+ *   @param {string} event.detail.error - Error message
+ *   @param {string} event.detail.type - Error type (e.g., 'out_of_stock', 'network_error')
+ */
+
+/**
+ * Shoprocket JavaScript SDK
+ * 
+ * The main entry point for controlling the Shoprocket widget programmatically.
+ * 
+ * @example
+ * // Cart operations
+ * Shoprocket.cart.open();
+ * Shoprocket.cart.close();
+ * Shoprocket.cart.toggle();
+ * 
+ * @example
+ * // Open cart when user clicks a custom button
+ * document.getElementById('my-cart-button').addEventListener('click', () => {
+ *   Shoprocket.cart.open();
+ * });
+ * 
+ * @example
+ * // Toggle cart with keyboard shortcut
+ * document.addEventListener('keydown', (e) => {
+ *   if (e.key === 'c' && e.ctrlKey) {
+ *     Shoprocket.cart.toggle();
+ *   }
+ * });
+ */
 
 /**
  * Get public key from script URL

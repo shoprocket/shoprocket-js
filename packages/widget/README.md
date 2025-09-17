@@ -145,13 +145,30 @@ This package is part of the Shoprocket monorepo and is built using the `@shoproc
 
 ### Building
 
+#### Development Build
 ```bash
+npm run build:dev
+# or simply
 npm run build
 ```
 
+#### Production Build (for deployment)
+```bash
+npm run build:production
+# or
+npm run build:prod
+```
+
+The production build:
+- Removes all console.log statements
+- Removes development-only code (localhost/test URL detection)
+- Uses more aggressive minification (3 compression passes)
+- Mangles private properties (those starting with _)
+- Results in ~6KB smaller bundle
+
 This creates:
-- `dist/shoprocket.js` - Lightweight loader (1KB) that prevents duplicate loading
-- `dist/shoprocket-bundle.js` - Main widget bundle (50KB gzipped) with all components
+- `dist/shoprocket.js` - Lightweight loader (0.68KB production, 1KB dev)
+- `dist/shoprocket-bundle.js` - Main widget bundle (35KB gzipped production, 37KB dev)
 
 ### Size Target
 
