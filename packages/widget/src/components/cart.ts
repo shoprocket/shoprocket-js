@@ -5,6 +5,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Cart, ApiResponse } from '../types/api';
 import { HashRouter, type HashState } from '../core/hash-router';
+import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import './tooltip';
 
 // Import SVG as string - Vite will inline it at build time
@@ -65,15 +66,15 @@ export class CartWidget extends ShoprocketElement {
     
     // Listen for add item events (optimistic updates)
     this.handleAddItem = this.handleAddItem.bind(this);
-    window.addEventListener('shoprocket:cart:add-item', this.handleAddItem as EventListener);
+    window.addEventListener(WIDGET_EVENTS.CART_ADD_ITEM, this.handleAddItem as EventListener);
     
     // Listen for product added events
     this.handleProductAdded = this.handleProductAdded.bind(this);
-    window.addEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
+    window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     
     // Listen for cart errors to show floating notifications
     this.handleFloatingError = this.handleFloatingError.bind(this);
-    window.addEventListener('shoprocket:cart:error', this.handleFloatingError as EventListener);
+    window.addEventListener(WIDGET_EVENTS.CART_ERROR, this.handleFloatingError as EventListener);
     
     
     // Get HashRouter singleton instance
@@ -132,9 +133,9 @@ export class CartWidget extends ShoprocketElement {
     if (this.isOpen) {
       document.body.style.overflow = '';
     }
-    window.removeEventListener('shoprocket:cart:add-item', this.handleAddItem as EventListener);
-    window.removeEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
-    window.removeEventListener('shoprocket:cart:error', this.handleFloatingError as EventListener);
+    window.removeEventListener(WIDGET_EVENTS.CART_ADD_ITEM, this.handleAddItem as EventListener);
+    window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
+    window.removeEventListener(WIDGET_EVENTS.CART_ERROR, this.handleFloatingError as EventListener);
     this.hashRouter.removeEventListener('state-change', this.handleHashStateChange);
     window.removeEventListener('open-cart', this.handleOpenCart as EventListener);
     window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
@@ -156,7 +157,7 @@ export class CartWidget extends ShoprocketElement {
       
       // Check if out of stock
       if (availableQuantity === 0) {
-        window.dispatchEvent(new CustomEvent('shoprocket:cart:error', {
+        window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
           detail: {
             type: 'out_of_stock',
             message: 'Sorry, this item is out of stock'
@@ -177,7 +178,7 @@ export class CartWidget extends ShoprocketElement {
       // Check if requested quantity exceeds available stock
       if (requestedTotal > availableQuantity) {
         const canAdd = availableQuantity - currentQuantityInCart;
-        window.dispatchEvent(new CustomEvent('shoprocket:cart:error', {
+        window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
           detail: {
             type: 'insufficient_stock',
             message: canAdd > 0 ? 
@@ -258,7 +259,7 @@ export class CartWidget extends ShoprocketElement {
     this.dispatchCartUpdatedEvent();
     
     // Dispatch product added event for UI feedback
-    window.dispatchEvent(new CustomEvent('shoprocket:product:added', {
+    window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.PRODUCT_ADDED, {
       detail: { 
         product: {
           id: item.product_id,
@@ -305,7 +306,7 @@ export class CartWidget extends ShoprocketElement {
       total_items: this.cart.items.reduce((sum: number, item: any) => sum + item.quantity, 0)
     };
     
-    window.dispatchEvent(new CustomEvent('shoprocket:cart:updated', {
+    window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_UPDATED, {
       detail: { cart: cartState }
     }));
   }
@@ -363,7 +364,7 @@ export class CartWidget extends ShoprocketElement {
         this.notificationTimeouts.remove = setTimeout(() => {
           this.recentlyAddedProduct = null;
           this.notificationSliding = null;
-        }, 300); // Match animation duration
+        }, TIMEOUTS.ANIMATION); // Match animation duration
       }, 3000);
     });
   }
@@ -398,7 +399,7 @@ export class CartWidget extends ShoprocketElement {
           }
           
           // Dispatch cart data globally
-          window.dispatchEvent(new CustomEvent('shoprocket:cart:loaded', {
+          window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_LOADED, {
             detail: { cart: this.cart }
           }));
           
@@ -612,7 +613,7 @@ export class CartWidget extends ShoprocketElement {
             ? 'Out of stock' 
             : `Maximum quantity (${item.total_inventory}) already in cart`;
           
-          window.dispatchEvent(new CustomEvent('shoprocket:cart:error', {
+          window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
             detail: { message }
           }));
           return;
@@ -676,7 +677,7 @@ export class CartWidget extends ShoprocketElement {
       // Clean up
       this.pendingUpdates.delete(itemId);
       this.lastRequestedQuantity.delete(itemId);
-    }, 300); // Wait 300ms after last click
+    }, TIMEOUTS.DEBOUNCE); // Wait 300ms after last click
     
     this.pendingUpdates.set(itemId, timeoutId);
   }
@@ -748,7 +749,7 @@ export class CartWidget extends ShoprocketElement {
       
       // Track item removal
       this.track(EVENTS.REMOVE_FROM_CART, item);
-    }, 300); // Wait for slide out animation
+    }, TIMEOUTS.ANIMATION); // Wait for slide out animation
   }
 
   private navigateToProduct(item: any): void {
@@ -827,7 +828,7 @@ export class CartWidget extends ShoprocketElement {
         this.errorNotificationTimeouts.remove = setTimeout(() => {
           this.floatingErrorMessage = null;
           this.errorNotificationSliding = null;
-        }, 300); // Match animation duration
+        }, TIMEOUTS.ANIMATION); // Match animation duration
       }, 4000);
     });
   }

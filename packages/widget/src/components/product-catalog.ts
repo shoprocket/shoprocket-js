@@ -4,6 +4,7 @@ import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ApiResponse } from '../types/api';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { ProductListTemplates } from './product-list';
+import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
 
 /**
  * Product Catalog Component - Orchestrates between list and detail views
@@ -136,12 +137,12 @@ export class ProductCatalog extends ShoprocketElement {
     
     // Listen for successful product additions
     this.handleProductAdded = this.handleProductAdded.bind(this);
-    window.addEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
+    window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     
     // Listen for cart loaded/updated to update button states
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
-    window.addEventListener('shoprocket:cart:loaded', this.handleCartUpdate as EventListener);
-    window.addEventListener('shoprocket:cart:updated', this.handleCartUpdate as EventListener);
+    window.addEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
+    window.addEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
     
     // Determine if this instance should be primary
     if (this.routable && !ProductCatalog.primaryInstance) {
@@ -179,9 +180,9 @@ export class ProductCatalog extends ShoprocketElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     
-    window.removeEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
-    window.removeEventListener('shoprocket:cart:loaded', this.handleCartUpdate as EventListener);
-    window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate as EventListener);
+    window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
+    window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
+    window.removeEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
     
     // Clean up primary instance reference if this was primary
     if (this.isPrimary && ProductCatalog.primaryInstance === this) {
@@ -244,7 +245,7 @@ export class ProductCatalog extends ShoprocketElement {
     setTimeout(() => {
       this.addedToCartProducts.delete(product.id);
       this.requestUpdate();
-    }, 2000);
+    }, TIMEOUTS.SUCCESS_MESSAGE);
   }
   
   private handleCartUpdate = (): void => {
@@ -280,7 +281,7 @@ export class ProductCatalog extends ShoprocketElement {
     };
     
     // Dispatch event to cart component - it will handle everything
-    window.dispatchEvent(new CustomEvent('shoprocket:cart:add-item', {
+    window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
       detail: { item: cartItemData, stockInfo }
     }));
   }
@@ -319,7 +320,7 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   private renderPagination(): TemplateResult {
-    const maxVisible = 5; // Max number of page buttons to show
+    const maxVisible = LIMITS.MAX_PAGINATION_BUTTONS; // Max number of page buttons to show
     
     // Calculate range of pages to show
     let startPage = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));

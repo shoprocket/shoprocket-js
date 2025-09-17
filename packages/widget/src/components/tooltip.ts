@@ -1,5 +1,6 @@
 import { html, css, LitElement, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { UI_SPACING } from '../constants';
 
 /**
  * Lightweight tooltip component for ShopRocket widget
@@ -110,13 +111,13 @@ export class Tooltip extends LitElement {
     let left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2);
 
     if (this.position === 'top') {
-      top = triggerRect.top - tooltipRect.height - 10;
+      top = triggerRect.top - tooltipRect.height - UI_SPACING.TOOLTIP_OFFSET;
     } else {
-      top = triggerRect.bottom + 10;
+      top = triggerRect.bottom + UI_SPACING.TOOLTIP_OFFSET;
     }
 
     // Keep tooltip within viewport
-    const padding = 10;
+    const padding = UI_SPACING.EDGE_PADDING;
     const originalLeft = left;
     left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
     
@@ -133,7 +134,7 @@ export class Tooltip extends LitElement {
     
     // Flip if would go off screen
     if (this.position === 'top' && top < padding) {
-      top = triggerRect.bottom + 10;
+      top = triggerRect.bottom + UI_SPACING.TOOLTIP_OFFSET;
       // Update arrow position
       if (arrow) {
         arrow.style.cssText = arrow.style.cssText.replace('bottom: -10px', 'top: -10px')

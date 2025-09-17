@@ -1,6 +1,7 @@
 import type { Money, Media } from '../types/api';
 import type { ShoprocketCore } from '@shoprocket/core';
 import { getConfig } from '../core/config';
+import { IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 
 /**
  * Get store currency from SDK or widget data
@@ -102,7 +103,7 @@ export function getMediaUrl(_sdk: ShoprocketCore, media: Media | null | undefine
   
   // Otherwise construct the URL
   const mediaUrl = `${baseUrl}/media`;
-  const transforms = transformations || media.transformations || 'w=600,h=800,fit=cover';
+  const transforms = transformations || media.transformations || IMAGE_SIZES.PLACEHOLDER;
   
   // The path already includes the filename in the API response
   const path = media.path || media.id;
@@ -146,7 +147,7 @@ export function dispatchCartEvents(
   }));
 
   // Dispatch product added event
-  window.dispatchEvent(new CustomEvent('shoprocket:product:added', {
+  window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.PRODUCT_ADDED, {
     detail: { 
       product: {
         id: product.id,

@@ -7,6 +7,7 @@ import { loadingSpinner } from './loading-spinner';
 import { formatProductPrice } from '../utils/formatters';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { skeleton, skeletonLines, skeletonGroup } from '../utils/skeleton';
+import { TIMEOUTS, STOCK_THRESHOLDS, IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 import './tooltip'; // Register tooltip component
 
 export class ProductDetail extends ShoprocketElement {
@@ -19,19 +20,19 @@ export class ProductDetail extends ShoprocketElement {
     super.connectedCallback();
     // Listen for cart updates to refresh cart state
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
-    window.addEventListener('shoprocket:cart:updated', this.handleCartUpdate);
-    window.addEventListener('shoprocket:cart:loaded', this.handleCartUpdate);
+    window.addEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate);
+    window.addEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate);
     
     // Listen for successful add to cart
     this.handleProductAdded = this.handleProductAdded.bind(this);
-    window.addEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
+    window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
   }
   
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    window.removeEventListener('shoprocket:cart:updated', this.handleCartUpdate);
-    window.removeEventListener('shoprocket:cart:loaded', this.handleCartUpdate);
-    window.removeEventListener('shoprocket:product:added', this.handleProductAdded as EventListener);
+    window.removeEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate);
+    window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate);
+    window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     // Clean up zoom timeout if any
     if (this.zoomTimeout) {
       clearTimeout(this.zoomTimeout);
@@ -55,7 +56,7 @@ export class ProductDetail extends ShoprocketElement {
       this.isInCart = true;
       setTimeout(() => {
         this.addedToCart = false;
-      }, 2000);
+      }, TIMEOUTS.SUCCESS_MESSAGE);
     }
   }
 
@@ -304,7 +305,7 @@ export class ProductDetail extends ShoprocketElement {
                 <!-- Main image with zoom -->
                 ${this.renderMediaContainer(
                   this.getSelectedMedia(),
-                  'w=800,h=800,fit=cover',
+                  IMAGE_SIZES.MAIN,
                   displayProduct.name,
                   'sr-product-detail-image-main'
                 )}
@@ -371,7 +372,7 @@ export class ProductDetail extends ShoprocketElement {
           >
             ${this.renderMediaContainer(
               media,
-              'w=150,h=150,fit=cover',
+              IMAGE_SIZES.THUMBNAIL,
               `${product.name} thumbnail ${index + 1}`,
               'sr-product-thumbnail-image'
             )}
@@ -522,7 +523,7 @@ export class ProductDetail extends ShoprocketElement {
     // Without it, the event may be dispatched before other components are ready to receive it.
     // This is a known pattern when communicating between independent web components.
     setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('open-cart', { bubbles: true }));
+      window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.OPEN_CART, { bubbles: true }));
     }, 0);
   }
 
@@ -586,7 +587,7 @@ export class ProductDetail extends ShoprocketElement {
     };
     
     // Dispatch event with full cart item data for optimistic update
-    window.dispatchEvent(new CustomEvent('shoprocket:cart:add-item', {
+    window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
       detail: { item: cartItemData, stockInfo }
     }));
     
@@ -706,7 +707,7 @@ export class ProductDetail extends ShoprocketElement {
     }
     
     // Simple low stock threshold (future: from theme/config)
-    const lowStockThreshold = 10;
+    const lowStockThreshold = STOCK_THRESHOLDS.LOW;
     
     // Determine stock based on selected variant or product total
     let stockQuantity: number;
@@ -814,7 +815,7 @@ export class ProductDetail extends ShoprocketElement {
           <div class="sr-product-detail-image-zoom"
                style="--zoom-x: ${this.zoomPosition.x}%; --zoom-y: ${this.zoomPosition.y}%;">
             <img 
-              src="${this.getMediaUrl(media, 'w=1600,h=1600,fit=cover')}"
+              src="${this.getMediaUrl(media, IMAGE_SIZES.ZOOM)}"
               alt="${alt} (zoomed)"
               class="sr-media-image"
               loading="lazy"
@@ -869,7 +870,7 @@ export class ProductDetail extends ShoprocketElement {
     // Delay zoom activation by 300ms to prevent accidental triggers
     this.zoomTimeout = window.setTimeout(() => {
       this.zoomActive = true;
-    }, 300);
+    }, TIMEOUTS.ZOOM_DELAY);
   }
   
   private handleMouseLeaveZoom(): void {
@@ -896,7 +897,7 @@ export class ProductDetail extends ShoprocketElement {
     if (!product) return;
     
     // Dispatch event to parent catalog to handle navigation
-    this.dispatchEvent(new CustomEvent('navigate-product', {
+    this.dispatchEvent(new CustomEvent(WIDGET_EVENTS.NAVIGATE_PRODUCT, {
       detail: { product },
       bubbles: true
     }));
@@ -912,7 +913,7 @@ export class ProductDetail extends ShoprocketElement {
       <div class="sr-product-navigation">
         <button 
           class="sr-back-button" 
-          @click="${() => this.dispatchEvent(new CustomEvent('back-to-list', { bubbles: true }))}"
+          @click="${() => this.dispatchEvent(new CustomEvent(WIDGET_EVENTS.BACK_TO_LIST, { bubbles: true }))}"
         >
           ←
           Back
