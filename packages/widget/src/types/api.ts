@@ -4,8 +4,10 @@
 
 export interface Money {
   amount: number;
-  amount_cents?: number;
-  currency?: string;
+  currency: string;
+  formatted: string;
+  inclusive?: boolean;
+  note?: string;
 }
 
 export interface Media {
@@ -24,7 +26,7 @@ export interface ProductVariant {
   media_id?: string;
   option_values?: string[]; // API returns this instead of option_value_ids
   option_value_ids?: string[];
-  inventory_quantity?: number;
+  inventory_count?: number;
   inventory_policy?: 'deny' | 'continue';
 }
 
@@ -53,7 +55,7 @@ export interface Product {
   default_variant_id?: string;
   track_inventory: boolean;
   in_stock?: boolean;
-  total_inventory?: number;
+  inventory_count?: number;
   has_variants?: boolean;
   variant_count?: number;
   has_required_options?: boolean;
@@ -70,15 +72,16 @@ export interface CartItem {
   quantity: number;
   price: Money;
   media?: Media[];
-  total_inventory?: number;
+  inventory_count?: number;
   inventory_policy?: 'deny' | 'continue';
 }
 
 export interface CartTotals {
-  subtotal: number;
-  tax: number;
-  shipping: number;
-  total: number;
+  subtotal: Money;
+  tax: Money;
+  shipping: Money;
+  discount?: Money;
+  total: Money;
 }
 
 export interface Cart {
@@ -93,6 +96,20 @@ export interface Store {
   name: string;
   currency: string;
   locale: string;
+  tracking?: {
+    google_analytics?: {
+      enabled: boolean;
+      measurement_id: string;
+    };
+    facebook_pixel?: {
+      enabled: boolean;
+      pixel_id: string;
+    };
+    google_ads?: {
+      enabled: boolean;
+      conversion_id: string;
+    };
+  };
 }
 
 export interface Session {

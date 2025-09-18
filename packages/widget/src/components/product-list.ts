@@ -93,7 +93,8 @@ export class ProductListTemplates {
       isLoadingItem: (key: string) => boolean;
     }
   ): TemplateResult {
-    const needsOptions = !product.quick_add_eligible || !product.default_variant_id;
+    // Let the API determine if quick add is eligible - it knows about variants, options, etc.
+    const needsOptions = product.quick_add_eligible === false;
     const loadingKey = needsOptions ? `viewProduct-${product.id}` : `addToCart-${product.id}`;
     const isLoading = handlers.isLoadingItem(loadingKey);
     const isAdded = addedToCartProducts.has(product.id);
@@ -103,7 +104,7 @@ export class ProductListTemplates {
     const stockStatus = isAllStockInCart(
       product.id, 
       product.default_variant_id, 
-      product.total_inventory
+      product.inventory_count
     );
     const allStockInCart = stockStatus.allInCart;
     
@@ -157,7 +158,7 @@ export class ProductListTemplates {
               ?disabled="${isOutOfStock || allStockInCart}"
             >
               ${isOutOfStock ? 'Out of Stock' : 
-                allStockInCart ? `Max (${product.total_inventory}) in cart` :
+                allStockInCart ? `Max (${product.inventory_count}) in cart` :
                 isAdded ? html`
                   <span class="sr-button-content">
                     <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">

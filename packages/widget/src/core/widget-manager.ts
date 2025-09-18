@@ -3,7 +3,8 @@ import type { Session, ApiResponse } from '../types/api';
 import type { BaseComponent } from './base-component';
 import type { LitElement } from 'lit';
 import { getCookie, setCookie } from '../utils/cookie-utils';
-import { Analytics, EVENTS } from './analytics';
+import { AnalyticsManager } from './analytics-manager';
+import { internalState } from './internal-state';
 
 export interface WidgetConfig {
   publicKey?: string;
@@ -26,7 +27,6 @@ export class WidgetManager {
   private sdk: ShoprocketCore | null = null;
   private initialized = false;
   private mountedWidgets = new Map<Element, LitElement>();
-  public analytics: Analytics | null = null;
 
   // Public API namespaces
   public cart = {
@@ -46,7 +46,67 @@ export class WidgetManager {
      * Toggles the shopping cart visibility
      * @example Shoprocket.cart.toggle()
      */
-    toggle: () => window.dispatchEvent(new CustomEvent('toggle-cart', { bubbles: true }))
+    toggle: () => window.dispatchEvent(new CustomEvent('toggle-cart', { bubbles: true })),
+    
+    /**
+     * Get the current cart data
+     * @example Shoprocket.cart.get()
+     */
+    get: () => internalState.getCartData(),
+    
+    /**
+     * Get the current cart data (property access)
+     * @example Shoprocket.cart.data
+     */
+    get data() {
+      return internalState.getCartData();
+    }
+  };
+
+  /**
+   * Store namespace
+   */
+  public store = {
+    /**
+     * Get the current store data
+     * @example Shoprocket.store.get()
+     */
+    get: () => internalState.getStore(),
+    
+    /**
+     * Get the current store data (property access)
+     * @example Shoprocket.store.data
+     */
+    get data() {
+      return internalState.getStore();
+    }
+  };
+
+  /**
+   * Session namespace
+   */
+  public session = {
+    /**
+     * Get the current session
+     * @example Shoprocket.session.get()
+     */
+    get: () => internalState.getSession(),
+    
+    /**
+     * Get the current session (property access)
+     * @example Shoprocket.session.data
+     */
+    get data() {
+      return internalState.getSession();
+    },
+    
+    /**
+     * Get the session token directly
+     * @example Shoprocket.session.token
+     */
+    get token() {
+      return internalState.getSessionToken();
+    }
   };
 
   /**
@@ -68,13 +128,27 @@ export class WidgetManager {
       // Initialize session asynchronously (non-blocking)
       this.initializeSessionAsync(publicKey);
 
-      // Initialize analytics
-      this.analytics = new Analytics(this.sdk);
+      // Initialize analytics with store tracking config
+      // Store config will be fetched and applied when available
+      let storeId: string | undefined;
+      try {
+        const store = await this.sdk.store.get() as any;
+        storeId = store?.id; // Get the numeric store ID
+        
+        // Store in internal state
+        internalState.setStore(store);
+        internalState.setSdk(this.sdk);
+        
+        if (store?.tracking) {
+          await AnalyticsManager.init(store.tracking);
+        }
+      } catch (error) {
+        // Store fetch failed, continue without third-party tracking
+        console.warn('Failed to fetch store tracking config:', error);
+      }
       
-      // Expose analytics and event constants globally
-      (window as any).Shoprocket = (window as any).Shoprocket || {};
-      (window as any).Shoprocket.analytics = this.analytics;
-      (window as any).Shoprocket.EVENTS = EVENTS;
+      // Track widget loaded with actual store ID
+      AnalyticsManager.track('widget_loaded', { store_id: storeId || publicKey });
 
       // Mark as initialized immediately so components can start loading
       this.initialized = true;
@@ -102,14 +176,11 @@ export class WidgetManager {
         this.sdk!.setSessionToken(storedToken);
         // For existing sessions, we don't have the session ID readily available
         // Analytics will still work but without session_id in context
-        // Wait for store data before initializing analytics
+        // Wait for store data before storing it
         this.sdk!.store.get().then(storeData => {
-          (window as any).ShoprocketWidget = (window as any).ShoprocketWidget || {};
-          (window as any).ShoprocketWidget.store = storeData;
-          if (this.analytics) {
-            this.analytics.init();
-          }
+          internalState.setStore(storeData);
         });
+        internalState.setSession(storedToken);
       } else {
         // Create new session
         const session = await this.sdk!.session.create() as unknown as Session | ApiResponse<Session>;
@@ -118,20 +189,16 @@ export class WidgetManager {
           this.sdk!.setSessionToken(sessionToken);
           setCookie(sessionKey, sessionToken);
           
-          // Get store data then initialize analytics
+          // Get store data then store it
           const storeData = await this.sdk!.store.get();
-          (window as any).ShoprocketWidget = (window as any).ShoprocketWidget || {};
-          (window as any).ShoprocketWidget.store = storeData;
+          internalState.setStore(storeData);
+          internalState.setSession(sessionToken);
           
-          if (this.analytics) {
-            this.analytics.init();
-          }
         }
       }
 
-      // Store SDK reference globally
-      (window as any).ShoprocketWidget = (window as any).ShoprocketWidget || {};
-      (window as any).ShoprocketWidget.sdk = this.sdk;
+      // Store SDK reference in internal state
+      internalState.setSdk(this.sdk);
     } catch (error) {
       // Session initialization failed - log but don't throw
       console.warn('Failed to initialize session:', error);

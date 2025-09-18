@@ -190,8 +190,9 @@ export class ProductCatalog extends ShoprocketElement {
         
         // Track product list view
         if (products.length > 0) {
-          this.track(EVENTS.VIEW_ITEM_LIST, products, { 
-            category: this.category 
+          this.track(EVENTS.VIEW_ITEM_LIST, { 
+            items: products,
+            item_list_name: this.category || 'All Products'
           });
         }
         
@@ -318,7 +319,8 @@ export class ProductCatalog extends ShoprocketElement {
 
   private async handleProductClick(product: Product): Promise<void> {
     // Track product selection
-    this.track(EVENTS.SELECT_ITEM, product, { 
+    this.track(EVENTS.SELECT_ITEM, { 
+      ...product,
       category: this.category 
     });
     
@@ -375,7 +377,7 @@ export class ProductCatalog extends ShoprocketElement {
     // Include stock info for validation
     const stockInfo = {
       track_inventory: product.track_inventory ?? true, // Default to true if not specified
-      available_quantity: product.total_inventory ?? 0
+      available_quantity: product.inventory_count ?? 0
     };
     
     // Dispatch event to cart component - it will handle everything

@@ -15,7 +15,7 @@ export function isAllStockInCart(
   variantId?: string, 
   totalInventory?: number | null
 ): { allInCart: boolean; quantityInCart: number } {
-  const cart = (window as any).ShoprocketWidget?.cart?.data;
+  const cart = (window as any).Shoprocket?.cart?.get?.();
   
   if (!cart || totalInventory === undefined || totalInventory === null) {
     return { allInCart: false, quantityInCart: 0 };
@@ -43,7 +43,7 @@ export function getQuantityInCart(
   productId: string,
   variantId?: string
 ): number {
-  const cart = (window as any).ShoprocketWidget?.cart?.data;
+  const cart = (window as any).Shoprocket?.cart?.get?.();
   if (!cart) return 0;
   
   const cartItem = cart.items?.find((item: any) => 

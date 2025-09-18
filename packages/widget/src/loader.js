@@ -33,16 +33,33 @@
     return;
   }
   
-  // Determine bundle URL
-  // In production: shoprocket.js loads shoprocket-bundle.js
-  // In development: both are served from the same dev server
+  // Detect ES module support
+  function supportsModules() {
+    var script = document.createElement('script');
+    return 'noModule' in script;
+  }
+  
+  // Determine bundle URL based on browser capabilities
+  var useModules = supportsModules();
   var bundleUrl = scriptUrl.replace(/shoprocket\.js/, 'shoprocket-bundle.js');
   
-  // Create and inject the main bundle script
+  // Create and inject the appropriate bundle script
   var bundleScript = document.createElement('script');
+  
+  if (useModules) {
+    // Modern browsers: Use ES modules for code splitting
+    bundleScript.type = 'module';
+    bundleScript.setAttribute('data-bundle-type', 'esm');
+  } else {
+    // Legacy browsers: Use IIFE bundle (fallback)
+    bundleUrl = bundleUrl.replace('.js', '.iife.js');
+    bundleScript.async = true;
+    bundleScript.setAttribute('data-bundle-type', 'iife');
+  }
+  
   bundleScript.src = bundleUrl;
-  bundleScript.async = true;
   bundleScript.setAttribute('data-shoprocket-bundle', 'true');
+  bundleScript.setAttribute('data-pk', publicKey[1]); // Pass the public key
   
   // Handle load success
   bundleScript.onload = function() {

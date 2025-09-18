@@ -34,6 +34,7 @@ declare global {
 // The loader ensures this script only runs once, so we can proceed directly
 
 // Capture script info immediately while currentScript is available
+// For ES modules, currentScript is null, so we look for our bundle script tag
 const scriptUrl = (document.currentScript as HTMLScriptElement)?.src || '';
 
 // Create global instance
@@ -114,13 +115,23 @@ window.Shoprocket = shoprocket;
  */
 
 /**
- * Get public key from script URL
+ * Get public key from script URL or data attribute
  */
 function getPublicKey(): string | null {
-  if (!scriptUrl) return null;
+  // First try the currentScript URL (works for IIFE)
+  if (scriptUrl) {
+    const url = new URL(scriptUrl);
+    const pk = url.searchParams.get('pk');
+    if (pk) return pk;
+  }
   
-  const url = new URL(scriptUrl);
-  return url.searchParams.get('pk');
+  // For ES modules, get pk from the data attribute set by loader
+  const bundleScript = document.querySelector('script[data-shoprocket-bundle="true"]');
+  if (bundleScript) {
+    return bundleScript.getAttribute('data-pk');
+  }
+  
+  return null;
 }
 
 
@@ -151,7 +162,9 @@ function autoInit(): void {
   }
   
   // Initialize config based on script URL
-  initializeConfig(scriptUrl);
+  // For ES modules, we need to get the URL from the bundle script tag
+  const configUrl = scriptUrl || (document.querySelector('script[data-shoprocket-bundle="true"]') as HTMLScriptElement)?.src || '';
+  initializeConfig(configUrl);
   
   // Get the config to pass API URL
   const { apiUrl } = getConfig();
