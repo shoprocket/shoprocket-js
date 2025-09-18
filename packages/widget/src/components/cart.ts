@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
-import type { Cart, ApiResponse } from '../types/api';
+import type { Cart, ApiResponse, Money } from '../types/api';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import './tooltip';
@@ -127,25 +127,15 @@ export class CartWidget extends ShoprocketElement {
     window.addEventListener('close-cart', this.handleCloseCart as EventListener);
     window.addEventListener('toggle-cart', this.handleToggleCart as EventListener);
     
-    // Register global cart toggle function
-    if (!(window as any).ShoprocketWidget) {
-      (window as any).ShoprocketWidget = {};
-    }
+    // Update internal state with cart methods and data
+    const { internalState } = await import('../core/internal-state');
     const self = this;
-    (window as any).ShoprocketWidget.cart = {
+    internalState.setCart({
       toggle: this.toggleCart.bind(this),
       open: this.openCart.bind(this),
       close: this.closeCart.bind(this),
       get data(): Cart | null { return self.cart; }
-    };
-    
-    // Store SDK reference globally for formatters if not already there
-    if (!(window as any).ShoprocketWidget) {
-      (window as any).ShoprocketWidget = {};
-    }
-    if (!(window as any).ShoprocketWidget.sdk) {
-      (window as any).ShoprocketWidget.sdk = this.sdk;
-    }
+    });
     
     // Store data should already be cached by widget manager
     // If not available yet, wait a bit or skip (formatters will use defaults)
@@ -178,10 +168,8 @@ export class CartWidget extends ShoprocketElement {
     window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
     window.removeEventListener('toggle-cart', this.handleToggleCart as EventListener);
     
-    // Clean up global references
-    if ((window as any).ShoprocketWidget?.cart) {
-      delete (window as any).ShoprocketWidget.cart;
-    }
+    // Clean up internal state cart reference
+    // Note: We don't clear it entirely as other components may still exist
   }
 
   
@@ -190,7 +178,7 @@ export class CartWidget extends ShoprocketElement {
     
     // Validate stock if tracking inventory (track_inventory or inventory_policy === 'deny')
     if (stockInfo?.track_inventory || stockInfo?.inventory_policy === 'deny') {
-      const availableQuantity = stockInfo.available_quantity ?? stockInfo.total_inventory ?? 0;
+      const availableQuantity = stockInfo.available_quantity ?? stockInfo.inventory_count ?? 0;
       
       // Check if out of stock
       if (availableQuantity === 0) {
@@ -231,14 +219,19 @@ export class CartWidget extends ShoprocketElement {
     
     // Initialize cart if needed
     if (!this.cart) {
+      const zeroPriceObj: Money = {
+        amount: 0,
+        currency: 'USD',
+        formatted: '$0.00'
+      };
       this.cart = {
         id: 'temp-' + Date.now(),
         items: [],
         totals: {
-          subtotal: 0,
-          tax: 0,
-          shipping: 0,
-          total: 0
+          subtotal: zeroPriceObj,
+          tax: zeroPriceObj,
+          shipping: zeroPriceObj,
+          total: zeroPriceObj
         },
         currency: 'USD'
       };
@@ -256,7 +249,7 @@ export class CartWidget extends ShoprocketElement {
       // Update stock info if provided
       if (stockInfo) {
         existingItem.inventory_policy = stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue');
-        existingItem.total_inventory = stockInfo.total_inventory ?? stockInfo.available_quantity;
+        existingItem.inventory_count = stockInfo.inventory_count ?? stockInfo.available_quantity;
       }
     } else {
       // Calculate subtotal for new item
@@ -271,20 +264,28 @@ export class CartWidget extends ShoprocketElement {
         // Include stock info if provided
         ...(stockInfo && {
           inventory_policy: stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue'),
-          total_inventory: stockInfo.total_inventory ?? stockInfo.available_quantity
+          inventory_count: stockInfo.inventory_count ?? stockInfo.available_quantity
         })
       };
       this.cart.items.push(newItem);
     }
     
     // Update totals
-    const newSubtotal = this.cart.items.reduce((sum: number, cartItem: any) => {
+    const newSubtotalAmount = this.cart.items.reduce((sum: number, cartItem: any) => {
       const price = typeof cartItem.price === 'object' ? cartItem.price.amount : cartItem.price;
       return sum + (price * cartItem.quantity);
     }, 0);
     
-    this.cart.totals.subtotal = newSubtotal;
-    this.cart.totals.total = newSubtotal; // Simplified - doesn't account for tax/shipping
+    const currency = this.cart.currency || 'USD';
+    this.cart.totals.subtotal = {
+      amount: newSubtotalAmount,
+      currency,
+      formatted: new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency
+      }).format(newSubtotalAmount / 100)
+    };
+    this.cart.totals.total = this.cart.totals.subtotal; // Simplified - doesn't account for tax/shipping
     
     // Reset empty state
     this.showEmptyState = false;
@@ -606,13 +607,13 @@ export class CartWidget extends ShoprocketElement {
                 </button>
                 <span class="sr-cart-quantity-value">${item.quantity}</span>
                 <sr-tooltip 
-                  text="${item.inventory_policy === 'deny' && item.total_inventory !== undefined && item.quantity >= item.total_inventory ? `Maximum quantity (${item.total_inventory}) in cart` : ''}" 
+                  text="${item.inventory_policy === 'deny' && item.inventory_count !== undefined && item.quantity >= item.inventory_count ? `Maximum quantity (${item.inventory_count}) in cart` : ''}" 
                   position="top"
                 >
                   <button 
                     class="sr-cart-quantity-button"
                     @click="${() => this.updateQuantity(item.id, item.quantity + 1)}"
-                    ?disabled="${item.inventory_policy === 'deny' && item.total_inventory !== undefined && item.quantity >= item.total_inventory}"
+                    ?disabled="${item.inventory_policy === 'deny' && item.inventory_count !== undefined && item.quantity >= item.inventory_count}"
                     aria-label="Increase quantity"
                   >
                     +
@@ -643,12 +644,12 @@ export class CartWidget extends ShoprocketElement {
     // Check if we're increasing quantity and need stock validation
     if (quantity > item.quantity) {
       // Check if item has inventory policy and stock info
-      if (item.inventory_policy === 'deny' && item.total_inventory !== undefined) {
-        if (quantity > item.total_inventory) {
+      if (item.inventory_policy === 'deny' && item.inventory_count !== undefined) {
+        if (quantity > item.inventory_count) {
           // Show error notification
-          const message = item.total_inventory === 0 
+          const message = item.inventory_count === 0 
             ? 'Out of stock' 
-            : `Maximum quantity (${item.total_inventory}) already in cart`;
+            : `Maximum quantity (${item.inventory_count}) already in cart`;
           
           window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
             detail: { message }
@@ -670,12 +671,21 @@ export class CartWidget extends ShoprocketElement {
     
     // Update cart total (price is Money object with amount property)
     if (this.cart) {
-      const newSubtotal = this.cart.items.reduce((sum: number, i: any) => {
+      const newSubtotalAmount = this.cart.items.reduce((sum: number, i: any) => {
         const price = typeof i.price === 'object' ? i.price.amount : i.price;
         return sum + (price * i.quantity);
       }, 0);
-      this.cart.totals.subtotal = newSubtotal;
-      this.cart.totals.total = newSubtotal; // Simplified - doesn't account for tax/shipping
+      const currency = this.cart.currency || 'USD';
+      const subtotalObj: Money = {
+        amount: newSubtotalAmount,
+        currency,
+        formatted: new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency
+        }).format(newSubtotalAmount / 100)
+      };
+      this.cart.totals.subtotal = subtotalObj;
+      this.cart.totals.total = subtotalObj; // Simplified - doesn't account for tax/shipping
     }
     
     // Trigger animations immediately
@@ -695,7 +705,10 @@ export class CartWidget extends ShoprocketElement {
     
     // Track quantity change
     const eventType = quantity > originalQuantity ? EVENTS.ADD_TO_CART : EVENTS.REMOVE_FROM_CART;
-    this.track(eventType, item, { quantity: Math.abs(quantity - originalQuantity) });
+    this.track(eventType, { 
+      ...item, 
+      quantity: Math.abs(quantity - originalQuantity) 
+    });
     
     // Cancel any pending update for this item
     if (this.pendingUpdates.has(itemId)) {
@@ -747,12 +760,21 @@ export class CartWidget extends ShoprocketElement {
       }
     
       // Update cart totals
-      const newSubtotal = this.cart.items.reduce((sum: number, i: any) => {
+      const newSubtotalAmount = this.cart.items.reduce((sum: number, i: any) => {
         const price = typeof i.price === 'object' ? i.price.amount : i.price;
         return sum + (price * i.quantity);
       }, 0);
-      this.cart.totals.subtotal = newSubtotal;
-      this.cart.totals.total = newSubtotal; // Simplified - doesn't account for tax/shipping
+      const currency = this.cart.currency || 'USD';
+      const subtotalObj: Money = {
+        amount: newSubtotalAmount,
+        currency,
+        formatted: new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency
+        }).format(newSubtotalAmount / 100)
+      };
+      this.cart.totals.subtotal = subtotalObj;
+      this.cart.totals.total = subtotalObj; // Simplified - doesn't account for tax/shipping
       
       // Trigger animation for cart total
       this.priceChangedItems.add('cart-total');

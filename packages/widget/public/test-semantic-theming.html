@@ -186,7 +186,7 @@
     
     <div class="code-preview" id="css-output">
       /* Current theme CSS */
-      shoprocket-product-catalog {
+      shoprocket-catalog {
         --color-primary: #111827;
         --color-surface: #ffffff;
         --color-text: #111827;
@@ -270,8 +270,8 @@
     };
     
     function applyTheme(themeName, evt) {
-      // Look for the shoprocket-product-catalog element
-      const widgetElement = document.querySelector('shoprocket-product-catalog');
+      // Look for the shoprocket-catalog element
+      const widgetElement = document.querySelector('shoprocket-catalog');
       
       if (!widgetElement) {
         console.log('Widget not loaded yet, waiting...');
@@ -306,7 +306,7 @@
     }
     
     function updateTheme() {
-      const widgetElement = document.querySelector('shoprocket-product-catalog');
+      const widgetElement = document.querySelector('shoprocket-catalog');
       
       if (!widgetElement) {
         console.log('Widget not loaded yet');
@@ -335,7 +335,7 @@
     }
     
     function updateCodePreview() {
-      const widgetElement = document.querySelector('shoprocket-product-catalog');
+      const widgetElement = document.querySelector('shoprocket-catalog');
       
       if (!widgetElement) return;
       
@@ -347,7 +347,7 @@
       
       document.getElementById('css-output').textContent = 
 `/* Apply this CSS to customize your widget */
-shoprocket-product-catalog {
+shoprocket-catalog {
 ${cssVars};
 }`;
     }

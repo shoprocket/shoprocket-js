@@ -8,11 +8,8 @@ import { IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
  */
 function getStoreCurrency(): string {
   // Try to get from stored data or default
-  const widget = (window as any).ShoprocketWidget;
-  return widget?.store?.currency || 
-         widget?.store?.currency_code || 
-         widget?.store?.base_currency_code || 
-         'USD';
+  const store = (window as any).Shoprocket?.store?.get?.();
+  return store?.currency || 'USD';
 }
 
 /**
@@ -28,17 +25,19 @@ export function formatPrice(price: Money | number | undefined | null): string {
   }
   
   if (typeof price === 'object') {
-    const cents = price.amount || price.amount_cents || 0;
+    // API now always returns formatted price - use it directly
+    if (price.formatted) {
+      return price.formatted;
+    }
+    // Fallback for any edge cases
     const currency = price.currency || getStoreCurrency();
-    
-    // Use Intl.NumberFormat for proper currency formatting
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency
-    }).format(cents / 100);
+    }).format(price.amount / 100);
   }
   
-  // Assume number is cents, get currency from store
+  // Legacy support for number values
   const currency = getStoreCurrency();
   return new Intl.NumberFormat('en-US', {
     style: 'currency',

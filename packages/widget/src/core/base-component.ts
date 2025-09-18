@@ -4,7 +4,7 @@ import { ShoprocketCore } from '@shoprocket/core';
 import { formatPrice, getMediaUrl, handleImageError, dispatchCartEvents } from '../utils/formatters';
 import { sharedStyles, sharedStylesheet } from './shared-styles';
 import { baseStyles } from './base-styles';
-import { EVENTS } from './analytics';
+import { AnalyticsManager, EVENTS } from './analytics-manager';
 import type { FeatureKey } from '../types/features';
 import { parseFeatures } from '../types/features';
 
@@ -157,20 +157,18 @@ export class BaseComponent extends LitElement {
   }
 
   /**
-   * Track any event with minimal code using entity-based tracking
+   * Track any event using the new lean analytics system
    */
-  protected track(eventName: string, entity?: any, extra?: any): void {
-    const analytics = (window as any).Shoprocket?.analytics;
-    if (analytics?.trackEntity) {
-      analytics.trackEntity(eventName, entity, extra);
-    }
+  protected track(eventName: string, data?: any): void {
+    AnalyticsManager.track(eventName, data);
   }
 
   /**
    * Get the store currency
    */
   protected getStoreCurrency(): string {
-    return (window as any).ShoprocketWidget?.store?.currency || 'USD';
+    const store = (window as any).Shoprocket?.store?.get?.();
+    return store?.currency || 'USD';
   }
 }
 
