@@ -36,6 +36,14 @@
     opacity: initial;
     visibility: initial;
     pointer-events: initial;
+    
+    /* Prevent double-tap zoom on mobile for all Shoprocket elements */
+    touch-action: manipulation;
+  }
+  
+  /* Apply touch-action to all child elements to ensure consistent behavior */
+  :host * {
+    touch-action: manipulation;
   }
 }
 

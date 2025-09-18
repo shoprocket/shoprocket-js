@@ -1,13 +1,13 @@
 /**
  * Global configuration for the widget
  */
-export interface WidgetConfig {
+export interface GlobalConfig {
   apiUrl: string;
   cdnUrl: string;
 }
 
 // Default config
-let config: WidgetConfig = {
+let config: GlobalConfig = {
   apiUrl: 'https://api.shoprocket.io/api/v3',
   cdnUrl: 'https://cdn.shoprocket.io'
 };
@@ -34,8 +34,8 @@ export const initializeConfig = (scriptUrl: string): void => {
   config = { apiUrl, cdnUrl };
 };
 
-export const getConfig = (): WidgetConfig => config;
+export const getConfig = (): GlobalConfig => config;
 
-export const setConfig = (newConfig: Partial<WidgetConfig>): void => {
+export const setConfig = (newConfig: Partial<GlobalConfig>): void => {
   config = { ...config, ...newConfig };
 };
