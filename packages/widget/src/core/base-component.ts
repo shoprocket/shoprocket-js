@@ -168,11 +168,10 @@ export class BaseComponent extends LitElement {
    */
   protected getStoreCurrency(): string {
     const store = (window as any).Shoprocket?.store?.get?.();
-    return store?.currency || 'USD';
+    return store?.base_currency_code || 'USD';
   }
 }
 
-// Re-export as ShoprocketElement for backwards compatibility
 export { BaseComponent as ShoprocketElement };
 
 // Re-export EVENTS for easy access in all components

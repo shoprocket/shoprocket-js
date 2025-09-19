@@ -384,6 +384,9 @@ export class ProductDetail extends ShoprocketElement {
       return;
     }
 
+    // Get the full Money object for the selected variant or product
+    const selectedPrice = this.selectedVariant?.price || this.product.price;
+
     // Prepare cart item data for optimistic update
     const cartItemData = {
       product_id: this.product.id,
@@ -391,7 +394,7 @@ export class ProductDetail extends ShoprocketElement {
       variant_id: variantId,
       variant_name: this.getSelectedVariantText() || undefined,
       quantity: 1,
-      price: { amount: this.getSelectedPrice() }, // Format as Money object
+      price: selectedPrice, // Pass the full Money object from API
       media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined,
       source_url: window.location.href
     };
@@ -473,18 +476,10 @@ export class ProductDetail extends ShoprocketElement {
     );
   }
 
-  private getSelectedPrice(): number {
-    if (!this.product) return 0;
-    return this.selectedVariant?.price?.amount || this.product.price?.amount || 0;
-  }
-  
   private formatProductPrice(product: Product): string {
-    const selectedPrice = this.selectedVariant ? { 
-      amount: this.getSelectedPrice(),
-      currency: product.price.currency || 'USD',
-      formatted: '' // Will be formatted by formatProductPrice function
-    } : undefined;
-    return formatProductPrice(product as any, selectedPrice);
+    // Use the full Money object from selectedVariant or product
+    const selectedPrice = this.selectedVariant?.price;
+    return formatProductPrice(product, selectedPrice);
   }
   
   private isOptionValueOutOfStock(optionId: string, valueId: string, product: Product): boolean {
