@@ -339,9 +339,11 @@ export class CartWidget extends ShoprocketElement {
       this.cart.items.push(newItem);
     }
     
-    // Update totals (price is always a Money object)
+    // Update totals (safely handle price)
     const newSubtotalAmount = this.cart.items.reduce((sum: number, cartItem: any) => {
-      return sum + (cartItem.price.amount * cartItem.quantity);
+      const price = cartItem.price?.amount || 0;
+      const qty = cartItem.quantity || 0;
+      return sum + (price * qty);
     }, 0);
     
     const currency = this.cart.currency || this.getStoreCurrency();
@@ -1300,13 +1302,17 @@ export class CartWidget extends ShoprocketElement {
     // Optimistic update - immediately update UI
     item.quantity = quantity;
     
-    // Update line item subtotal (price is always a Money object)
-    (item as any).subtotal = item.price.amount * quantity;
+    // Update line item subtotal (ensure price.amount exists)
+    if (item.price?.amount !== undefined) {
+      (item as any).subtotal = item.price.amount * quantity;
+    }
     
     // Update cart total (price is Money object with amount property)
     if (this.cart) {
       const newSubtotalAmount = this.cart.items.reduce((sum: number, i: any) => {
-        return sum + (i.price.amount * i.quantity);
+        const price = i.price?.amount || 0;
+        const qty = i.quantity || 0;
+        return sum + (price * qty);
       }, 0);
       const currency = this.cart.currency || this.getStoreCurrency();
       const subtotalObj: Money = {
@@ -1397,7 +1403,9 @@ export class CartWidget extends ShoprocketElement {
     
       // Update cart totals
       const newSubtotalAmount = this.cart.items.reduce((sum: number, i: any) => {
-        return sum + (i.price.amount * i.quantity);
+        const price = i.price?.amount || 0;
+        const qty = i.quantity || 0;
+        return sum + (price * qty);
       }, 0);
       const currency = this.cart.currency || this.getStoreCurrency();
       const subtotalObj: Money = {
