@@ -18,17 +18,26 @@ export const EVENTS = {
   ADD_TO_CART: 'add_to_cart',
   REMOVE_FROM_CART: 'remove_from_cart',
   CART_OPENED: 'cart_opened',
-  CART_CLOSED: 'cart_closed'
+  CART_CLOSED: 'cart_closed',
+  BEGIN_CHECKOUT: 'begin_checkout',
+  PURCHASE: 'purchase'
 } as const;
 
 export class AnalyticsManager {
   private static trackingConfig: TrackingConfig = {};
   private static loadedTrackers: Set<string> = new Set();
+  private static initialized = false;
   
   /**
    * Initialize analytics with store configuration
    */
   static async init(config?: TrackingConfig) {
+    if (this.initialized && config === this.trackingConfig) {
+      console.warn('AnalyticsManager: Already initialized with same config');
+      return;
+    }
+    this.initialized = true;
+    
     if (config) {
       this.trackingConfig = config;
       
