@@ -5,10 +5,7 @@
 
 interface InternalState {
   store: any | null;
-  session: {
-    token: string;
-    id?: string;
-  } | null;
+  cartToken: string | null;
   cart: {
     data: any;
     open: () => void;
@@ -21,7 +18,7 @@ interface InternalState {
 // Module-level state (not on window)
 const state: InternalState = {
   store: null,
-  session: null,
+  cartToken: null,
   cart: null,
   sdk: null
 };
@@ -35,8 +32,8 @@ export const internalState = {
     state.store = store;
   },
   
-  setSession(token: string, id?: string) {
-    state.session = { token, id };
+  setCartToken(token: string) {
+    state.cartToken = token;
   },
   
   setCart(cart: any) {
@@ -63,12 +60,8 @@ export const internalState = {
     return state.store;
   },
   
-  getSession() {
-    return state.session;
-  },
-  
-  getSessionToken() {
-    return state.session?.token;
+  getCartToken() {
+    return state.cartToken;
   },
   
   getCart() {
@@ -86,7 +79,7 @@ export const internalState = {
   // Utility
   clear() {
     state.store = null;
-    state.session = null;
+    state.cartToken = null;
     state.cart = null;
     // Don't clear SDK as it's needed for operations
   }
