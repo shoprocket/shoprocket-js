@@ -9,13 +9,13 @@ import { IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 function getStoreCurrency(): string {
   // Try to get from stored data or default
   const store = (window as any).Shoprocket?.store?.get?.();
-  return store?.currency || 'USD';
+  return store?.base_currency_code || 'USD';
 }
 
 /**
  * Format price for display
  */
-export function formatPrice(price: Money | number | undefined | null): string {
+export function formatPrice(price: Money | undefined | null): string {
   if (!price) {
     const currency = getStoreCurrency();
     return new Intl.NumberFormat('en-US', {
@@ -24,32 +24,24 @@ export function formatPrice(price: Money | number | undefined | null): string {
     }).format(0);
   }
   
-  if (typeof price === 'object') {
-    // API now always returns formatted price - use it directly
-    if (price.formatted) {
-      return price.formatted;
-    }
-    // Fallback for any edge cases
-    const currency = price.currency || getStoreCurrency();
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency
-    }).format(price.amount / 100);
+  // API always returns formatted price - use it directly
+  if (price.formatted) {
+    return price.formatted;
   }
   
-  // Legacy support for number values
-  const currency = getStoreCurrency();
+  // Format if API didn't provide formatted string
+  const currency = price.currency || getStoreCurrency();
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency
-  }).format(price / 100);
+  }).format(price.amount / 100);
 }
 
 /**
  * Format price with range support
  */
-export function formatPriceRange(product: { price: Money | number; price_min?: number; price_max?: number }): string {
-  const basePrice = typeof product.price === 'object' ? product.price.amount : product.price;
+export function formatPriceRange(product: { price: Money; price_min?: number; price_max?: number }): string {
+  const basePrice = product.price.amount;
   const hasRange = product.price_max && product.price_max > basePrice;
   
   if (hasRange) {
@@ -63,8 +55,8 @@ export function formatPriceRange(product: { price: Money | number; price_min?: n
  * Format product price with variant support
  */
 export function formatProductPrice(
-  product: { price: Money | number; price_min?: number; price_max?: number },
-  selectedVariantPrice?: number | Money
+  product: { price: Money; price_min?: number; price_max?: number },
+  selectedVariantPrice?: Money
 ): string {
   // If a specific variant is selected, show its price
   if (selectedVariantPrice) {

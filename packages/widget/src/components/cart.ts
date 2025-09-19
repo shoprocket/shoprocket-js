@@ -94,7 +94,6 @@ export class CartWidget extends ShoprocketElement {
   
   @state()
   private showEmptyState = false;
-  
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -219,10 +218,14 @@ export class CartWidget extends ShoprocketElement {
     
     // Initialize cart if needed
     if (!this.cart) {
+      const currency = this.getStoreCurrency();
       const zeroPriceObj: Money = {
         amount: 0,
-        currency: 'USD',
-        formatted: '$0.00'
+        currency,
+        formatted: new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency
+        }).format(0)
       };
       this.cart = {
         id: 'temp-' + Date.now(),
@@ -233,7 +236,7 @@ export class CartWidget extends ShoprocketElement {
           shipping: zeroPriceObj,
           total: zeroPriceObj
         },
-        currency: 'USD'
+        currency
       };
     }
     
@@ -252,9 +255,8 @@ export class CartWidget extends ShoprocketElement {
         existingItem.inventory_count = stockInfo.inventory_count ?? stockInfo.available_quantity;
       }
     } else {
-      // Calculate subtotal for new item
-      const price = typeof item.price === 'object' ? item.price.amount : item.price;
-      const subtotal = price * item.quantity;
+      // Calculate subtotal for new item (price is always a Money object)
+      const subtotal = item.price.amount * item.quantity;
       
       // Add new item with a temporary ID, subtotal, and stock info
       const newItem = {
@@ -270,13 +272,12 @@ export class CartWidget extends ShoprocketElement {
       this.cart.items.push(newItem);
     }
     
-    // Update totals
+    // Update totals (price is always a Money object)
     const newSubtotalAmount = this.cart.items.reduce((sum: number, cartItem: any) => {
-      const price = typeof cartItem.price === 'object' ? cartItem.price.amount : cartItem.price;
-      return sum + (price * cartItem.quantity);
+      return sum + (cartItem.price.amount * cartItem.quantity);
     }, 0);
     
-    const currency = this.cart.currency || 'USD';
+    const currency = this.cart.currency || this.getStoreCurrency();
     this.cart.totals.subtotal = {
       amount: newSubtotalAmount,
       currency,
@@ -517,7 +518,7 @@ export class CartWidget extends ShoprocketElement {
           <div class="sr-cart-subtotal">
             <span class="sr-cart-subtotal-label">Subtotal</span>
             <span class="sr-cart-subtotal-amount">
-              <span class="sr-cart-total-price ${this.priceChangedItems.size > 0 ? 'price-changed' : ''}">${this.formatPrice(this.cart?.totals?.total || 0)}</span>
+              <span class="sr-cart-total-price ${this.priceChangedItems.size > 0 ? 'price-changed' : ''}">${this.formatPrice(this.cart?.totals?.total)}</span>
             </span>
           </div>
           <button class="sr-cart-checkout-button">
@@ -665,17 +666,15 @@ export class CartWidget extends ShoprocketElement {
     // Optimistic update - immediately update UI
     item.quantity = quantity;
     
-    // Update line item subtotal
-    const itemPrice = typeof item.price === 'object' ? item.price.amount : item.price;
-    (item as any).subtotal = itemPrice * quantity;
+    // Update line item subtotal (price is always a Money object)
+    (item as any).subtotal = item.price.amount * quantity;
     
     // Update cart total (price is Money object with amount property)
     if (this.cart) {
       const newSubtotalAmount = this.cart.items.reduce((sum: number, i: any) => {
-        const price = typeof i.price === 'object' ? i.price.amount : i.price;
-        return sum + (price * i.quantity);
+        return sum + (i.price.amount * i.quantity);
       }, 0);
-      const currency = this.cart.currency || 'USD';
+      const currency = this.cart.currency || this.getStoreCurrency();
       const subtotalObj: Money = {
         amount: newSubtotalAmount,
         currency,
@@ -761,10 +760,9 @@ export class CartWidget extends ShoprocketElement {
     
       // Update cart totals
       const newSubtotalAmount = this.cart.items.reduce((sum: number, i: any) => {
-        const price = typeof i.price === 'object' ? i.price.amount : i.price;
-        return sum + (price * i.quantity);
+        return sum + (i.price.amount * i.quantity);
       }, 0);
-      const currency = this.cart.currency || 'USD';
+      const currency = this.cart.currency || this.getStoreCurrency();
       const subtotalObj: Money = {
         amount: newSubtotalAmount,
         currency,
@@ -896,7 +894,7 @@ export class CartWidget extends ShoprocketElement {
     // Error takes priority over success
     if (this.floatingErrorMessage) {
       // Use middle position for vertical centering with cart toggle
-      const verticalPosition = this.position.includes('top') ? 'top' : this.position.includes('bottom') ? 'middle' : 'middle';
+      const verticalPosition = this.position.includes('top') ? 'top' : 'middle';
       const horizontalPosition = this.position.includes('left') ? 'left' : 'right';
       const notificationClasses = `sr-notification-${verticalPosition}-${horizontalPosition}`;
       

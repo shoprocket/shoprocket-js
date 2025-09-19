@@ -93,18 +93,14 @@ export class WidgetManager {
     login: async (email: string, password: string) => {
       const manager = window.Shoprocket as WidgetManager;
       const sdk = manager.getSdk();
-      try {
-        const response = await sdk.auth.login({ email, password });
-        const token = response.access_token;
-        if (token) {
-          CookieManager.setAccessToken(token);
-          sdk.setAuthToken(token);
-          // Server automatically links cart to user via headers
-        }
-        return response;
-      } catch (error) {
-        throw error;
+      const response = await sdk.auth.login({ email, password });
+      const token = response.access_token;
+      if (token) {
+        CookieManager.setAccessToken(token);
+        sdk.setAuthToken(token);
+        // Server automatically links cart to user via headers
       }
+      return response;
     },
     
     /**
@@ -114,18 +110,14 @@ export class WidgetManager {
     register: async (email: string, password: string, name?: string) => {
       const manager = window.Shoprocket as WidgetManager;
       const sdk = manager.getSdk();
-      try {
-        const response = await sdk.auth.register({ email, password, name });
-        const token = response.access_token;
-        if (token) {
-          CookieManager.setAccessToken(token);
-          sdk.setAuthToken(token);
-          // Server automatically links cart to user via headers
-        }
-        return response;
-      } catch (error) {
-        throw error;
+      const response = await sdk.auth.register({ email, password, name });
+      const token = response.access_token;
+      if (token) {
+        CookieManager.setAccessToken(token);
+        sdk.setAuthToken(token);
+        // Server automatically links cart to user via headers
       }
+      return response;
     },
     
     /**

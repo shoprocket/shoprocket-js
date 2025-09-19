@@ -7,6 +7,7 @@ import type { TrackingConfig } from '../types/analytics';
 import { getConfig } from './config';
 import { internalState } from './internal-state';
 import { CookieManager } from '../utils/cookie-manager';
+import { AnalyticsSanitizer } from '../utils/analytics-sanitizer';
 
 // Event names
 export const EVENTS = {
@@ -55,16 +56,19 @@ export class AnalyticsManager {
    * Main tracking method - sends to all enabled systems
    */
   static track(event: string, data: any = {}) {
+    // Sanitize data to only essential fields
+    const sanitizedData = AnalyticsSanitizer.sanitizeEventData(event, data);
+    
     // 1. Always track to ShopRocket
-    this.trackToShopRocket(event, data);
+    this.trackToShopRocket(event, sanitizedData);
     
     // 2. Track to third-party if configured (e-commerce events only)
     if (this.isEcommerceEvent(event)) {
-      this.trackToThirdParty(event, data);
+      this.trackToThirdParty(event, sanitizedData);
     }
     
-    // 3. Always broadcast custom event for developers
-    this.broadcast(event, data);
+    // 3. Always broadcast custom event for developers (with sanitized data)
+    this.broadcast(event, sanitizedData);
   }
   
   /**
