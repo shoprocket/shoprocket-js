@@ -2,7 +2,7 @@ export interface ApiConfig {
   apiUrl: string;
   publishableKey: string;
   locale?: string;
-  sessionToken?: string;
+  cartToken?: string;
 }
 
 export interface ApiResponse<T> {
@@ -20,6 +20,7 @@ export interface ApiResponse<T> {
 
 export class ApiClient {
   private config: ApiConfig;
+  private authToken?: string;
 
   constructor(config: ApiConfig) {
     this.config = {
@@ -28,8 +29,8 @@ export class ApiClient {
     };
   }
 
-  setSessionToken(token: string) {
-    this.config.sessionToken = token;
+  setCartToken(token: string) {
+    this.config.cartToken = token;
   }
 
   setLocale(locale: string) {
@@ -39,11 +40,15 @@ export class ApiClient {
   private getHeaders(): HeadersInit {
     const headers: HeadersInit = {
       'Accept': 'application/json',
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json'
     };
 
-    if (this.config.sessionToken) {
-      headers['X-Session-Token'] = this.config.sessionToken;
+    if (this.config.cartToken) {
+      headers['X-Cart-Token'] = this.config.cartToken;
+    }
+
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
     }
 
     if (this.config.locale) {
@@ -107,11 +112,15 @@ export class ApiClient {
     
     try {
       const headers: HeadersInit = {
-        'Accept': 'application/json',
+        'Accept': 'application/json'
       };
       
-      if (this.config.sessionToken) {
-        headers['X-Session-Token'] = this.config.sessionToken;
+      if (this.config.cartToken) {
+        headers['X-Cart-Token'] = this.config.cartToken;
+      }
+      
+      if (this.authToken) {
+        headers['Authorization'] = `Bearer ${this.authToken}`;
       }
       
       if (this.config.locale) {
@@ -182,5 +191,13 @@ export class ApiClient {
 
   getApiUrl(): string {
     return this.config.apiUrl;
+  }
+
+  setAuthToken(token: string): void {
+    this.authToken = token;
+  }
+
+  clearAuthToken(): void {
+    this.authToken = undefined;
   }
 }

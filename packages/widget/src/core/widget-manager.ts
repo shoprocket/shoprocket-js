@@ -1,8 +1,7 @@
 import { ShoprocketCore } from '@shoprocket/core';
-import type { Session, ApiResponse } from '../types/api';
 import type { BaseComponent } from './base-component';
 import type { LitElement } from 'lit';
-import { getCookie, setCookie } from '../utils/cookie-utils';
+import { CookieManager } from '../utils/cookie-manager';
 import { AnalyticsManager } from './analytics-manager';
 import { internalState } from './internal-state';
 
@@ -82,30 +81,90 @@ export class WidgetManager {
     }
   };
 
+
   /**
-   * Session namespace
+   * Authentication namespace
    */
-  public session = {
+  public auth = {
     /**
-     * Get the current session
-     * @example Shoprocket.session.get()
+     * Login with email and password
+     * @example Shoprocket.auth.login('user@example.com', 'password')
      */
-    get: () => internalState.getSession(),
-    
-    /**
-     * Get the current session (property access)
-     * @example Shoprocket.session.data
-     */
-    get data() {
-      return internalState.getSession();
+    login: async (email: string, password: string) => {
+      const manager = window.Shoprocket as WidgetManager;
+      const sdk = manager.getSdk();
+      try {
+        const response = await sdk.auth.login({ email, password });
+        const token = response.access_token;
+        if (token) {
+          CookieManager.setAccessToken(token);
+          sdk.setAuthToken(token);
+          // Server automatically links cart to user via headers
+        }
+        return response;
+      } catch (error) {
+        throw error;
+      }
     },
     
     /**
-     * Get the session token directly
-     * @example Shoprocket.session.token
+     * Register a new user
+     * @example Shoprocket.auth.register('user@example.com', 'password', 'John Doe')
      */
-    get token() {
-      return internalState.getSessionToken();
+    register: async (email: string, password: string, name?: string) => {
+      const manager = window.Shoprocket as WidgetManager;
+      const sdk = manager.getSdk();
+      try {
+        const response = await sdk.auth.register({ email, password, name });
+        const token = response.access_token;
+        if (token) {
+          CookieManager.setAccessToken(token);
+          sdk.setAuthToken(token);
+          // Server automatically links cart to user via headers
+        }
+        return response;
+      } catch (error) {
+        throw error;
+      }
+    },
+    
+    /**
+     * Logout the current user
+     * @example Shoprocket.auth.logout()
+     */
+    logout: async () => {
+      const manager = window.Shoprocket as WidgetManager;
+      const sdk = manager.getSdk();
+      
+      try {
+        // Call server logout to cleanup session
+        await sdk.auth.logout();
+      } catch (error) {
+        // Ignore server errors, continue with client cleanup
+      }
+      
+      // Clear client-side auth
+      CookieManager.clearAccessToken();
+      sdk.clearAuthToken();
+      
+      // Regenerate cart token for privacy
+      CookieManager.regenerateCartToken();
+    },
+    
+    /**
+     * Check if user is logged in
+     * @example Shoprocket.auth.isLoggedIn()
+     */
+    isLoggedIn: () => {
+      return !!CookieManager.getAccessToken();
+    },
+    
+    /**
+     * Get current auth token
+     * @example Shoprocket.auth.getToken()
+     */
+    getToken: () => {
+      return CookieManager.getAccessToken();
     }
   };
 
@@ -122,11 +181,15 @@ export class WidgetManager {
       // Initialize SDK
       this.sdk = new ShoprocketCore({
         publicKey,
-        apiUrl: options.apiUrl,
+        apiUrl: options.apiUrl
       });
+      
+      // Set cart token for all API requests
+      this.sdk.setCartToken(CookieManager.getCartToken());
 
-      // Initialize session asynchronously (non-blocking)
-      this.initializeSessionAsync(publicKey);
+      // Initialize cart token (no server call needed)
+      const cartToken = CookieManager.getCartToken();
+      internalState.setCartToken(cartToken);
 
       // Initialize analytics with store tracking config
       // Store config will be fetched and applied when available
@@ -138,6 +201,12 @@ export class WidgetManager {
         // Store in internal state
         internalState.setStore(store);
         internalState.setSdk(this.sdk);
+        
+        // Set up auth token if present
+        const accessToken = CookieManager.getAccessToken();
+        if (accessToken) {
+          this.sdk.setAuthToken(accessToken);
+        }
         
         if (store?.tracking) {
           await AnalyticsManager.init(store.tracking);
@@ -158,52 +227,15 @@ export class WidgetManager {
 
       // Auto-render floating cart button unless disabled
       this.autoRenderCart();
+      
+      // Listen for order completion to regenerate cart token
+      this.setupOrderCompletionListener();
     } catch (error) {
       // Initialization failed
       throw error;
     }
   }
 
-  /**
-   * Initialize session in the background (non-blocking)
-   */
-  private async initializeSessionAsync(publicKey: string): Promise<void> {
-    try {
-      const sessionKey = `shoprocket_session_${publicKey}`;
-      const storedToken = getCookie(sessionKey);
-      
-      if (storedToken) {
-        this.sdk!.setSessionToken(storedToken);
-        // For existing sessions, we don't have the session ID readily available
-        // Analytics will still work but without session_id in context
-        // Wait for store data before storing it
-        this.sdk!.store.get().then(storeData => {
-          internalState.setStore(storeData);
-        });
-        internalState.setSession(storedToken);
-      } else {
-        // Create new session
-        const session = await this.sdk!.session.create() as unknown as Session | ApiResponse<Session>;
-        const sessionToken = 'data' in session ? session.data.session_token : session.session_token;
-        if (sessionToken) {
-          this.sdk!.setSessionToken(sessionToken);
-          setCookie(sessionKey, sessionToken);
-          
-          // Get store data then store it
-          const storeData = await this.sdk!.store.get();
-          internalState.setStore(storeData);
-          internalState.setSession(sessionToken);
-          
-        }
-      }
-
-      // Store SDK reference in internal state
-      internalState.setSdk(this.sdk);
-    } catch (error) {
-      // Session initialization failed - log but don't throw
-      console.warn('Failed to initialize session:', error);
-    }
-  }
 
   /**
    * Get SDK instance
@@ -213,6 +245,38 @@ export class WidgetManager {
       throw new Error('Shoprocket: Not initialized. Call init() first.');
     }
     return this.sdk;
+  }
+
+  /**
+   * Set up listener for order completion events
+   */
+  private setupOrderCompletionListener(): void {
+    // Listen for checkout success event
+    window.addEventListener('shoprocket:checkout:success', (event) => {
+      // Regenerate cart token after successful order
+      const newToken = CookieManager.regenerateCartToken();
+      internalState.setCartToken(newToken);
+      
+      // Update SDK with new cart token
+      if (this.sdk) {
+        this.sdk.setCartToken(newToken);
+      }
+      
+      // Track order completion
+      AnalyticsManager.track('order_completed', (event as CustomEvent).detail);
+    });
+    
+    // Also listen for explicit order confirmation
+    window.addEventListener('shoprocket:order:confirmed', () => {
+      // Regenerate cart token after order confirmation
+      const newToken = CookieManager.regenerateCartToken();
+      internalState.setCartToken(newToken);
+      
+      // Update SDK with new cart token
+      if (this.sdk) {
+        this.sdk.setCartToken(newToken);
+      }
+    });
   }
 
 

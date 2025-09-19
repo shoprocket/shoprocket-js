@@ -8,12 +8,13 @@ import { SessionService } from './services/session';
 import { ProductsService } from './services/products';
 import { CartService } from './services/cart';
 import { StoreService } from './services/store';
+import { AuthService } from './services/auth';
 
 export interface ShoprocketConfig {
   publicKey: string;
   apiUrl?: string;
   locale?: string;
-  sessionToken?: string;
+  cartToken?: string;
 }
 
 export class ShoprocketCore {
@@ -24,6 +25,7 @@ export class ShoprocketCore {
   public products: ProductsService;
   public cart: CartService;
   public store: StoreService;
+  public auth: AuthService;
 
   constructor(config: ShoprocketConfig) {
     this.config = {
@@ -37,7 +39,7 @@ export class ShoprocketCore {
       apiUrl: this.config.apiUrl!,
       publishableKey: this.config.publicKey,
       locale: this.config.locale,
-      sessionToken: this.config.sessionToken
+      cartToken: this.config.cartToken
     });
 
     // Initialize services
@@ -45,14 +47,15 @@ export class ShoprocketCore {
     this.products = new ProductsService(this.api);
     this.cart = new CartService(this.api);
     this.store = new StoreService(this.api);
+    this.auth = new AuthService(this.api);
   }
 
   /**
-   * Set session token
+   * Set cart token
    */
-  setSessionToken(token: string): void {
-    this.config.sessionToken = token;
-    this.api.setSessionToken(token);
+  setCartToken(token: string): void {
+    this.config.cartToken = token;
+    this.api.setCartToken(token);
   }
 
   /**
@@ -90,6 +93,20 @@ export class ShoprocketCore {
   getPublishableKey(): string {
     return this.api.getPublishableKey();
   }
+
+  /**
+   * Set auth token
+   */
+  setAuthToken(token: string): void {
+    this.api.setAuthToken(token);
+  }
+
+  /**
+   * Clear auth token
+   */
+  clearAuthToken(): void {
+    this.api.clearAuthToken();
+  }
 }
 
 // Export types
@@ -98,6 +115,7 @@ export * from './services/session';
 export * from './services/products';
 export * from './services/cart';
 export * from './services/store';
+export * from './services/auth';
 
 // Default export for convenience
 export default ShoprocketCore;

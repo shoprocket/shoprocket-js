@@ -6,6 +6,7 @@
 import type { TrackingConfig } from '../types/analytics';
 import { getConfig } from './config';
 import { internalState } from './internal-state';
+import { CookieManager } from '../utils/cookie-manager';
 
 // Event names
 export const EVENTS = {
@@ -82,12 +83,17 @@ export class AnalyticsManager {
       return;
     }
     
+    // Get cart token and attribution from cookie
+    const cartToken = CookieManager.getCartToken();
+    const attribution = CookieManager.getAttribution();
+    
     const payload = {
       event,
       data,
       store_id: storeId, // Required by backend
+      cart_token: cartToken,
       url: location.href,
-      session_token: internalState.getSessionToken()
+      ...attribution // Include UTM params, referrer, device info
     };
     
     // Use fetch with keepalive for reliability
