@@ -316,14 +316,18 @@ export class CartWidget extends ShoprocketElement {
     if (existingItem) {
       // Update quantity
       existingItem.quantity += item.quantity;
+      // Update subtotal
+      if (existingItem.price?.amount !== undefined) {
+        (existingItem as any).subtotal = existingItem.price.amount * existingItem.quantity;
+      }
       // Update stock info if provided
       if (stockInfo) {
         existingItem.inventory_policy = stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue');
         existingItem.inventory_count = stockInfo.inventory_count ?? stockInfo.available_quantity;
       }
     } else {
-      // Calculate subtotal for new item (price is always a Money object)
-      const subtotal = item.price.amount * item.quantity;
+      // Calculate subtotal for new item (safely handle price)
+      const subtotal = (item.price?.amount || 0) * (item.quantity || 0);
       
       // Add new item with a temporary ID, subtotal, and stock info
       const newItem = {
@@ -501,6 +505,15 @@ export class CartWidget extends ShoprocketElement {
         // Handle both wrapped and unwrapped responses
         if (response && typeof response === 'object') {
           this.cart = 'data' in response ? (response as ApiResponse<Cart>).data : (response as Cart);
+          
+          // Ensure all items have subtotals calculated
+          if (this.cart?.items) {
+            this.cart.items.forEach((item: any) => {
+              if (item.subtotal === undefined && item.price?.amount !== undefined) {
+                item.subtotal = item.price.amount * (item.quantity || 0);
+              }
+            });
+          }
           
           // Populate customer data from cart if available
           this.populateCustomerDataFromCart();
@@ -960,7 +973,13 @@ export class CartWidget extends ShoprocketElement {
             
             <div class="sr-cart-item-footer">
               <div class="sr-cart-item-price">
-                <span class="sr-cart-item-subtotal ${this.priceChangedItems.has(item.id) ? 'price-changed' : ''}">${this.formatPrice(item.subtotal)}</span>
+                <span class="sr-cart-item-subtotal ${this.priceChangedItems.has(item.id) ? 'price-changed' : ''}">
+                  ${this.formatPrice(
+                    item.subtotal !== undefined 
+                      ? item.subtotal 
+                      : (item.price?.amount || 0) * (item.quantity || 0)
+                  )}
+                </span>
               </div>
               
               <!-- Quantity Controls with Remove Button -->
