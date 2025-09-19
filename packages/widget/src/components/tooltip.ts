@@ -1,5 +1,5 @@
 import { html, css, LitElement, type TemplateResult } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
 import { UI_SPACING } from '../constants';
 
 /**
@@ -7,7 +7,6 @@ import { UI_SPACING } from '../constants';
  * Renders tooltips at root level to avoid CSS inheritance issues
  * Usage: <sr-tooltip text="Helpful information">Hover me</sr-tooltip>
  */
-@customElement('sr-tooltip')
 export class Tooltip extends LitElement {
   static override styles = css`
     :host {

@@ -7,6 +7,9 @@ import type { Cart, ApiResponse, Money } from '../types/api';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import './tooltip';
+// Lazy import checkout components only when needed
+import type { CustomerData, CustomerFormErrors } from './customer-form';
+import type { AddressData, AddressFormErrors } from './address-form';
 
 // Import SVG as string - Vite will inline it at build time
 import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
@@ -83,6 +86,9 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private errorNotificationSliding: 'in' | 'out' | null = null;
   
+  // Timeout tracking for cleanup
+  private timeouts = new Set<NodeJS.Timeout>();
+  
   // Track pending API calls for debouncing
   private pendingUpdates: Map<string, NodeJS.Timeout> = new Map();
   
@@ -94,6 +100,40 @@ export class CartWidget extends ShoprocketElement {
   
   @state()
   private showEmptyState = false;
+
+  // Checkout State
+  @state()
+  private isCheckingOut = false;
+
+  @state()
+  private checkoutStep: 'customer' | 'shipping' | 'billing' | 'payment' | 'review' = 'customer';
+
+  @state()
+  private customerData: Partial<CustomerData> = {};
+
+  @state()
+  private shippingAddress: Partial<AddressData> = {};
+
+  @state()
+  private billingAddress: Partial<AddressData> = {};
+
+  @state()
+  private sameAsBilling = true; // Default to true - most customers use same address
+
+  @state()
+  private isGuest = true;
+
+  @state()
+  private customerErrors: CustomerFormErrors = {};
+
+  @state()
+  private shippingErrors: AddressFormErrors = {};
+
+  @state()
+  private billingErrors: AddressFormErrors = {};
+
+  @state()
+  private checkoutLoading = false;
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -159,6 +199,8 @@ export class CartWidget extends ShoprocketElement {
     if (this.isOpen) {
       document.body.style.overflow = '';
     }
+    
+    // Remove event listeners
     window.removeEventListener(WIDGET_EVENTS.CART_ADD_ITEM, this.handleAddItem as EventListener);
     window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_ERROR, this.handleFloatingError as EventListener);
@@ -166,6 +208,31 @@ export class CartWidget extends ShoprocketElement {
     window.removeEventListener('open-cart', this.handleOpenCart as EventListener);
     window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
     window.removeEventListener('toggle-cart', this.handleToggleCart as EventListener);
+    
+    // Clean up ALL tracked timeouts
+    this.timeouts.forEach(timeout => clearTimeout(timeout));
+    this.timeouts.clear();
+    
+    // Clean up specific timeouts
+    if (this.customerUpdateTimeout) {
+      clearTimeout(this.customerUpdateTimeout);
+    }
+    if (this.notificationTimeouts?.slideOut) {
+      clearTimeout(this.notificationTimeouts.slideOut);
+    }
+    if (this.notificationTimeouts?.remove) {
+      clearTimeout(this.notificationTimeouts.remove);
+    }
+    if (this.errorNotificationTimeouts?.slideOut) {
+      clearTimeout(this.errorNotificationTimeouts.slideOut);
+    }
+    if (this.errorNotificationTimeouts?.remove) {
+      clearTimeout(this.errorNotificationTimeouts.remove);
+    }
+    
+    // Clear any pending updates
+    this.pendingUpdates.forEach(timeout => clearTimeout(timeout));
+    this.pendingUpdates.clear();
     
     // Clean up internal state cart reference
     // Note: We don't clear it entirely as other components may still exist
@@ -432,6 +499,10 @@ export class CartWidget extends ShoprocketElement {
         // Handle both wrapped and unwrapped responses
         if (response && typeof response === 'object') {
           this.cart = 'data' in response ? (response as ApiResponse<Cart>).data : (response as Cart);
+          
+          // Populate customer data from cart if available
+          this.populateCustomerDataFromCart();
+          
           // Reset empty state if cart has items
           if (this.cart?.items?.length > 0) {
             this.showEmptyState = false;
@@ -453,6 +524,83 @@ export class CartWidget extends ShoprocketElement {
         this.showError('Failed to load cart data');
       }
     });
+  }
+
+  private populateCustomerDataFromCart(): void {
+    if (!this.cart) return;
+
+    // Extract customer data from cart response
+    const cartCustomer = (this.cart as any).customer;
+    if (cartCustomer) {
+      this.customerData = {
+        email: cartCustomer.email || '',
+        first_name: cartCustomer.first_name || '',
+        last_name: cartCustomer.last_name || '',
+        phone: cartCustomer.phone || '',
+        company: cartCustomer.company || ''
+      };
+
+      // Extract shipping address from customer object
+      const shippingAddress = cartCustomer.shipping_address;
+      if (shippingAddress) {
+        this.shippingAddress = {
+          line1: shippingAddress.line1 || '',
+          line2: shippingAddress.line2 || '',
+          city: shippingAddress.city || '',
+          state: shippingAddress.state || '',
+          postal_code: shippingAddress.postal_code || '',
+          country: shippingAddress.country || '',
+          name: shippingAddress.name || '',
+          company: shippingAddress.company || '',
+          phone: shippingAddress.phone || ''
+        };
+      } else if ((this.cart as any).visitor_country) {
+        // If no shipping address saved, use visitor's detected country
+        this.shippingAddress = {
+          country: (this.cart as any).visitor_country
+        };
+      }
+
+      // Extract billing address from customer object
+      const billingAddress = cartCustomer.billing_address;
+      if (billingAddress) {
+        this.billingAddress = {
+          line1: billingAddress.line1 || '',
+          line2: billingAddress.line2 || '',
+          city: billingAddress.city || '',
+          state: billingAddress.state || '',
+          postal_code: billingAddress.postal_code || '',
+          country: billingAddress.country || '',
+          name: billingAddress.name || '',
+          company: billingAddress.company || '',
+          phone: billingAddress.phone || ''
+        };
+      } else if (shippingAddress && this.sameAsBilling) {
+        // If no separate billing address and same_as_billing is true, use shipping
+        this.billingAddress = { ...this.shippingAddress };
+      } else if ((this.cart as any).visitor_country) {
+        // If no billing address saved, use visitor's detected country
+        this.billingAddress = {
+          country: (this.cart as any).visitor_country
+        };
+      }
+    } else if ((this.cart as any).visitor_country) {
+      // If no customer data at all, still set visitor's detected country for addresses
+      this.shippingAddress = { country: (this.cart as any).visitor_country };
+      this.billingAddress = { country: (this.cart as any).visitor_country };
+    }
+
+    // Check if billing address is same as shipping (might be at cart level)
+    const sameAsBilling = (this.cart as any).same_as_billing;
+    if (typeof sameAsBilling === 'boolean') {
+      this.sameAsBilling = sameAsBilling;
+    }
+
+    // Determine if user is guest or registered
+    const isGuest = (this.cart as any).is_guest;
+    if (typeof isGuest === 'boolean') {
+      this.isGuest = isGuest;
+    }
   }
   
   
@@ -476,6 +624,246 @@ export class CartWidget extends ShoprocketElement {
     
     // Track cart closed
     this.track(EVENTS.CART_CLOSED, this.cart);
+  }
+
+  // Checkout Methods
+  private async startCheckout(): Promise<void> {
+    // Lazy load checkout components only when needed
+    await Promise.all([
+      import('./customer-form'),
+      import('./address-form')
+    ]);
+    
+    this.isCheckingOut = true;
+    this.checkoutStep = 'customer';
+    
+    // Track checkout started
+    this.track(EVENTS.BEGIN_CHECKOUT, this.cart);
+  }
+
+  private exitCheckout(): void {
+    this.isCheckingOut = false;
+    this.checkoutStep = 'customer';
+    this.customerErrors = {};
+    this.shippingErrors = {};
+    this.billingErrors = {};
+  }
+
+  private nextCheckoutStep(): void {
+    const allSteps: Array<'customer' | 'shipping' | 'billing' | 'payment' | 'review'> = 
+      ['customer', 'shipping', 'billing', 'payment', 'review'];
+    
+    // Skip billing step if using same address
+    const steps = this.sameAsBilling ? 
+      allSteps.filter(step => step !== 'billing') : 
+      allSteps;
+    
+    const currentIndex = steps.indexOf(this.checkoutStep);
+    if (currentIndex >= 0 && currentIndex < steps.length - 1) {
+      const nextStep = steps[currentIndex + 1];
+      if (nextStep) {
+        this.checkoutStep = nextStep;
+      }
+    }
+  }
+
+  private previousCheckoutStep(): void {
+    const allSteps: Array<'customer' | 'shipping' | 'billing' | 'payment' | 'review'> = 
+      ['customer', 'shipping', 'billing', 'payment', 'review'];
+    
+    // Skip billing step if using same address
+    const steps = this.sameAsBilling ? 
+      allSteps.filter(step => step !== 'billing') : 
+      allSteps;
+    
+    const currentIndex = steps.indexOf(this.checkoutStep);
+    if (currentIndex > 0 && currentIndex < steps.length) {
+      const previousStep = steps[currentIndex - 1];
+      if (previousStep) {
+        this.checkoutStep = previousStep;
+      }
+    }
+  }
+
+  private handleCustomerChange(e: CustomEvent): void {
+    const { customer } = e.detail;
+    this.customerData = customer;
+    this.customerErrors = {}; // Clear errors on change
+    
+    // Update cart with customer info when it changes
+    this.updateCartWithAddress();
+  }
+
+  private handleShippingAddressChange(e: CustomEvent): void {
+    const { address } = e.detail;
+    this.shippingAddress = address;
+    this.shippingErrors = {}; // Clear errors on change
+    
+    // Update cart totals when address changes (for tax calculation)
+    this.updateCartWithAddress();
+  }
+
+  private handleBillingAddressChange(e: CustomEvent): void {
+    const { address } = e.detail;
+    this.billingAddress = address;
+    this.billingErrors = {}; // Clear errors on change
+    
+    // Update cart with billing address when it changes
+    this.updateCartWithAddress();
+  }
+
+  private handleSameAsBillingChange(e: Event): void {
+    const checkbox = e.target as HTMLInputElement;
+    this.sameAsBilling = checkbox.checked;
+    
+    if (this.sameAsBilling) {
+      this.shippingAddress = { ...this.billingAddress };
+      this.updateCartWithAddress();
+    }
+  }
+
+  // Debounce customer updates to avoid excessive API calls
+  private customerUpdateTimeout?: NodeJS.Timeout;
+
+  private async updateCartWithAddress(): Promise<void> {
+    if (!this.sdk || !this.customerData.email) {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (this.customerUpdateTimeout) {
+      clearTimeout(this.customerUpdateTimeout);
+    }
+
+    // Debounce the API call by 500ms
+    this.customerUpdateTimeout = setTimeout(async () => {
+      try {
+        // Build customer payload with all available data (API now accepts partial)
+        const customerPayload: any = {
+          email: this.customerData.email,
+          first_name: this.customerData.first_name,
+          last_name: this.customerData.last_name,
+          phone: this.customerData.phone,
+          company: this.customerData.company,
+          same_as_billing: this.sameAsBilling
+        };
+
+        // Always include shipping address (even if partial)
+        if (Object.keys(this.shippingAddress).length > 0) {
+          customerPayload.shipping_address = this.shippingAddress;
+        }
+
+        // Include billing address based on same_as_billing setting
+        if (this.sameAsBilling) {
+          customerPayload.billing_address = this.shippingAddress;
+        } else if (Object.keys(this.billingAddress).length > 0) {
+          customerPayload.billing_address = this.billingAddress;
+        }
+
+        const updatedCart = await this.sdk.cart.updateCustomer(customerPayload);
+        this.cart = updatedCart;
+        this.dispatchCartUpdatedEvent();
+      } catch (error) {
+        console.error('Failed to update cart with address:', error);
+      }
+    }, 500); // 500ms debounce
+  }
+
+  private validateStep(step: string): boolean {
+    switch (step) {
+      case 'customer':
+        this.customerErrors = {};
+        if (!this.customerData.email) {
+          this.customerErrors.email = 'Email is required';
+        }
+        if (this.isGuest && !this.customerData.first_name) {
+          this.customerErrors.first_name = 'First name is required';
+        }
+        if (this.isGuest && !this.customerData.last_name) {
+          this.customerErrors.last_name = 'Last name is required';
+        }
+        return Object.keys(this.customerErrors).length === 0;
+
+      case 'shipping':
+        this.shippingErrors = {};
+        if (!this.shippingAddress.line1) {
+          this.shippingErrors.line1 = 'Address is required';
+        }
+        if (!this.shippingAddress.city) {
+          this.shippingErrors.city = 'City is required';
+        }
+        if (!this.shippingAddress.postal_code) {
+          this.shippingErrors.postal_code = 'Postal code is required';
+        }
+        if (!this.shippingAddress.country) {
+          this.shippingErrors.country = 'Country is required';
+        }
+        return Object.keys(this.shippingErrors).length === 0;
+
+      case 'billing':
+        if (this.sameAsBilling) return true;
+        
+        this.billingErrors = {};
+        if (!this.billingAddress.line1) {
+          this.billingErrors.line1 = 'Address is required';
+        }
+        if (!this.billingAddress.city) {
+          this.billingErrors.city = 'City is required';
+        }
+        if (!this.billingAddress.postal_code) {
+          this.billingErrors.postal_code = 'Postal code is required';
+        }
+        if (!this.billingAddress.country) {
+          this.billingErrors.country = 'Country is required';
+        }
+        return Object.keys(this.billingErrors).length === 0;
+
+      default:
+        return true;
+    }
+  }
+
+  private async handleStepNext(): Promise<void> {
+    if (!this.validateStep(this.checkoutStep)) {
+      return; // Validation failed, don't proceed
+    }
+
+    // Save current step data to backend
+    await this.updateCartWithAddress();
+    
+    this.nextCheckoutStep();
+  }
+
+  private async handleCheckoutComplete(): Promise<void> {
+    if (!this.validateStep(this.checkoutStep)) {
+      return;
+    }
+
+    this.checkoutLoading = true;
+    
+    try {
+      // Final update to cart with complete customer data
+      await this.updateCartWithAddress();
+      
+      const checkoutResponse = await this.sdk.cart.checkout({
+        payment_method_type: 'card', // Default for now
+        locale: 'en'
+      });
+
+      // Track purchase
+      this.track(EVENTS.PURCHASE, { order: checkoutResponse });
+      
+      // Handle successful checkout
+      
+      // Reset checkout state
+      this.exitCheckout();
+      
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      // TODO: Show error message to user
+    } finally {
+      this.checkoutLoading = false;
+    }
   }
 
   protected override render(): TemplateResult {
@@ -512,21 +900,10 @@ export class CartWidget extends ShoprocketElement {
           </button>
         </div>
         <div class="sr-cart-body ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-items` : ''}">
-          ${this.renderCartItems()}
+          ${this.isCheckingOut ? this.renderCheckoutFlow() : this.renderCartItems()}
         </div>
         <div class="sr-cart-footer ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-footer` : ''}">
-          <div class="sr-cart-subtotal">
-            <span class="sr-cart-subtotal-label">Subtotal</span>
-            <span class="sr-cart-subtotal-amount">
-              <span class="sr-cart-total-price ${this.priceChangedItems.size > 0 ? 'price-changed' : ''}">${this.formatPrice(this.cart?.totals?.total)}</span>
-            </span>
-          </div>
-          <button class="sr-cart-checkout-button">
-            Checkout
-          </button>
-          <p class="sr-cart-powered-by">
-            Taxes and shipping calculated at checkout
-          </p>
+          ${this.isCheckingOut ? this.renderCheckoutFooter() : this.renderCartFooter()}
         </div>
       </div>
     `;
@@ -630,6 +1007,263 @@ export class CartWidget extends ShoprocketElement {
     `;
   }
 
+  private renderCartFooter(): TemplateResult {
+    return html`
+      <div class="sr-cart-subtotal">
+        <span class="sr-cart-subtotal-label">Subtotal</span>
+        <span class="sr-cart-subtotal-amount">
+          <span class="sr-cart-total-price ${this.priceChangedItems.size > 0 ? 'price-changed' : ''}">${this.formatPrice(this.cart?.totals?.total)}</span>
+        </span>
+      </div>
+      <button 
+        class="sr-cart-checkout-button"
+        @click="${this.startCheckout}"
+        ?disabled="${!this.cart?.items?.length}"
+      >
+        Checkout
+      </button>
+      <p class="sr-cart-powered-by">
+        Taxes and shipping calculated at checkout
+      </p>
+    `;
+  }
+
+  private renderCheckoutFlow(): TemplateResult {
+    switch (this.checkoutStep) {
+      case 'customer':
+        return this.renderCustomerStep();
+      case 'shipping':
+        return this.renderShippingStep();
+      case 'billing':
+        return this.renderBillingStep();
+      case 'payment':
+        return this.renderPaymentStep();
+      case 'review':
+        return this.renderReviewStep();
+      default:
+        return this.renderCustomerStep();
+    }
+  }
+
+  private renderCustomerStep(): TemplateResult {
+    return html`
+      <div class="sr-checkout-step">
+        <div class="sr-checkout-step-header">
+          <h3 class="sr-checkout-step-title">Contact Information</h3>
+          <div class="sr-checkout-progress">Step 1 of 5</div>
+        </div>
+        
+        <shoprocket-customer-form
+          .customer="${this.customerData}"
+          .errors="${this.customerErrors}"
+          .required="${true}"
+          .show-guest-option="${true}"
+          .is-guest="${this.isGuest}"
+          @customer-change="${this.handleCustomerChange}"
+          @guest-toggle="${(e: CustomEvent) => { this.isGuest = e.detail.isGuest; }}"
+        ></shoprocket-customer-form>
+      </div>
+    `;
+  }
+
+  private renderShippingStep(): TemplateResult {
+    return html`
+      <div class="sr-checkout-step">
+        <div class="sr-checkout-step-header">
+          <h3 class="sr-checkout-step-title">Shipping Address</h3>
+          <div class="sr-checkout-progress">Step 2 of 5</div>
+        </div>
+        
+        <shoprocket-address-form
+          title=""
+          .sdk="${this.sdk}"
+          .address="${this.shippingAddress}"
+          .errors="${this.shippingErrors}"
+          .required="${true}"
+          .show-name="${true}"
+          .show-phone="${true}"
+          @address-change="${this.handleShippingAddressChange}"
+        ></shoprocket-address-form>
+
+        <div class="sr-same-as-shipping">
+          <label class="sr-checkbox-label">
+            <input
+              type="checkbox"
+              .checked="${this.sameAsBilling}"
+              @change="${this.handleSameAsBillingChange}"
+            >
+            <span class="sr-checkbox-text">Use same address for billing</span>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderBillingStep(): TemplateResult {
+    return html`
+      <div class="sr-checkout-step">
+        <div class="sr-checkout-step-header">
+          <h3 class="sr-checkout-step-title">Billing Address</h3>
+          <div class="sr-checkout-progress">Step 3 of 5</div>
+        </div>
+        
+        <shoprocket-address-form
+          title=""
+          .sdk="${this.sdk}"
+          .address="${this.billingAddress}"
+          .errors="${this.billingErrors}"
+          .required="${true}"
+          .show-name="${true}"
+          @address-change="${this.handleBillingAddressChange}"
+        ></shoprocket-address-form>
+      </div>
+    `;
+  }
+
+  private renderPaymentStep(): TemplateResult {
+    return html`
+      <div class="sr-checkout-step">
+        <div class="sr-checkout-step-header">
+          <h3 class="sr-checkout-step-title">Payment Method</h3>
+          <div class="sr-checkout-progress">Step 4 of 5</div>
+        </div>
+        
+        <div class="sr-payment-placeholder">
+          <p>Payment integration coming soon...</p>
+          <p>For now, this will proceed with a test order.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderReviewStep(): TemplateResult {
+    return html`
+      <div class="sr-checkout-step">
+        <div class="sr-checkout-step-header">
+          <h3 class="sr-checkout-step-title">Review Order</h3>
+          <div class="sr-checkout-progress">Step 5 of 5</div>
+        </div>
+        
+        <!-- Order Summary -->
+        <div class="sr-order-summary">
+          <h4>Order Summary</h4>
+          <div class="sr-order-items">
+            ${this.cart?.items?.map(item => html`
+              <div class="sr-order-item">
+                <span class="sr-order-item-name">${item.product_name}</span>
+                <span class="sr-order-item-quantity">×${item.quantity}</span>
+                <span class="sr-order-item-price">${this.formatPrice(item.price)}</span>
+              </div>
+            `)}
+          </div>
+          
+          <div class="sr-order-totals">
+            <div class="sr-order-total-line">
+              <span>Subtotal</span>
+              <span>${this.formatPrice(this.cart?.totals?.subtotal)}</span>
+            </div>
+            ${this.cart?.totals?.tax ? html`
+              <div class="sr-order-total-line">
+                <span>Tax</span>
+                <span>${this.formatPrice(this.cart.totals.tax)}</span>
+              </div>
+            ` : ''}
+            ${this.cart?.totals?.shipping ? html`
+              <div class="sr-order-total-line">
+                <span>Shipping</span>
+                <span>${this.formatPrice(this.cart.totals.shipping)}</span>
+              </div>
+            ` : ''}
+            <div class="sr-order-total-line sr-order-total-final">
+              <span>Total</span>
+              <span>${this.formatPrice(this.cart?.totals?.total)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customer & Address Summary -->
+        <div class="sr-checkout-summary">
+          <div class="sr-summary-section">
+            <h5>Contact</h5>
+            <p>${this.customerData.email}</p>
+          </div>
+          
+          <div class="sr-summary-section">
+            <h5>Shipping Address</h5>
+            <div class="sr-summary-address">
+              ${this.shippingAddress.name ? html`<p>${this.shippingAddress.name}</p>` : ''}
+              <p>${this.shippingAddress.line1}</p>
+              ${this.shippingAddress.line2 ? html`<p>${this.shippingAddress.line2}</p>` : ''}
+              <p>${this.shippingAddress.city}, ${this.shippingAddress.state} ${this.shippingAddress.postal_code}</p>
+              <p>${this.shippingAddress.country}</p>
+            </div>
+          </div>
+          
+          <div class="sr-summary-section">
+            <h5>Billing Address</h5>
+            ${this.sameAsBilling ? html`
+              <p>Same as shipping address</p>
+            ` : html`
+              <div class="sr-summary-address">
+                ${this.billingAddress.name ? html`<p>${this.billingAddress.name}</p>` : ''}
+                <p>${this.billingAddress.line1}</p>
+                ${this.billingAddress.line2 ? html`<p>${this.billingAddress.line2}</p>` : ''}
+                <p>${this.billingAddress.city}, ${this.billingAddress.state} ${this.billingAddress.postal_code}</p>
+                <p>${this.billingAddress.country}</p>
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderCheckoutFooter(): TemplateResult {
+    const canProceed = this.checkoutStep === 'customer' ? 
+      this.customerData.email && (!this.isGuest || (this.customerData.first_name && this.customerData.last_name)) :
+      true;
+
+    return html`
+      <div class="sr-checkout-navigation">
+        ${this.checkoutStep !== 'customer' ? html`
+          <button 
+            class="sr-checkout-button sr-checkout-button-secondary"
+            @click="${this.previousCheckoutStep}"
+            ?disabled="${this.checkoutLoading}"
+          >
+            Back
+          </button>
+        ` : html`
+          <button 
+            class="sr-checkout-button sr-checkout-button-secondary"
+            @click="${this.exitCheckout}"
+            ?disabled="${this.checkoutLoading}"
+          >
+            Back to Cart
+          </button>
+        `}
+        
+        ${this.checkoutStep === 'review' ? html`
+          <button 
+            class="sr-checkout-button sr-checkout-button-primary"
+            @click="${this.handleCheckoutComplete}"
+            ?disabled="${this.checkoutLoading || !canProceed}"
+          >
+            ${this.checkoutLoading ? 'Processing...' : 'Complete Order'}
+          </button>
+        ` : html`
+          <button 
+            class="sr-checkout-button sr-checkout-button-primary"
+            @click="${this.handleStepNext}"
+            ?disabled="${this.checkoutLoading || !canProceed}"
+          >
+            Continue
+          </button>
+        `}
+      </div>
+    `;
+  }
+
   // Track the last requested quantity for each item
   private lastRequestedQuantity: Map<string, number> = new Map();
 
@@ -693,11 +1327,13 @@ export class CartWidget extends ShoprocketElement {
     this.requestUpdate();
     
     // Remove animation after it completes
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       this.priceChangedItems.delete(itemId);
       this.priceChangedItems.delete('cart-total');
       this.requestUpdate();
+      this.timeouts.delete(timeout);
     }, 600);
+    this.timeouts.add(timeout);
     
     // Dispatch cart updated event
     this.dispatchCartUpdatedEvent();
@@ -747,7 +1383,8 @@ export class CartWidget extends ShoprocketElement {
     this.requestUpdate();
     
     // Wait for animation to complete
-    setTimeout(async () => {
+    const timeout = setTimeout(async () => {
+      this.timeouts.delete(timeout);
       if (!this.cart) return;
       
       // Optimistic update - remove from UI after animation
@@ -780,10 +1417,12 @@ export class CartWidget extends ShoprocketElement {
       this.requestUpdate();
       
       // Remove animation after it completes (independent of API)
-      setTimeout(() => {
+      const animTimeout = setTimeout(() => {
         this.priceChangedItems.delete('cart-total');
         this.requestUpdate();
+        this.timeouts.delete(animTimeout);
       }, 600);
+      this.timeouts.add(animTimeout);
       
       // Fire and forget - don't await or handle response
       this.sdk.cart.removeItem(itemId).catch(error => {

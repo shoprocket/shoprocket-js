@@ -165,9 +165,12 @@ export class WidgetManager {
    */
   async init(publicKey: string, options: WidgetConfig = {}): Promise<void> {
     if (this.initialized) {
-      // Already initialized
+      console.warn('Shoprocket: Already initialized');
       return;
     }
+    
+    // Set flag immediately to prevent concurrent initialization
+    this.initialized = true;
 
     try {
       // Initialize SDK
@@ -211,8 +214,7 @@ export class WidgetManager {
       // Track widget loaded with actual store ID
       AnalyticsManager.track('widget_loaded', { store_id: storeId || publicKey });
 
-      // Mark as initialized immediately so components can start loading
-      this.initialized = true;
+      // Already marked as initialized at the start of init()
 
       // Auto-mount any widgets already in DOM
       this.autoMount();
@@ -223,7 +225,8 @@ export class WidgetManager {
       // Listen for order completion to regenerate cart token
       this.setupOrderCompletionListener();
     } catch (error) {
-      // Initialization failed
+      // Initialization failed - reset the flag so it can be retried
+      this.initialized = false;
       throw error;
     }
   }

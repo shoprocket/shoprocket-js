@@ -1892,3 +1892,354 @@
 .sr-product-description p.sr-skeleton:nth-child(3) {
   @apply w-4/5;
 }
+
+/* ==========================================
+ * ADDRESS FORM COMPONENT STYLES
+ * ========================================== */
+
+.sr-address-form {
+  @apply space-y-6;
+}
+
+.sr-address-form-title {
+  @apply text-xl font-semibold text-[var(--color-text)] mb-6;
+}
+
+/* Using space-y-3 directly in components */
+
+/* Modern Floating Label Field Group */
+.sr-field-group {
+  @apply relative;
+}
+
+/* Using grid classes directly in components */
+
+.sr-field-flex-1 {
+  @apply w-full;
+}
+
+/* Floating Label Styles */
+.sr-field-label {
+  @apply absolute left-3 transition-all duration-200 pointer-events-none;
+  color: var(--color-text-muted);
+}
+
+/* Default position - centered in input */
+.peer ~ .sr-field-label {
+  font-size: var(--text-sm);
+  top: 0.875rem;
+}
+
+/* Shrunk position - when input has placeholder shown (empty) AND not focused */
+.peer:placeholder-shown:not(:focus) ~ .sr-field-label,
+.peer.sr-field-select:not(.has-value):not(:focus) ~ .sr-field-label {
+  font-size: var(--text-sm);
+  top: 0.875rem;
+}
+
+/* Floating position - when input is focused OR has value (placeholder not shown) */
+.peer:focus ~ .sr-field-label,
+.peer:not(:placeholder-shown) ~ .sr-field-label,
+.peer.sr-field-select:focus ~ .sr-field-label,
+.peer.sr-field-select.has-value ~ .sr-field-label {
+  font-size: var(--text-xs);
+  top: 0.25rem;
+  color: var(--color-text-muted);
+}
+
+/* Color change on focus */
+.peer:focus ~ .sr-field-label {
+  color: var(--color-primary);
+}
+
+.sr-field-required {
+  @apply text-red-500;
+}
+
+/* Modern Input and Select Styles */
+.sr-field-input,
+.sr-field-select {
+  @apply w-full px-3 pt-5 pb-1.5 border;
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: var(--sr-button-radius);
+  border-color: var(--color-border);
+  min-height: 2.75rem;
+}
+
+.sr-field-input::placeholder {
+  @apply text-transparent;
+}
+
+.sr-field-input:focus,
+.sr-field-select:focus {
+  outline: none;
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+.sr-field-input:hover:not(:focus):not(:disabled),
+.sr-field-select:hover:not(:focus):not(:disabled) {
+  border-color: var(--color-border);
+}
+
+.sr-field-input:disabled,
+.sr-field-select:disabled {
+  @apply bg-gray-50 text-gray-400 cursor-not-allowed;
+  border-color: #f3f4f6;
+}
+
+.sr-field-input.sr-field-error,
+.sr-field-select.sr-field-error {
+  border-color: var(--color-error, #ef4444);
+}
+
+.sr-field-input.sr-field-error:focus,
+.sr-field-select.sr-field-error:focus {
+  border-color: var(--color-error, #ef4444);
+}
+
+/* Select dropdown arrow */
+.sr-field-select {
+  @apply appearance-none cursor-pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25em 1.25em;
+  padding-right: 2.5rem;
+}
+
+/* Error Messages */
+.sr-field-error-message {
+  @apply mt-1;
+  font-size: var(--text-xs);
+  color: var(--color-error, #ef4444);
+  line-height: 1.4;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .sr-field-row {
+    @apply space-x-0;
+  }
+  
+  .sr-address-form-fields {
+    @apply space-y-3;
+  }
+}
+
+/* ==========================================
+ * CUSTOMER FORM COMPONENT STYLES
+ * ========================================== */
+
+/* Using Tailwind classes directly in components */
+
+.sr-customer-form-title {
+  @apply text-lg font-semibold text-[var(--color-text)] mb-4;
+}
+
+.sr-customer-form-fields {
+  /* Spacing handled by .sr-field-group mb-4 */
+}
+
+/* Guest/Account Toggle */
+.sr-guest-toggle {
+  @apply mb-6;
+}
+
+.sr-guest-options {
+  @apply flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4;
+}
+
+.sr-guest-option {
+  @apply flex items-center cursor-pointer p-3 border rounded-md transition-colors duration-200;
+  @apply border-gray-300 bg-[var(--color-surface)] hover:border-[var(--color-primary)];
+}
+
+.sr-guest-option.sr-guest-active {
+  @apply border-[var(--color-primary)] bg-[var(--color-primary)]/5;
+}
+
+.sr-guest-option input[type="radio"] {
+  @apply sr-only;
+}
+
+.sr-guest-option-text {
+  @apply text-sm font-medium text-[var(--color-text)] ml-2;
+}
+
+.sr-guest-option.sr-guest-active .sr-guest-option-text {
+  @apply text-[var(--color-primary)];
+}
+
+/* Field Help Text */
+.sr-field-help {
+  @apply mt-0.5;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+/* Account Notice */
+.sr-account-notice {
+  @apply flex items-start space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-md;
+}
+
+.sr-account-notice-icon {
+  @apply w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0;
+}
+
+.sr-account-notice-text {
+  @apply text-sm;
+}
+
+.sr-account-notice-text strong {
+  @apply font-medium text-blue-900 block mb-1;
+}
+
+.sr-account-notice-text p {
+  @apply text-blue-700 m-0;
+}
+
+/* ==========================================
+ * CHECKOUT FLOW STYLES
+ * ========================================== */
+
+.sr-checkout-step {
+  /* @apply space-y-6 p-6; */
+}
+
+.sr-checkout-step-header {
+  @apply flex justify-between items-center pb-3 mb-3 border-b;
+  border-color: var(--color-border);
+}
+
+.sr-checkout-step-title {
+  @apply text-xl font-semibold text-[var(--color-text)] m-0;
+}
+
+.sr-checkout-progress {
+  @apply text-sm text-gray-500;
+}
+
+/* Checkout Navigation */
+.sr-checkout-navigation {
+  @apply flex justify-between space-x-4;
+}
+
+.sr-checkout-button {
+  @apply px-6 py-3 rounded-md font-medium transition-colors duration-200 flex-1;
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+.sr-checkout-button-primary {
+  @apply bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90;
+  @apply focus:ring-[var(--color-primary)];
+}
+
+.sr-checkout-button-secondary {
+  @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+  @apply focus:ring-gray-500;
+}
+
+.sr-checkout-button:disabled {
+  @apply opacity-50 cursor-not-allowed hover:bg-[var(--color-primary)] hover:bg-gray-200;
+}
+
+/* Same as Shipping Checkbox */
+.sr-same-as-shipping {
+  @apply mb-6;
+}
+
+.sr-checkbox-label {
+  @apply flex items-center cursor-pointer;
+}
+
+.sr-checkbox-label input[type="checkbox"] {
+  @apply w-4 h-4 text-[var(--color-primary)] bg-[var(--color-surface)] border-gray-300 rounded;
+  @apply focus:ring-[var(--color-primary)] focus:ring-2;
+}
+
+.sr-checkbox-text {
+  @apply ml-3 text-sm font-medium text-[var(--color-text)];
+}
+
+/* Payment Placeholder */
+.sr-payment-placeholder {
+  @apply text-center py-8 px-4 bg-gray-50 rounded-md border-2 border-dashed border-gray-300;
+}
+
+.sr-payment-placeholder p {
+  @apply text-gray-600 m-0 mb-2;
+}
+
+.sr-payment-placeholder p:last-child {
+  @apply mb-0;
+}
+
+/* Order Summary */
+.sr-order-summary {
+  @apply bg-gray-50 rounded-md p-4 mb-6;
+}
+
+.sr-order-summary h4 {
+  @apply text-lg font-semibold text-[var(--color-text)] mb-4 m-0;
+}
+
+.sr-order-items {
+  @apply space-y-3 mb-4;
+}
+
+.sr-order-item {
+  @apply flex justify-between items-center text-sm;
+}
+
+.sr-order-item-name {
+  @apply flex-1 text-[var(--color-text)];
+}
+
+.sr-order-item-quantity {
+  @apply text-gray-500 mx-3;
+}
+
+.sr-order-item-price {
+  @apply font-medium text-[var(--color-text)];
+}
+
+.sr-order-totals {
+  @apply space-y-2 pt-4 border-t border-gray-200;
+}
+
+.sr-order-total-line {
+  @apply flex justify-between items-center text-sm;
+}
+
+.sr-order-total-final {
+  @apply text-lg font-semibold pt-2 border-t border-gray-300;
+}
+
+/* Checkout Summary */
+.sr-checkout-summary {
+  @apply space-y-4;
+}
+
+.sr-summary-section {
+  @apply space-y-2;
+}
+
+.sr-summary-section h5 {
+  @apply text-sm font-semibold text-[var(--color-text)] mb-2 m-0;
+}
+
+.sr-summary-section p {
+  @apply text-sm text-gray-600 m-0;
+}
+
+.sr-summary-address {
+  @apply space-y-1;
+}
+
+.sr-summary-address p {
+  @apply text-sm text-gray-600 m-0;
+}
