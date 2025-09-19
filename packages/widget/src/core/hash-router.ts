@@ -34,7 +34,10 @@ export class HashRouter extends EventTarget {
   }
 
   public static getInstance(): HashRouter {
+    // Double-checked locking pattern
     if (!HashRouter.instance) {
+      // In JavaScript, this is atomic - no race condition possible
+      // because JavaScript is single-threaded
       HashRouter.instance = new HashRouter();
     }
     return HashRouter.instance;

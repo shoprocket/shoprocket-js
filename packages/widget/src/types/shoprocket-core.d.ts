@@ -64,6 +64,17 @@ declare module '@shoprocket/core' {
     updateItem(itemId: string, quantity: number): Promise<any>;
     removeItem(itemId: string): Promise<any>;
     clear(): Promise<any>;
+    updateCustomer(data: { 
+      email: string; 
+      first_name?: string; 
+      last_name?: string; 
+      phone?: string; 
+      company?: string; 
+      shipping_address?: any; 
+      billing_address?: any; 
+      same_as_billing?: boolean; 
+    }): Promise<any>;
+    checkout(data: { payment_method_type: string; locale: string }): Promise<any>;
   }
 
   export class AuthService {
@@ -75,6 +86,12 @@ declare module '@shoprocket/core' {
     refresh(): Promise<AuthResponse>;
   }
 
+  export class LocationService {
+    constructor(api: ApiClient);
+    getCountries(locale?: string): Promise<any>;
+    getStates(countryCode: string): Promise<any>;
+  }
+
   export class ShoprocketCore {
     api: ApiClient;
     session: SessionService;
@@ -82,6 +99,7 @@ declare module '@shoprocket/core' {
     products: ProductsService;
     cart: CartService;
     auth: AuthService;
+    location: LocationService;
     
     constructor(config: ApiConfig);
     initialize(): Promise<void>;

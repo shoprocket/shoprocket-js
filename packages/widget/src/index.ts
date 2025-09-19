@@ -19,6 +19,7 @@ import { ProductCatalog } from './components/product-catalog';
 import { ProductDetail } from './components/product-detail';
 import { ProductView } from './components/product-view';
 import { CartWidget } from './components/cart';
+import { Tooltip } from './components/tooltip';
 import { initializeConfig, getConfig } from './core/config';
 
 // ProductGrid and CartWidget are now imported from their respective files
@@ -143,16 +144,32 @@ window.__shoprocketComponents = {
   'cart': CartWidget
 };
 
-// Register all custom elements upfront - much simpler!
-customElements.define('shoprocket-catalog', ProductCatalog);
-customElements.define('shoprocket-product', ProductDetail);
-customElements.define('shoprocket-product-view', ProductView);
-customElements.define('shoprocket-cart', CartWidget);
+// Register all custom elements upfront with guards to prevent duplicate registration
+if (!customElements.get('shoprocket-catalog')) {
+  customElements.define('shoprocket-catalog', ProductCatalog);
+}
+if (!customElements.get('shoprocket-product')) {
+  customElements.define('shoprocket-product', ProductDetail);
+}
+if (!customElements.get('shoprocket-product-view')) {
+  customElements.define('shoprocket-product-view', ProductView);
+}
+if (!customElements.get('shoprocket-cart')) {
+  customElements.define('shoprocket-cart', CartWidget);
+}
+if (!customElements.get('sr-tooltip')) {
+  customElements.define('sr-tooltip', Tooltip);
+}
 
 /**
  * Initialize when DOM is ready
  */
 function autoInit(): void {
+  // Prevent multiple initializations
+  if ((window as any).__shoprocketAutoInitRan) {
+    return;
+  }
+  (window as any).__shoprocketAutoInitRan = true;
   
   const publicKey = getPublicKey();
   
