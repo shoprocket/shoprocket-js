@@ -5,7 +5,18 @@ declare module '@shoprocket/core' {
     publishableKey?: string;
     publicKey?: string;
     locale?: string;
-    sessionToken?: string;
+    cartToken?: string;
+  }
+
+  export interface AuthResponse {
+    access_token: string;
+    token_type: string;
+    expires_in: number;
+    user?: {
+      id: string;
+      email: string;
+      name?: string;
+    };
   }
 
   export interface SessionResponse {
@@ -55,17 +66,29 @@ declare module '@shoprocket/core' {
     clear(): Promise<any>;
   }
 
+  export class AuthService {
+    constructor(api: ApiClient);
+    login(credentials: { email: string; password: string }): Promise<AuthResponse>;
+    register(data: { email: string; password: string; name?: string }): Promise<AuthResponse>;
+    logout(): Promise<void>;
+    me(): Promise<any>;
+    refresh(): Promise<AuthResponse>;
+  }
+
   export class ShoprocketCore {
     api: ApiClient;
     session: SessionService;
     store: StoreService;
     products: ProductsService;
     cart: CartService;
+    auth: AuthService;
     
     constructor(config: ApiConfig);
     initialize(): Promise<void>;
-    setSessionToken(token: string): void;
+    setCartToken(token: string): void;
     getApiUrl(): string;
+    setAuthToken(token: string): void;
+    clearAuthToken(): void;
   }
 
   export default ShoprocketCore;
