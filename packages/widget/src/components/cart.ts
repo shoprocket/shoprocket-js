@@ -502,11 +502,12 @@ export class CartWidget extends ShoprocketElement {
     await this.withLoading('cart', async () => {
       try {
         const response = await this.sdk.cart.get();
+        
         // Handle both wrapped and unwrapped responses
         if (response && typeof response === 'object') {
           this.cart = 'data' in response ? (response as ApiResponse<Cart>).data : (response as Cart);
           
-          // Ensure all items have subtotals calculated
+          // Ensure all items have subtotals calculated (if needed)
           if (this.cart?.items) {
             this.cart.items.forEach((item: any) => {
               if (item.subtotal === undefined && item.price?.amount !== undefined) {

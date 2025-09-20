@@ -15,8 +15,8 @@ function getStoreCurrency(): string {
 /**
  * Format price for display
  */
-export function formatPrice(price: Money | undefined | null): string {
-  if (!price) {
+export function formatPrice(price: Money | undefined | null | number): string {
+  if (!price && price !== 0) {
     const currency = getStoreCurrency();
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -24,17 +24,27 @@ export function formatPrice(price: Money | undefined | null): string {
     }).format(0);
   }
   
+  // If it's just a number (subtotal), format it
+  if (typeof price === 'number') {
+    const currency = getStoreCurrency();
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency
+    }).format(price / 100); // Assuming amounts are in cents
+  }
+  
   // API always returns formatted price - use it directly
-  if (price.formatted) {
-    return price.formatted;
+  if ((price as Money).formatted) {
+    return (price as Money).formatted;
   }
   
   // Format if API didn't provide formatted string
-  const currency = price.currency || getStoreCurrency();
+  const priceObj = price as Money;
+  const currency = priceObj.currency || getStoreCurrency();
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency
-  }).format(price.amount / 100);
+  }).format(priceObj.amount / 100);
 }
 
 /**

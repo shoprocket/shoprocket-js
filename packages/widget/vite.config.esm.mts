@@ -29,8 +29,8 @@ export default defineConfig({
       },
       output: {
         format: 'es',
-        entryFileNames: 'shoprocket-bundle.js',
-        chunkFileNames: '[name]-[hash].js',
+        entryFileNames: 'main.shoprocket.js',
+        chunkFileNames: '[name]-[hash].shoprocket.js',
         // Manual chunking for analytics
         manualChunks(id) {
           // Force trackers into separate chunks

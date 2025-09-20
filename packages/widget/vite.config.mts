@@ -26,7 +26,7 @@ export default defineConfig({
       entry: resolve(__dirname, 'src/index.ts'),
       name: 'Shoprocket',
       formats: ['iife'], // Single file for CDN
-      fileName: () => 'shoprocket-bundle.iife.js'
+      fileName: () => 'bundle.shoprocket.js'
     },
     rollupOptions: {
       output: {
