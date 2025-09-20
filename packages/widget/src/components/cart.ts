@@ -4,6 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Cart, ApiResponse, Money } from '../types/api';
+import { loadingSpinner } from './loading-spinner';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import './tooltip';
@@ -134,6 +135,9 @@ export class CartWidget extends ShoprocketElement {
 
   @state()
   private checkoutLoading = false;
+  
+  @state() 
+  private chunkLoading = false;
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -214,9 +218,6 @@ export class CartWidget extends ShoprocketElement {
     this.timeouts.clear();
     
     // Clean up specific timeouts
-    if (this.customerUpdateTimeout) {
-      clearTimeout(this.customerUpdateTimeout);
-    }
     if (this.notificationTimeouts?.slideOut) {
       clearTimeout(this.notificationTimeouts.slideOut);
     }
@@ -644,17 +645,24 @@ export class CartWidget extends ShoprocketElement {
 
   // Checkout Methods
   private async startCheckout(): Promise<void> {
-    // Lazy load checkout components only when needed
-    await Promise.all([
-      import('./customer-form'),
-      import('./address-form')
-    ]);
+    // Show loading state while chunks load
+    this.chunkLoading = true;
     
-    this.isCheckingOut = true;
-    this.checkoutStep = 'customer';
-    
-    // Track checkout started
-    this.track(EVENTS.BEGIN_CHECKOUT, this.cart);
+    try {
+      // Lazy load checkout components only when needed
+      await Promise.all([
+        import('./customer-form'),
+        import('./address-form')
+      ]);
+      
+      this.isCheckingOut = true;
+      this.checkoutStep = 'customer';
+      
+      // Track checkout started
+      this.track(EVENTS.BEGIN_CHECKOUT, this.cart);
+    } finally {
+      this.chunkLoading = false;
+    }
   }
 
   private exitCheckout(): void {
@@ -683,6 +691,17 @@ export class CartWidget extends ShoprocketElement {
     }
   }
 
+  private getCheckoutStepTitle(): string {
+    switch (this.checkoutStep) {
+      case 'customer': return 'Contact Info';
+      case 'shipping': return 'Shipping Address';
+      case 'billing': return 'Billing Address';
+      case 'payment': return 'Payment';
+      case 'review': return 'Review Order';
+      default: return 'Checkout';
+    }
+  }
+
   private previousCheckoutStep(): void {
     const allSteps: Array<'customer' | 'shipping' | 'billing' | 'payment' | 'review'> = 
       ['customer', 'shipping', 'billing', 'payment', 'review'];
@@ -705,27 +724,35 @@ export class CartWidget extends ShoprocketElement {
     const { customer } = e.detail;
     this.customerData = customer;
     this.customerErrors = {}; // Clear errors on change
-    
-    // Update cart with customer info when it changes
-    this.updateCartWithAddress();
+    // Don't save on every keystroke - wait for blur
+  }
+  
+  private handleCustomerValidate(): void {
+    // Save to backend when field loses focus (fire and forget)
+    if (this.customerData.email) {
+      this.updateCartWithAddress(); // No await - don't block UI
+    }
   }
 
   private handleShippingAddressChange(e: CustomEvent): void {
     const { address } = e.detail;
     this.shippingAddress = address;
     this.shippingErrors = {}; // Clear errors on change
-    
-    // Update cart totals when address changes (for tax calculation)
-    this.updateCartWithAddress();
+    // Don't save on every keystroke - wait for blur
+  }
+  
+  private handleAddressValidate(): void {
+    // Save to backend when field loses focus (fire and forget)
+    if (this.customerData.email) {
+      this.updateCartWithAddress(); // No await - don't block UI
+    }
   }
 
   private handleBillingAddressChange(e: CustomEvent): void {
     const { address } = e.detail;
     this.billingAddress = address;
     this.billingErrors = {}; // Clear errors on change
-    
-    // Update cart with billing address when it changes
-    this.updateCartWithAddress();
+    // Don't save on every keystroke - wait for blur
   }
 
   private handleSameAsBillingChange(e: Event): void {
@@ -734,55 +761,44 @@ export class CartWidget extends ShoprocketElement {
     
     if (this.sameAsBilling) {
       this.shippingAddress = { ...this.billingAddress };
-      this.updateCartWithAddress();
+      this.updateCartWithAddress(); // Fire and forget
     }
   }
-
-  // Debounce customer updates to avoid excessive API calls
-  private customerUpdateTimeout?: NodeJS.Timeout;
 
   private async updateCartWithAddress(): Promise<void> {
     if (!this.sdk || !this.customerData.email) {
       return;
     }
+    
+    try {
+      // Build customer payload with all available data (API now accepts partial)
+      const customerPayload: any = {
+        email: this.customerData.email,
+        first_name: this.customerData.first_name,
+        last_name: this.customerData.last_name,
+        phone: this.customerData.phone,
+        company: this.customerData.company,
+        same_as_billing: this.sameAsBilling
+      };
 
-    // Clear any existing timeout
-    if (this.customerUpdateTimeout) {
-      clearTimeout(this.customerUpdateTimeout);
-    }
-
-    // Debounce the API call by 500ms
-    this.customerUpdateTimeout = setTimeout(async () => {
-      try {
-        // Build customer payload with all available data (API now accepts partial)
-        const customerPayload: any = {
-          email: this.customerData.email,
-          first_name: this.customerData.first_name,
-          last_name: this.customerData.last_name,
-          phone: this.customerData.phone,
-          company: this.customerData.company,
-          same_as_billing: this.sameAsBilling
-        };
-
-        // Always include shipping address (even if partial)
-        if (Object.keys(this.shippingAddress).length > 0) {
-          customerPayload.shipping_address = this.shippingAddress;
-        }
-
-        // Include billing address based on same_as_billing setting
-        if (this.sameAsBilling) {
-          customerPayload.billing_address = this.shippingAddress;
-        } else if (Object.keys(this.billingAddress).length > 0) {
-          customerPayload.billing_address = this.billingAddress;
-        }
-
-        const updatedCart = await this.sdk.cart.updateCustomer(customerPayload);
-        this.cart = updatedCart;
-        this.dispatchCartUpdatedEvent();
-      } catch (error) {
-        console.error('Failed to update cart with address:', error);
+      // Always include shipping address (even if partial)
+      if (Object.keys(this.shippingAddress).length > 0) {
+        customerPayload.shipping_address = this.shippingAddress;
       }
-    }, 500); // 500ms debounce
+
+      // Include billing address based on same_as_billing setting
+      if (this.sameAsBilling) {
+        customerPayload.billing_address = this.shippingAddress;
+      } else if (Object.keys(this.billingAddress).length > 0) {
+        customerPayload.billing_address = this.billingAddress;
+      }
+
+      const updatedCart = await this.sdk.cart.updateCustomer(customerPayload);
+      this.cart = updatedCart;
+      this.dispatchCartUpdatedEvent();
+    } catch (error) {
+      console.error('Failed to update cart with address:', error);
+    }
   }
 
   private validateStep(step: string): boolean {
@@ -844,9 +860,10 @@ export class CartWidget extends ShoprocketElement {
       return; // Validation failed, don't proceed
     }
 
-    // Save current step data to backend
-    await this.updateCartWithAddress();
+    // Save current step data to backend (fire and forget - don't block navigation)
+    this.updateCartWithAddress();
     
+    // Navigate immediately
     this.nextCheckoutStep();
   }
 
@@ -858,7 +875,7 @@ export class CartWidget extends ShoprocketElement {
     this.checkoutLoading = true;
     
     try {
-      // Final update to cart with complete customer data
+      // For final checkout, we DO need to wait to ensure data is saved
       await this.updateCartWithAddress();
       
       const checkoutResponse = await this.sdk.cart.checkout({
@@ -908,7 +925,18 @@ export class CartWidget extends ShoprocketElement {
       <!-- Cart Panel - SEPARATE from toggle button -->
       <div class="sr-cart-panel sr-cart-panel-${this.widgetStyle} sr-cart-panel-${this.position} ${this.isOpen ? 'open' : 'closed'}">
         <div class="sr-cart-header ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-header` : ''}">
-          <h2 class="sr-cart-title">Cart</h2>
+          ${this.isCheckingOut ? html`
+            <button 
+              class="sr-cart-back-arrow" 
+              @click="${this.checkoutStep === 'customer' ? this.exitCheckout : this.previousCheckoutStep}"
+              title="Back"
+            >
+              ←
+            </button>
+          ` : ''}
+          <h2 class="sr-cart-title">
+            ${this.isCheckingOut ? this.getCheckoutStepTitle() : 'Cart'}
+          </h2>
           <button class="sr-cart-close" @click="${() => this.closeCart()}">
             <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1040,9 +1068,9 @@ export class CartWidget extends ShoprocketElement {
       <button 
         class="sr-cart-checkout-button"
         @click="${this.startCheckout}"
-        ?disabled="${!this.cart?.items?.length}"
+        ?disabled="${!this.cart?.items?.length || this.chunkLoading}"
       >
-        Checkout
+        ${this.chunkLoading ? loadingSpinner('sm') : 'Checkout'}
       </button>
       <p class="sr-cart-powered-by">
         Taxes and shipping calculated at checkout
@@ -1051,51 +1079,54 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private renderCheckoutFlow(): TemplateResult {
-    switch (this.checkoutStep) {
-      case 'customer':
-        return this.renderCustomerStep();
-      case 'shipping':
-        return this.renderShippingStep();
-      case 'billing':
-        return this.renderBillingStep();
-      case 'payment':
-        return this.renderPaymentStep();
-      case 'review':
-        return this.renderReviewStep();
-      default:
-        return this.renderCustomerStep();
+    // Show loading spinner while chunks are loading
+    if (this.chunkLoading) {
+      return html`
+        <div class="sr-checkout-loading" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;">
+          ${loadingSpinner('lg')}
+          <p style="margin-top: 1rem; color: var(--color-text-muted);">Loading checkout...</p>
+        </div>
+      `;
     }
+    
+    // Render all steps but only show the current one
+    // This prevents component unmount/remount delays
+    return html`
+      <div class="sr-checkout-step" style="${this.checkoutStep === 'customer' ? '' : 'display: none'}">
+        ${this.renderCustomerContent()}
+      </div>
+      <div class="sr-checkout-step" style="${this.checkoutStep === 'shipping' ? '' : 'display: none'}">
+        ${this.renderShippingContent()}
+      </div>
+      <div class="sr-checkout-step" style="${this.checkoutStep === 'billing' && !this.sameAsBilling ? '' : 'display: none'}">
+        ${this.renderBillingContent()}
+      </div>
+      <div class="sr-checkout-step" style="${this.checkoutStep === 'payment' ? '' : 'display: none'}">
+        ${this.renderPaymentContent()}
+      </div>
+      <div class="sr-checkout-step" style="${this.checkoutStep === 'review' ? '' : 'display: none'}">
+        ${this.renderReviewContent()}
+      </div>
+    `;
   }
 
-  private renderCustomerStep(): TemplateResult {
+  private renderCustomerContent(): TemplateResult {
     return html`
-      <div class="sr-checkout-step">
-        <div class="sr-checkout-step-header">
-          <h3 class="sr-checkout-step-title">Contact Information</h3>
-          <div class="sr-checkout-progress">Step 1 of 5</div>
-        </div>
-        
-        <shoprocket-customer-form
+      <shoprocket-customer-form
           .customer="${this.customerData}"
           .errors="${this.customerErrors}"
           .required="${true}"
           .show-guest-option="${true}"
           .is-guest="${this.isGuest}"
           @customer-change="${this.handleCustomerChange}"
+          @customer-validate="${this.handleCustomerValidate}"
           @guest-toggle="${(e: CustomEvent) => { this.isGuest = e.detail.isGuest; }}"
         ></shoprocket-customer-form>
-      </div>
     `;
   }
 
-  private renderShippingStep(): TemplateResult {
+  private renderShippingContent(): TemplateResult {
     return html`
-      <div class="sr-checkout-step">
-        <div class="sr-checkout-step-header">
-          <h3 class="sr-checkout-step-title">Shipping Address</h3>
-          <div class="sr-checkout-progress">Step 2 of 5</div>
-        </div>
-        
         <shoprocket-address-form
           title=""
           .sdk="${this.sdk}"
@@ -1105,6 +1136,7 @@ export class CartWidget extends ShoprocketElement {
           .show-name="${true}"
           .show-phone="${true}"
           @address-change="${this.handleShippingAddressChange}"
+          @address-validate="${this.handleAddressValidate}"
         ></shoprocket-address-form>
 
         <div class="sr-same-as-shipping">
@@ -1117,19 +1149,13 @@ export class CartWidget extends ShoprocketElement {
             <span class="sr-checkbox-text">Use same address for billing</span>
           </label>
         </div>
-      </div>
+      </>
     `;
   }
 
-  private renderBillingStep(): TemplateResult {
+  private renderBillingContent(): TemplateResult {
     return html`
-      <div class="sr-checkout-step">
-        <div class="sr-checkout-step-header">
-          <h3 class="sr-checkout-step-title">Billing Address</h3>
-          <div class="sr-checkout-progress">Step 3 of 5</div>
-        </div>
-        
-        <shoprocket-address-form
+      <shoprocket-address-form
           title=""
           .sdk="${this.sdk}"
           .address="${this.billingAddress}"
@@ -1137,35 +1163,22 @@ export class CartWidget extends ShoprocketElement {
           .required="${true}"
           .show-name="${true}"
           @address-change="${this.handleBillingAddressChange}"
+          @address-validate="${this.handleAddressValidate}"
         ></shoprocket-address-form>
-      </div>
     `;
   }
 
-  private renderPaymentStep(): TemplateResult {
+  private renderPaymentContent(): TemplateResult {
     return html`
-      <div class="sr-checkout-step">
-        <div class="sr-checkout-step-header">
-          <h3 class="sr-checkout-step-title">Payment Method</h3>
-          <div class="sr-checkout-progress">Step 4 of 5</div>
-        </div>
-        
-        <div class="sr-payment-placeholder">
+      <div class="sr-payment-placeholder">
           <p>Payment integration coming soon...</p>
           <p>For now, this will proceed with a test order.</p>
         </div>
-      </div>
     `;
   }
 
-  private renderReviewStep(): TemplateResult {
+  private renderReviewContent(): TemplateResult {
     return html`
-      <div class="sr-checkout-step">
-        <div class="sr-checkout-step-header">
-          <h3 class="sr-checkout-step-title">Review Order</h3>
-          <div class="sr-checkout-progress">Step 5 of 5</div>
-        </div>
-        
         <!-- Order Summary -->
         <div class="sr-order-summary">
           <h4>Order Summary</h4>
@@ -1245,44 +1258,40 @@ export class CartWidget extends ShoprocketElement {
       this.customerData.email && (!this.isGuest || (this.customerData.first_name && this.customerData.last_name)) :
       true;
 
+    // Show cart summary during checkout
+    const subtotal = this.cart?.totals?.subtotal || { amount: 0, currency: 'USD', formatted: '$0.00' };
+    
     return html`
-      <div class="sr-checkout-navigation">
-        ${this.checkoutStep !== 'customer' ? html`
-          <button 
-            class="sr-checkout-button sr-checkout-button-secondary"
-            @click="${this.previousCheckoutStep}"
-            ?disabled="${this.checkoutLoading}"
-          >
-            Back
-          </button>
-        ` : html`
-          <button 
-            class="sr-checkout-button sr-checkout-button-secondary"
-            @click="${this.exitCheckout}"
-            ?disabled="${this.checkoutLoading}"
-          >
-            Back to Cart
-          </button>
-        `}
-        
-        ${this.checkoutStep === 'review' ? html`
-          <button 
-            class="sr-checkout-button sr-checkout-button-primary"
-            @click="${this.handleCheckoutComplete}"
-            ?disabled="${this.checkoutLoading || !canProceed}"
-          >
-            ${this.checkoutLoading ? 'Processing...' : 'Complete Order'}
-          </button>
-        ` : html`
-          <button 
-            class="sr-checkout-button sr-checkout-button-primary"
-            @click="${this.handleStepNext}"
-            ?disabled="${this.checkoutLoading || !canProceed}"
-          >
-            Continue
-          </button>
-        `}
+      <div class="sr-cart-subtotal">
+        <span class="sr-cart-subtotal-label">Subtotal</span>
+        <span class="sr-cart-subtotal-amount">
+          <span class="sr-cart-total-price">${this.formatPrice(subtotal)}</span>
+        </span>
       </div>
+      
+      ${this.checkoutStep === 'review' ? html`
+        <button 
+          class="sr-cart-checkout-button"
+          @click="${this.handleCheckoutComplete}"
+          ?disabled="${this.checkoutLoading || !canProceed}"
+        >
+          ${this.checkoutLoading ? loadingSpinner('sm') : 'Complete Order'}
+        </button>
+      ` : html`
+        <button 
+          class="sr-cart-checkout-button"
+          @click="${this.handleStepNext}"
+          ?disabled="${this.checkoutLoading || this.chunkLoading || !canProceed}"
+        >
+          ${this.checkoutLoading || this.chunkLoading ? loadingSpinner('sm') : 'Continue'}
+        </button>
+      `}
+      
+      <p class="sr-cart-powered-by">
+        ${this.checkoutStep === 'review' ? 
+          'By completing your order, you agree to our terms' : 
+          'Secure checkout powered by Shoprocket'}
+      </p>
     `;
   }
 

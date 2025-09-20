@@ -584,11 +584,20 @@
 
   /* Cart Header */
   .sr-cart-header {
-    @apply px-4 py-4 flex justify-between items-center;
+    @apply px-4 py-4 flex items-center gap-3;
     border-bottom: 1px solid var(--color-border);
+  }
+  
+  .sr-cart-back-arrow {
+    @apply text-2xl leading-none p-1 -ml-2 rounded hover:bg-gray-100 transition-colors cursor-pointer;
+    background: transparent;
+    border: none;
+    color: var(--color-text);
+    font-weight: normal;
   }
 
   .sr-cart-title {
+    @apply flex-1;
     @apply m-0 text-base font-semibold;
     color: var(--color-on-surface);
   }
