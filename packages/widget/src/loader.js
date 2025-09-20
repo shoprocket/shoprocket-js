@@ -41,7 +41,7 @@
   
   // Determine bundle URL based on browser capabilities
   var useModules = supportsModules();
-  var bundleUrl = scriptUrl.replace(/shoprocket\.js/, 'shoprocket-bundle.js');
+  var bundleUrl = scriptUrl.replace(/shoprocket\.js/, 'main.shoprocket.js');
   
   // Create and inject the appropriate bundle script
   var bundleScript = document.createElement('script');
@@ -52,7 +52,7 @@
     bundleScript.setAttribute('data-bundle-type', 'esm');
   } else {
     // Legacy browsers: Use IIFE bundle (fallback)
-    bundleUrl = bundleUrl.replace('.js', '.iife.js');
+    bundleUrl = scriptUrl.replace(/shoprocket\.js/, 'bundle.shoprocket.js');
     bundleScript.async = true;
     bundleScript.setAttribute('data-bundle-type', 'iife');
   }
