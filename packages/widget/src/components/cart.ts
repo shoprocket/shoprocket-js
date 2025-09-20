@@ -794,8 +794,12 @@ export class CartWidget extends ShoprocketElement {
       }
 
       const updatedCart = await this.sdk.cart.updateCustomer(customerPayload);
-      this.cart = updatedCart;
-      this.dispatchCartUpdatedEvent();
+      // Only update cart if we're not in the middle of checkout navigation
+      // This prevents unnecessary re-renders during step transitions
+      if (!this.isCheckingOut || this.checkoutStep === 'review') {
+        this.cart = updatedCart;
+        this.dispatchCartUpdatedEvent();
+      }
     } catch (error) {
       console.error('Failed to update cart with address:', error);
     }
@@ -855,7 +859,7 @@ export class CartWidget extends ShoprocketElement {
     }
   }
 
-  private async handleStepNext(): Promise<void> {
+  private handleStepNext(): void {
     if (!this.validateStep(this.checkoutStep)) {
       return; // Validation failed, don't proceed
     }
@@ -1089,25 +1093,61 @@ export class CartWidget extends ShoprocketElement {
       `;
     }
     
-    // Render all steps but only show the current one
-    // This prevents component unmount/remount delays
-    return html`
-      <div class="sr-checkout-step" style="${this.checkoutStep === 'customer' ? '' : 'display: none'}">
-        ${this.renderCustomerContent()}
-      </div>
-      <div class="sr-checkout-step" style="${this.checkoutStep === 'shipping' ? '' : 'display: none'}">
-        ${this.renderShippingContent()}
-      </div>
-      <div class="sr-checkout-step" style="${this.checkoutStep === 'billing' && !this.sameAsBilling ? '' : 'display: none'}">
-        ${this.renderBillingContent()}
-      </div>
-      <div class="sr-checkout-step" style="${this.checkoutStep === 'payment' ? '' : 'display: none'}">
-        ${this.renderPaymentContent()}
-      </div>
-      <div class="sr-checkout-step" style="${this.checkoutStep === 'review' ? '' : 'display: none'}">
-        ${this.renderReviewContent()}
-      </div>
-    `;
+    // Only render the current active step for better performance
+    switch (this.checkoutStep) {
+      case 'customer':
+        return html`
+          <div class="sr-checkout-step">
+            ${this.renderCustomerContent()}
+          </div>
+        `;
+      
+      case 'shipping':
+        return html`
+          <div class="sr-checkout-step">
+            ${this.renderShippingContent()}
+          </div>
+        `;
+      
+      case 'billing':
+        // Skip billing if same as shipping
+        if (this.sameAsBilling) {
+          // This shouldn't happen, but handle gracefully
+          this.checkoutStep = 'payment';
+          return html`
+            <div class="sr-checkout-step">
+              ${this.renderPaymentContent()}
+            </div>
+          `;
+        }
+        return html`
+          <div class="sr-checkout-step">
+            ${this.renderBillingContent()}
+          </div>
+        `;
+      
+      case 'payment':
+        return html`
+          <div class="sr-checkout-step">
+            ${this.renderPaymentContent()}
+          </div>
+        `;
+      
+      case 'review':
+        return html`
+          <div class="sr-checkout-step">
+            ${this.renderReviewContent()}
+          </div>
+        `;
+      
+      default:
+        // Fallback to customer step if unknown
+        return html`
+          <div class="sr-checkout-step">
+            ${this.renderCustomerContent()}
+          </div>
+        `;
+    }
   }
 
   private renderCustomerContent(): TemplateResult {

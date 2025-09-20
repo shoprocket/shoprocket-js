@@ -616,7 +616,8 @@
 
   /* Cart Body */
   .sr-cart-body {
-    @apply flex-1 overflow-y-auto px-4 py-3 transition-all duration-300;
+    @apply flex-1 overflow-y-auto px-4 py-3;
+    /* Removed transition-all duration-300 - was causing 300ms delays during checkout navigation */
   }
 
   /* Cart Footer */
@@ -2008,6 +2009,13 @@
 .sr-field-select.sr-field-error:focus {
   border-color: var(--color-error, #ef4444);
 }
+/* Remove search input clear button */
+.sr-field-input[type="search"]::-webkit-search-decoration,
+.sr-field-input[type="search"]::-webkit-search-cancel-button,
+.sr-field-input[type="search"]::-webkit-search-results-button,
+.sr-field-input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+}
 
 /* Select dropdown arrow */
 .sr-field-select {
@@ -2050,6 +2058,53 @@
 
 .sr-customer-form-fields {
   /* Spacing handled by .sr-field-group mb-4 */
+}
+
+/* Searchable Select Dropdown */
+.sr-country-select-container,
+.sr-state-select-container {
+  @apply relative;
+}
+
+/* Dropdown portal styles */
+.sr-dropdown-portal {
+  position: fixed;
+  z-index: 10002;
+}
+
+.sr-dropdown-portal .sr-dropdown-list {
+  @apply max-h-60 overflow-y-auto;
+  @apply bg-[var(--color-surface)] border rounded-md shadow-lg;
+  border-color: var(--color-border);
+}
+
+.sr-dropdown-portal .sr-dropdown-option {
+  @apply px-3 py-2 cursor-pointer text-sm transition-colors;
+  color: var(--color-text);
+}
+
+.sr-dropdown-portal .sr-dropdown-option:hover,
+.sr-dropdown-portal .sr-dropdown-option.highlighted {
+  background-color: var(--color-hover);
+}
+
+.sr-dropdown-portal .sr-dropdown-option.selected {
+  @apply font-medium;
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.sr-dropdown-portal .sr-dropdown-option.selected:hover,
+.sr-dropdown-portal .sr-dropdown-option.selected.highlighted {
+  background-color: var(--color-primary);
+  filter: brightness(1.1);
+}
+
+.sr-dropdown-portal .sr-dropdown-empty {
+  @apply px-3 py-4 text-sm text-center;
+  @apply bg-[var(--color-surface)] border rounded-md;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary, #6b7280);
 }
 
 /* Guest/Account Toggle */
