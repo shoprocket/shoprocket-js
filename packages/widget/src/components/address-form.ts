@@ -90,15 +90,17 @@ export class AddressForm extends BaseComponent {
   @state()
   private stateFieldType: 'text' | 'select' | 'hidden' = 'text';
 
-  override async connectedCallback(): Promise<void> {
+  override connectedCallback(): void {
     super.connectedCallback();
-    // Only load countries if we haven't already
+    
+    // Load countries immediately if not cached (non-blocking)
     if (this.countries.length === 0) {
-      await this.loadCountries();
+      this.loadCountries();
     }
-    // Load states for the current country if set
+    
+    // Load states for the current country if set (non-blocking)
     if (this.address.country && this.address.country !== this.currentCountryCode) {
-      await this.loadStates(this.address.country);
+      this.loadStates(this.address.country);
     }
   }
 
