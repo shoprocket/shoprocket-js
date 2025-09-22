@@ -1,7 +1,21 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
+// Simple replace plugin for version string
+const replacePlugin = () => {
+  return {
+    name: 'replace-version',
+    transform(code, id) {
+      if (id.includes('loader.js')) {
+        return code.replace(/__SHOPROCKET_VERSION__/g, process.env.SHOPROCKET_VERSION || Date.now().toString());
+      }
+      return code;
+    }
+  };
+};
+
 export default defineConfig({
+  plugins: [replacePlugin()],
   build: {
     lib: {
       entry: resolve(__dirname, 'src/loader.js'),

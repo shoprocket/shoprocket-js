@@ -57,7 +57,8 @@
     bundleScript.setAttribute('data-bundle-type', 'iife');
   }
   
-  bundleScript.src = bundleUrl;
+  // Append version parameter for cache busting
+  bundleScript.src = bundleUrl + '?v=__SHOPROCKET_VERSION__';
   bundleScript.setAttribute('data-shoprocket-bundle', 'true');
   bundleScript.setAttribute('data-pk', publicKey[1]); // Pass the public key
   
