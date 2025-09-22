@@ -589,7 +589,7 @@
   }
   
   .sr-cart-back-arrow {
-    @apply text-2xl leading-none p-1 -ml-2 rounded hover:bg-gray-100 transition-colors cursor-pointer;
+    @apply text-2xl leading-none p-1 -ms-2 rounded hover:bg-gray-100 transition-colors cursor-pointer;
     background: transparent;
     border: none;
     color: var(--color-text);
@@ -642,7 +642,48 @@
     color: var(--color-on-surface);
   }
 
-  /* Cart Checkout Button */
+  /* Reusable Button Styles */
+  .sr-btn {
+    @apply py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 
+           transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 
+           disabled:cursor-not-allowed disabled:transform-none;
+    border-radius: var(--radius-sm);
+  }
+
+  .sr-btn-primary {
+    @apply border-none;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  .sr-btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .sr-btn-secondary {
+    @apply bg-transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+  }
+
+  .sr-btn-secondary:hover:not(:disabled) {
+    background: var(--color-surface-hover);
+  }
+
+  .sr-btn-link {
+    @apply text-sm font-medium underline cursor-pointer transition-opacity;
+    color: var(--color-primary);
+  }
+
+  .sr-btn-link:hover {
+    opacity: 0.8;
+  }
+
+  .sr-btn-icon {
+    @apply inline-block w-4 h-4 me-2 align-middle;
+  }
+
+  /* Cart Checkout Button - extends sr-btn sr-btn-primary */
   .sr-cart-checkout-button {
     @apply border-none py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99];
     background: var(--color-primary);
@@ -779,14 +820,14 @@
 
   /* Cart Badge */
   .sr-cart-badge {
-    @apply absolute -top-2 -right-2 min-w-[1.25rem] h-5 rounded-full flex items-center justify-center text-xs font-bold px-1;
+    @apply absolute -top-2 -end-2 min-w-[1.25rem] h-5 rounded-full flex items-center justify-center text-xs font-bold px-1;
     background: var(--color-primary);
     color: var(--color-on-primary);
   }
   
   @media (max-width: 640px) {
     .sr-cart-badge {
-      @apply -top-1 -right-1 min-w-[1rem] h-4 text-[10px];
+      @apply -top-1 -end-1 min-w-[1rem] h-4 text-[10px];
     }
   }
 
@@ -1186,7 +1227,7 @@
 
 /* Notification Styles */
 .sr-notification {
-  @apply fixed top-4 right-4 left-4 sm:left-auto sm:max-w-sm z-[10000];
+  @apply fixed top-4 end-4 start-4 sm:start-auto sm:max-w-sm z-[10000];
   animation: slideIn 0.3s ease-out;
 }
 
@@ -1664,27 +1705,27 @@
 
 /* Add Notification Position Classes */
 .sr-notification-bottom-right {
-  @apply bottom-0 right-full mr-2;
+  @apply bottom-0 end-full me-2;
 }
 
 .sr-notification-bottom-left {
-  @apply bottom-0 left-full ml-2;
+  @apply bottom-0 start-full ms-2;
 }
 
 .sr-notification-top-right {
-  @apply top-0 right-full mr-2;
+  @apply top-0 end-full me-2;
 }
 
 .sr-notification-top-left {
-  @apply top-0 left-full ml-2;
+  @apply top-0 start-full ms-2;
 }
 
 .sr-notification-middle-right {
-  @apply right-full top-1/2 -translate-y-1/2 mr-2;
+  @apply end-full top-1/2 -translate-y-1/2 me-2;
 }
 
 .sr-notification-middle-left {
-  @apply left-full top-1/2 -translate-y-1/2 ml-2;
+  @apply start-full top-1/2 -translate-y-1/2 ms-2;
 }
 
 /* Notification Animations */
@@ -1715,11 +1756,11 @@
 }
 
 .sr-notification-arrow-left {
-  @apply left-0 -translate-x-full;
+  @apply start-0 -translate-x-full;
 }
 
 .sr-notification-arrow-right {
-  @apply right-0 translate-x-full rotate-180;
+  @apply end-0 translate-x-full rotate-180;
 }
 
 /* Cart Animation Classes */
@@ -1930,7 +1971,7 @@
 
 /* Floating Label Styles */
 .sr-field-label {
-  @apply absolute left-3 transition-all duration-200 pointer-events-none;
+  @apply absolute start-3 transition-all duration-200 pointer-events-none;
   color: var(--color-text-muted);
 }
 
@@ -2009,13 +2050,6 @@
 .sr-field-select.sr-field-error:focus {
   border-color: var(--color-error, #ef4444);
 }
-/* Remove search input clear button */
-.sr-field-input[type="search"]::-webkit-search-decoration,
-.sr-field-input[type="search"]::-webkit-search-cancel-button,
-.sr-field-input[type="search"]::-webkit-search-results-button,
-.sr-field-input[type="search"]::-webkit-search-results-decoration {
-  -webkit-appearance: none;
-}
 
 /* Select dropdown arrow */
 .sr-field-select {
@@ -2025,6 +2059,17 @@
   background-repeat: no-repeat;
   background-size: 1.25em 1.25em;
   padding-right: 2.5rem;
+}
+
+/* Fix for empty select - ensure label is positioned correctly */
+.sr-field-select option[value=""] {
+  display: none;
+}
+
+/* When select has no value selected, treat it like placeholder-shown */
+.sr-field-select:not(.has-value):not(:focus) ~ .sr-field-label {
+  font-size: var(--text-sm);
+  top: 0.875rem;
 }
 
 /* Error Messages */
@@ -2060,52 +2105,6 @@
   /* Spacing handled by .sr-field-group mb-4 */
 }
 
-/* Searchable Select Dropdown */
-.sr-country-select-container,
-.sr-state-select-container {
-  @apply relative;
-}
-
-/* Dropdown portal styles */
-.sr-dropdown-portal {
-  position: fixed;
-  z-index: 10002;
-}
-
-.sr-dropdown-portal .sr-dropdown-list {
-  @apply max-h-60 overflow-y-auto;
-  @apply bg-[var(--color-surface)] border rounded-md shadow-lg;
-  border-color: var(--color-border);
-}
-
-.sr-dropdown-portal .sr-dropdown-option {
-  @apply px-3 py-2 cursor-pointer text-sm transition-colors;
-  color: var(--color-text);
-}
-
-.sr-dropdown-portal .sr-dropdown-option:hover,
-.sr-dropdown-portal .sr-dropdown-option.highlighted {
-  background-color: var(--color-hover);
-}
-
-.sr-dropdown-portal .sr-dropdown-option.selected {
-  @apply font-medium;
-  background-color: var(--color-primary);
-  color: white;
-}
-
-.sr-dropdown-portal .sr-dropdown-option.selected:hover,
-.sr-dropdown-portal .sr-dropdown-option.selected.highlighted {
-  background-color: var(--color-primary);
-  filter: brightness(1.1);
-}
-
-.sr-dropdown-portal .sr-dropdown-empty {
-  @apply px-3 py-4 text-sm text-center;
-  @apply bg-[var(--color-surface)] border rounded-md;
-  border-color: var(--color-border);
-  color: var(--color-text-secondary, #6b7280);
-}
 
 /* Guest/Account Toggle */
 .sr-guest-toggle {
@@ -2130,7 +2129,7 @@
 }
 
 .sr-guest-option-text {
-  @apply text-sm font-medium text-[var(--color-text)] ml-2;
+  @apply text-sm font-medium text-[var(--color-text)] ms-2;
 }
 
 .sr-guest-option.sr-guest-active .sr-guest-option-text {
@@ -2212,21 +2211,25 @@
 }
 
 /* Same as Shipping Checkbox */
-.sr-same-as-shipping {
-  @apply mb-6;
-}
-
 .sr-checkbox-label {
   @apply flex items-center cursor-pointer;
 }
 
 .sr-checkbox-label input[type="checkbox"] {
-  @apply w-4 h-4 text-[var(--color-primary)] bg-[var(--color-surface)] border-gray-300 rounded;
-  @apply focus:ring-[var(--color-primary)] focus:ring-2;
+  @apply size-5 rounded border-gray-300 
+         bg-[var(--color-surface)] transition-all duration-150
+         hover:border-[var(--color-primary)] cursor-pointer
+         focus:outline-none focus:ring-0;
+  accent-color: var(--color-primary);
 }
 
 .sr-checkbox-text {
-  @apply ml-3 text-sm font-medium text-[var(--color-text)];
+  @apply ms-2 text-sm font-medium text-[var(--color-text-secondary)] 
+         transition-colors duration-150 select-none;
+}
+
+.sr-checkbox-label:hover .sr-checkbox-text {
+  @apply text-[var(--color-text)];
 }
 
 /* Payment Placeholder */
@@ -2306,4 +2309,216 @@
 
 .sr-summary-address p {
   @apply text-sm text-gray-600 m-0;
+}
+
+/* Authentication Section Styles */
+.sr-auth-section {
+  @apply mt-4 space-y-4;
+}
+
+.sr-auth-notice {
+  @apply flex items-start gap-3 p-4 rounded-lg;
+  background: var(--color-surface-alt, #f8f9fa);
+  border: 1px solid var(--color-border, #e5e7eb);
+}
+
+.sr-auth-icon {
+  @apply w-6 h-6 flex-shrink-0;
+  color: var(--color-primary, #3B82F6);
+}
+
+.sr-auth-content {
+  @apply space-y-1;
+}
+
+.sr-auth-title {
+  @apply font-medium text-base;
+  color: var(--color-text, #1f2937);
+}
+
+.sr-auth-subtitle {
+  @apply text-sm;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.sr-auth-divider {
+  @apply relative text-center my-4;
+}
+
+.sr-auth-divider::before {
+  content: '';
+  @apply absolute inset-0 top-1/2 h-[1px];
+  background: var(--color-border, #e5e7eb);
+}
+
+.sr-auth-divider span {
+  @apply relative px-2 text-xs uppercase;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.sr-btn-secondary {
+  @apply flex items-center justify-center gap-2 px-4 py-2 rounded-lg border transition-colors;
+  background: var(--color-surface, #ffffff);
+  border-color: var(--color-border, #e5e7eb);
+  color: var(--color-text, #1f2937);
+}
+
+.sr-btn-secondary:hover:not(:disabled) {
+  background: var(--color-surface-alt, #f8f9fa);
+  border-color: var(--color-primary, #3B82F6);
+}
+
+.sr-btn-secondary:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.sr-btn-text {
+  @apply text-sm underline transition-colors;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.sr-btn-text:hover {
+  color: var(--color-primary, #3B82F6);
+}
+
+.sr-btn-icon {
+  @apply w-4 h-4;
+}
+
+.sr-spinner {
+  @apply inline-block w-4 h-4 border-2 border-t-transparent rounded-full animate-spin;
+  border-color: var(--color-primary, #3B82F6);
+  border-top-color: transparent;
+}
+
+.sr-success-message {
+  @apply flex items-center gap-2 p-3 rounded-lg;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  color: #047857;
+}
+
+.sr-success-icon {
+  @apply w-5 h-5 flex-shrink-0;
+  color: #10b981;
+}
+
+.sr-returning-notice {
+  @apply flex items-start gap-3 p-3 mb-4;
+  border-radius: var(--sr-button-radius);
+  background: #f0f9ff; /* Light blue background */
+  border: 1px solid #bae6fd;
+}
+
+.sr-notice-icon {
+  @apply w-5 h-5 flex-shrink-0 mt-0.5;
+  color: #0ea5e9; /* Sky blue icon */
+}
+
+.sr-notice-text {
+  @apply space-y-1 flex-1;
+}
+
+.sr-notice-text p {
+  @apply font-medium text-gray-900 m-0;
+}
+
+.sr-notice-subtitle {
+  @apply text-sm text-gray-700 font-normal;
+}
+
+/* Link-style button */
+.sr-btn-link {
+  @apply inline-flex items-center justify-center gap-2 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] 
+         underline font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  background: none;
+  border: none;
+  padding: 0.5rem 0;
+  cursor: pointer;
+}
+
+.sr-btn-link:hover:not(:disabled) {
+  @apply opacity-80;
+}
+
+.sr-btn-link .sr-btn-icon {
+  @apply w-5 h-5;
+}
+
+.sr-btn-link .sr-spinner {
+  @apply w-4 h-4;
+}
+
+/* OTP Input Styles */
+.sr-otp-section {
+  @apply space-y-4 mt-4 text-center;
+}
+
+.sr-otp-header {
+  @apply space-y-2;
+}
+
+.sr-otp-title {
+  @apply text-lg font-semibold text-[var(--color-text)] m-0;
+}
+
+.sr-otp-subtitle {
+  @apply text-sm text-gray-600 m-0;
+}
+
+.sr-otp-inputs {
+  @apply flex justify-center gap-2;
+}
+
+.sr-otp-input {
+  @apply w-12 h-14 text-center text-xl font-semibold rounded-lg border-2 
+         border-gray-300 focus:border-[var(--color-primary)] focus:outline-none
+         transition-colors;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+}
+
+.sr-otp-input::-webkit-inner-spin-button,
+.sr-otp-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sr-otp-verifying {
+  @apply text-sm text-gray-600 flex items-center justify-center gap-2;
+}
+
+.sr-otp-resend {
+  @apply text-center mt-4;
+}
+
+.sr-otp-resend p {
+  @apply text-sm text-gray-600 m-0;
+}
+
+.sr-notice-text p {
+  @apply text-sm;
+  color: var(--color-text, #1f2937);
+}
+
+.sr-notice-subtitle {
+  @apply text-xs;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+/* Checking customer state */
+.sr-checking-customer {
+  @apply flex items-center gap-2 mt-3 text-sm;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+/* Helper text for secondary information */
+.sr-helper-text {
+  @apply text-xs text-center mt-2;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.sr-checking-text {
+  @apply animate-pulse;
 }

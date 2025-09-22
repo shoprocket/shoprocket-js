@@ -4,6 +4,7 @@ import type { LitElement } from 'lit';
 import { CookieManager } from '../utils/cookie-manager';
 import { AnalyticsManager } from './analytics-manager';
 import { internalState } from './internal-state';
+import { cartState } from './cart-state';
 
 export interface WidgetConfig {
   publicKey?: string;
@@ -51,14 +52,14 @@ export class WidgetManager {
      * Get the current cart data
      * @example Shoprocket.cart.get()
      */
-    get: () => internalState.getCartData(),
+    get: () => cartState.getCart(),
     
     /**
      * Get the current cart data (property access)
      * @example Shoprocket.cart.data
      */
     get data() {
-      return internalState.getCartData();
+      return cartState.getCart();
     }
   };
 
@@ -181,6 +182,9 @@ export class WidgetManager {
       
       // Set cart token for all API requests
       this.sdk.setCartToken(CookieManager.getCartToken());
+      
+      // Initialize cart state manager with SDK
+      cartState.init(this.sdk);
 
       // Initialize cart token (no server call needed)
       const cartToken = CookieManager.getCartToken();

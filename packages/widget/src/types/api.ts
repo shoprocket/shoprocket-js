@@ -89,6 +89,12 @@ export interface Cart {
   items: CartItem[];
   totals: CartTotals;
   currency: string;
+  item_count: number;
+  visitor_country?: string;
+  has_checkout_data?: boolean;
+  has_billing_address?: boolean;
+  has_shipping_address?: boolean;
+  requires_shipping?: boolean;
 }
 
 export interface Store {
