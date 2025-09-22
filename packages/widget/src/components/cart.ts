@@ -8,6 +8,7 @@ import { loadingSpinner } from './loading-spinner';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import './tooltip';
+import { cartState } from '../core/cart-state';
 // Lazy import checkout components only when needed
 import type { CustomerData, CustomerFormErrors } from './customer-form';
 import type { AddressData, AddressFormErrors } from './address-form';
@@ -93,6 +94,9 @@ export class CartWidget extends ShoprocketElement {
   // Track pending API calls for debouncing
   private pendingUpdates: Map<string, NodeJS.Timeout> = new Map();
   
+  // Cart state subscription
+  private unsubscribeCartState?: () => void;
+  
   @state()
   private priceChangedItems: Set<string> = new Set();
   
@@ -139,10 +143,54 @@ export class CartWidget extends ShoprocketElement {
   @state() 
   private chunkLoading = false;
 
+  @state()
+  private checkingCustomer = false;
+
+  @state()
+  private customerCheckResult?: {
+    exists: boolean;
+    has_password: boolean;
+  };
+
+  @state()
+  private showPasswordField = false;
+
+  @state()
+  private customerPassword = '';
+
+  @state()
+  private sendingLoginLink = false;
+
+  @state()
+  private loginLinkSent = false;
+  
+  @state()
+  private otpCode = '';
+  
+  @state()
+  private verifyingOtp = false;
+  
+  @state()
+  private otpError = '';
+
+  private customerCheckTimeout?: NodeJS.Timeout;
+  private lastCheckedEmail?: string;
+
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
     
-    // Remove cart update listener - we are the source of these events!
+    // Subscribe to cart state changes
+    this.unsubscribeCartState = cartState.subscribe((state) => {
+      // Update local properties from cart state
+      this.cart = state.cart;
+      this.customerData = state.customer as CustomerData;
+      this.shippingAddress = state.shippingAddress as AddressData;
+      this.billingAddress = state.billingAddress as AddressData;
+      this.sameAsBilling = state.sameAsBilling;
+      
+      // Request UI update
+      this.requestUpdate();
+    });
     
     // Listen for add item events (optimistic updates)
     this.handleAddItem = this.handleAddItem.bind(this);
@@ -170,21 +218,20 @@ export class CartWidget extends ShoprocketElement {
     window.addEventListener('close-cart', this.handleCloseCart as EventListener);
     window.addEventListener('toggle-cart', this.handleToggleCart as EventListener);
     
-    // Update internal state with cart methods and data
-    const { internalState } = await import('../core/internal-state');
-    const self = this;
-    internalState.setCart({
-      toggle: this.toggleCart.bind(this),
-      open: this.openCart.bind(this),
-      close: this.closeCart.bind(this),
-      get data(): Cart | null { return self.cart; }
-    });
+    // Cart state now manages internal state updates
     
     // Store data should already be cached by widget manager
     // If not available yet, wait a bit or skip (formatters will use defaults)
     
-    // Load cart data
+    // Load cart first
     await this.loadCart();
+    
+    // Only load checkout data if cart indicates there is checkout data
+    if (this.cart?.has_checkout_data) {
+      await this.loadCheckoutData();
+      // Don't auto-enter checkout on page load - let user click checkout button
+      // This provides better UX on page refresh
+    }
     
     // Set initial cart state from hash
     const initialState = this.hashRouter.getCurrentState();
@@ -202,6 +249,11 @@ export class CartWidget extends ShoprocketElement {
     // Restore scroll if cart was open
     if (this.isOpen) {
       document.body.style.overflow = '';
+    }
+    
+    // Unsubscribe from cart state
+    if (this.unsubscribeCartState) {
+      this.unsubscribeCartState();
     }
     
     // Remove event listeners
@@ -235,6 +287,11 @@ export class CartWidget extends ShoprocketElement {
     this.pendingUpdates.forEach(timeout => clearTimeout(timeout));
     this.pendingUpdates.clear();
     
+    // Clear customer check timeout
+    if (this.customerCheckTimeout) {
+      clearTimeout(this.customerCheckTimeout);
+    }
+    
     // Clean up internal state cart reference
     // Note: We don't clear it entirely as other components may still exist
   }
@@ -243,7 +300,46 @@ export class CartWidget extends ShoprocketElement {
   private handleAddItem = (event: CustomEvent): void => {
     const { item, stockInfo } = event.detail;
     
-    // Validate stock if tracking inventory (track_inventory or inventory_policy === 'deny')
+    // Initialize cart first if needed
+    if (!this.cart) {
+      // Use store currency when creating new cart
+      const currency = this.getStoreCurrency();
+      const zeroPriceObj: Money = {
+        amount: 0,
+        currency,
+        formatted: new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency
+        }).format(0)
+      };
+      const newCart = {
+        id: 'temp-' + Date.now(),
+        items: [],
+        totals: {
+          subtotal: zeroPriceObj,
+          tax: zeroPriceObj,
+          shipping: zeroPriceObj,
+          total: zeroPriceObj
+        },
+        currency,
+        item_count: 0
+      };
+      cartState.setCart(newCart as any);
+      this.cart = newCart;
+    }
+    
+    // Ensure cart has items array
+    if (!this.cart.items) {
+      this.cart.items = [];
+    }
+    
+    // Find existing item (do this once)
+    const existingItem = this.cart.items.find((cartItem: any) => 
+      cartItem.product_id === item.product_id && 
+      cartItem.variant_id === item.variant_id
+    );
+    
+    // Validate stock if tracking inventory
     if (stockInfo?.track_inventory || stockInfo?.inventory_policy === 'deny') {
       const availableQuantity = stockInfo.available_quantity ?? stockInfo.inventory_count ?? 0;
       
@@ -257,12 +353,6 @@ export class CartWidget extends ShoprocketElement {
         }));
         return;
       }
-      
-      // Check existing quantity in cart
-      const existingItem = this.cart?.items.find((cartItem: any) => 
-        cartItem.product_id === item.product_id && 
-        cartItem.variant_id === item.variant_id
-      );
       
       const currentQuantityInCart = existingItem?.quantity || 0;
       const requestedTotal = currentQuantityInCart + item.quantity;
@@ -280,62 +370,23 @@ export class CartWidget extends ShoprocketElement {
             current_quantity: currentQuantityInCart
           }
         }));
-        return; // STOP HERE - DO NOT ADD TO CART
+        return;
       }
     }
     
-    // Initialize cart if needed
-    if (!this.cart) {
-      const currency = this.getStoreCurrency();
-      const zeroPriceObj: Money = {
-        amount: 0,
-        currency,
-        formatted: new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency
-        }).format(0)
-      };
-      this.cart = {
-        id: 'temp-' + Date.now(),
-        items: [],
-        totals: {
-          subtotal: zeroPriceObj,
-          tax: zeroPriceObj,
-          shipping: zeroPriceObj,
-          total: zeroPriceObj
-        },
-        currency
-      };
-    }
-    
-    // Check if item already exists in cart
-    const existingItem = this.cart.items.find((cartItem: any) => 
-      cartItem.product_id === item.product_id && 
-      cartItem.variant_id === item.variant_id
-    );
-    
+    // Update existing item or add new one
     if (existingItem) {
-      // Update quantity
       existingItem.quantity += item.quantity;
-      // Update subtotal
-      if (existingItem.price?.amount !== undefined) {
-        (existingItem as any).subtotal = existingItem.price.amount * existingItem.quantity;
-      }
       // Update stock info if provided
       if (stockInfo) {
         existingItem.inventory_policy = stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue');
         existingItem.inventory_count = stockInfo.inventory_count ?? stockInfo.available_quantity;
       }
     } else {
-      // Calculate subtotal for new item (safely handle price)
-      const subtotal = (item.price?.amount || 0) * (item.quantity || 0);
-      
-      // Add new item with a temporary ID, subtotal, and stock info
+      // Add new item with a temporary ID and stock info
       const newItem = {
         ...item,
         id: 'temp-' + Date.now() + '-' + Math.random(),
-        subtotal: subtotal,
-        // Include stock info if provided
         ...(stockInfo && {
           inventory_policy: stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue'),
           inventory_count: stockInfo.inventory_count ?? stockInfo.available_quantity
@@ -344,32 +395,12 @@ export class CartWidget extends ShoprocketElement {
       this.cart.items.push(newItem);
     }
     
-    // Update totals (safely handle price)
-    const newSubtotalAmount = this.cart.items.reduce((sum: number, cartItem: any) => {
-      const price = cartItem.price?.amount || 0;
-      const qty = cartItem.quantity || 0;
-      return sum + (price * qty);
-    }, 0);
-    
-    const currency = this.cart.currency || this.getStoreCurrency();
-    this.cart.totals.subtotal = {
-      amount: newSubtotalAmount,
-      currency,
-      formatted: new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency
-      }).format(newSubtotalAmount / 100)
-    };
-    this.cart.totals.total = this.cart.totals.subtotal; // Simplified - doesn't account for tax/shipping
-    
-    // Reset empty state
+    // Update totals and cart state
+    this.updateCartTotals();
+    cartState.setCart(this.cart);
     this.showEmptyState = false;
     
-    // Trigger update
-    this.requestUpdate();
-    
-    // Dispatch cart updated event
-    this.dispatchCartUpdatedEvent();
+    // Cart state subscriptions handle updates
     
     // Dispatch product added event for UI feedback
     window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.PRODUCT_ADDED, {
@@ -396,9 +427,8 @@ export class CartWidget extends ShoprocketElement {
     }).then(response => {
       // Replace optimistic cart with real cart data
       if (response) {
-        this.cart = response;
-        this.requestUpdate();
-        this.dispatchCartUpdatedEvent();
+        // Update cart state - this will trigger subscription and update UI
+        cartState.setCart(response);
       }
     }).catch(error => {
       console.error('Failed to add to cart:', error);
@@ -406,23 +436,7 @@ export class CartWidget extends ShoprocketElement {
     });
   }
   
-  private dispatchCartUpdatedEvent(): void {
-    if (!this.cart) return;
-    
-    // Create a simplified cart state for other components
-    const cartState = {
-      items: this.cart.items.map((item: any) => ({
-        product_id: item.product_id,
-        variant_id: item.variant_id,
-        quantity: item.quantity
-      })),
-      total_items: this.cart.items.reduce((sum: number, item: any) => sum + item.quantity, 0)
-    };
-    
-    window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_UPDATED, {
-      detail: { cart: cartState }
-    }));
-  }
+  // Event dispatching now handled by cart state subscriptions
   
   private handleOpenCart = (): void => {
     this.openCart();
@@ -506,32 +520,37 @@ export class CartWidget extends ShoprocketElement {
         
         // Handle both wrapped and unwrapped responses
         if (response && typeof response === 'object') {
-          this.cart = 'data' in response ? (response as ApiResponse<Cart>).data : (response as Cart);
+          const cart = 'data' in response ? (response as ApiResponse<Cart>).data : (response as Cart);
           
           // Ensure all items have subtotals calculated (if needed)
-          if (this.cart?.items) {
-            this.cart.items.forEach((item: any) => {
+          if (cart?.items) {
+            cart.items.forEach((item: any) => {
               if (item.subtotal === undefined && item.price?.amount !== undefined) {
                 item.subtotal = item.price.amount * (item.quantity || 0);
               }
             });
           }
           
-          // Populate customer data from cart if available
-          this.populateCustomerDataFromCart();
+          // Update cart state - this will trigger subscription and update UI
+          cartState.setCart(cart);
+          
+          // If visitor_country is provided and no addresses exist, use it as default
+          if (cart?.visitor_country && !cart.has_shipping_address && !cart.has_billing_address) {
+            cartState.updateShippingAddress({ country: cart.visitor_country });
+            cartState.updateBillingAddress({ country: cart.visitor_country });
+          }
           
           // Reset empty state if cart has items
-          if (this.cart?.items?.length > 0) {
+          if (cart?.items?.length > 0) {
             this.showEmptyState = false;
           }
           
           // Dispatch cart data globally
           window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_LOADED, {
-            detail: { cart: this.cart }
+            detail: { cart }
           }));
           
-          // Also dispatch simplified cart state
-          this.dispatchCartUpdatedEvent();
+          // Cart state subscriptions handle updates
         } else {
           this.cart = null;
         }
@@ -543,80 +562,12 @@ export class CartWidget extends ShoprocketElement {
     });
   }
 
-  private populateCustomerDataFromCart(): void {
-    if (!this.cart) return;
-
-    // Extract customer data from cart response
-    const cartCustomer = (this.cart as any).customer;
-    if (cartCustomer) {
-      this.customerData = {
-        email: cartCustomer.email || '',
-        first_name: cartCustomer.first_name || '',
-        last_name: cartCustomer.last_name || '',
-        phone: cartCustomer.phone || '',
-        company: cartCustomer.company || ''
-      };
-
-      // Extract shipping address from customer object
-      const shippingAddress = cartCustomer.shipping_address;
-      if (shippingAddress) {
-        this.shippingAddress = {
-          line1: shippingAddress.line1 || '',
-          line2: shippingAddress.line2 || '',
-          city: shippingAddress.city || '',
-          state: shippingAddress.state || '',
-          postal_code: shippingAddress.postal_code || '',
-          country: shippingAddress.country || '',
-          name: shippingAddress.name || '',
-          company: shippingAddress.company || '',
-          phone: shippingAddress.phone || ''
-        };
-      } else if ((this.cart as any).visitor_country) {
-        // If no shipping address saved, use visitor's detected country
-        this.shippingAddress = {
-          country: (this.cart as any).visitor_country
-        };
-      }
-
-      // Extract billing address from customer object
-      const billingAddress = cartCustomer.billing_address;
-      if (billingAddress) {
-        this.billingAddress = {
-          line1: billingAddress.line1 || '',
-          line2: billingAddress.line2 || '',
-          city: billingAddress.city || '',
-          state: billingAddress.state || '',
-          postal_code: billingAddress.postal_code || '',
-          country: billingAddress.country || '',
-          name: billingAddress.name || '',
-          company: billingAddress.company || '',
-          phone: billingAddress.phone || ''
-        };
-      } else if (shippingAddress && this.sameAsBilling) {
-        // If no separate billing address and same_as_billing is true, use shipping
-        this.billingAddress = { ...this.shippingAddress };
-      } else if ((this.cart as any).visitor_country) {
-        // If no billing address saved, use visitor's detected country
-        this.billingAddress = {
-          country: (this.cart as any).visitor_country
-        };
-      }
-    } else if ((this.cart as any).visitor_country) {
-      // If no customer data at all, still set visitor's detected country for addresses
-      this.shippingAddress = { country: (this.cart as any).visitor_country };
-      this.billingAddress = { country: (this.cart as any).visitor_country };
-    }
-
-    // Check if billing address is same as shipping (might be at cart level)
-    const sameAsBilling = (this.cart as any).same_as_billing;
-    if (typeof sameAsBilling === 'boolean') {
-      this.sameAsBilling = sameAsBilling;
-    }
-
-    // Determine if user is guest or registered
-    const isGuest = (this.cart as any).is_guest;
-    if (typeof isGuest === 'boolean') {
-      this.isGuest = isGuest;
+  private async loadCheckoutData(): Promise<void> {
+    try {
+      await cartState.loadCheckoutData();
+    } catch (err) {
+      console.error('Failed to load checkout data:', err);
+      // It's ok if checkout data load fails - might be a new cart
     }
   }
   
@@ -722,88 +673,240 @@ export class CartWidget extends ShoprocketElement {
 
   private handleCustomerChange(e: CustomEvent): void {
     const { customer } = e.detail;
-    this.customerData = customer;
+    // Update cart state instead of local state
+    cartState.updateCheckoutData(customer);
     this.customerErrors = {}; // Clear errors on change
-    // Don't save on every keystroke - wait for blur
   }
   
   private handleCustomerValidate(): void {
-    // Save to backend when field loses focus (fire and forget)
-    if (this.customerData.email) {
-      this.updateCartWithAddress(); // No await - don't block UI
+    // Cart state handles debouncing and API sync automatically
+    // No need to manually call debouncedUpdate
+  }
+
+  private handleCustomerCheck(e: CustomEvent): void {
+    const { email } = e.detail;
+    
+    // Only check if email has changed
+    if (this.lastCheckedEmail === email) {
+      return;
     }
+    
+    // Clear any existing timeout
+    if (this.customerCheckTimeout) {
+      clearTimeout(this.customerCheckTimeout);
+    }
+    
+    // Reset states when email changes
+    this.customerCheckResult = undefined;
+    this.showPasswordField = false;
+    this.loginLinkSent = false;
+    this.otpCode = '';
+    this.otpError = '';
+    
+    // Debounce the customer check
+    this.customerCheckTimeout = setTimeout(async () => {
+      // Only check if we have a valid email
+      if (!email || !email.includes('@')) return;
+      
+      // Store the email we're checking
+      this.lastCheckedEmail = email;
+      
+      try {
+        this.checkingCustomer = true;
+        const result = await this.sdk.cart.checkCheckoutData(email);
+        
+        // Update state based on result
+        this.customerCheckResult = result;
+        
+        // Show password field if customer exists and has password
+        this.showPasswordField = result.exists && result.has_password;
+        
+        // Reset login state when checking new email
+        this.loginLinkSent = false;
+        this.customerPassword = '';
+      } catch (error) {
+        console.error('Customer check failed:', error);
+      } finally {
+        this.checkingCustomer = false;
+      }
+    }, 500); // 500ms debounce
+  }
+
+  private async handleSendLoginLink(): Promise<void> {
+    if (!this.customerData.email || this.sendingLoginLink) return;
+    
+    try {
+      this.sendingLoginLink = true;
+      const result = await this.sdk.cart.sendAuth(this.customerData.email);
+      
+      if (result.auth_sent) {
+        this.loginLinkSent = true;
+        // Don't auto-hide when showing OTP form - user needs time to enter code
+        // The OTP form will clear loginLinkSent when verification is complete or resend is clicked
+      }
+    } catch (error) {
+      console.error('Failed to send authentication:', error);
+    } finally {
+      this.sendingLoginLink = false;
+    }
+  }
+
+  // OTP handling methods
+  private handleOtpInput(e: Event, index: number): void {
+    const input = e.target as HTMLInputElement;
+    const value = input.value;
+    
+    // Only accept numbers
+    if (!/^\d*$/.test(value)) {
+      input.value = '';
+      return;
+    }
+    
+    // Clear error when user starts typing again
+    if (this.otpError) {
+      this.otpError = '';
+    }
+    
+    // Update OTP code
+    const otpArray = this.otpCode.split('');
+    otpArray[index] = value;
+    this.otpCode = otpArray.join('');
+    
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = this.shadowRoot?.querySelector(`[data-otp-index="${index + 1}"]`) as HTMLInputElement;
+      nextInput?.focus();
+    }
+    
+    // Auto-submit when all 6 digits are entered
+    if (this.otpCode.length === 6 && /^\d{6}$/.test(this.otpCode)) {
+      this.handleVerifyOtp();
+    }
+  }
+  
+  private handleOtpKeydown(e: KeyboardEvent, index: number): void {
+    // Handle backspace
+    if (e.key === 'Backspace' && !this.otpCode[index] && index > 0) {
+      const prevInput = this.shadowRoot?.querySelector(`[data-otp-index="${index - 1}"]`) as HTMLInputElement;
+      prevInput?.focus();
+    }
+  }
+  
+  private handleOtpPaste(e: ClipboardEvent): void {
+    e.preventDefault();
+    const paste = e.clipboardData?.getData('text');
+    if (paste && /^\d{6}$/.test(paste)) {
+      this.otpCode = paste;
+      
+      // Fill all input fields visually
+      const inputs = this.shadowRoot?.querySelectorAll('.sr-otp-input') as NodeListOf<HTMLInputElement>;
+      paste.split('').forEach((digit, index) => {
+        if (inputs[index]) {
+          inputs[index].value = digit;
+        }
+      });
+      
+      // Focus last input
+      const lastInput = this.shadowRoot?.querySelector('[data-otp-index="5"]') as HTMLInputElement;
+      lastInput?.focus();
+      
+      // Auto-submit after paste
+      this.handleVerifyOtp();
+    }
+  }
+  
+  private async handleVerifyOtp(): Promise<void> {
+    if (this.otpCode.length !== 6 || this.verifyingOtp || !this.customerData.email) return;
+    
+    try {
+      this.verifyingOtp = true;
+      
+      // Call API to verify OTP
+      const result = await this.sdk.cart.verifyAuth(this.customerData.email, this.otpCode);
+      
+      if (result.authenticated) {
+        // Success - customer is now linked to cart
+        this.loginLinkSent = false;
+        this.otpCode = '';
+        this.otpError = ''; // Clear any error
+        this.customerCheckResult = undefined; // Clear check result
+        
+        // Load the checkout data which now contains the customer's saved details
+        await this.loadCheckoutData();
+        
+        // Move to shipping step automatically since we have their data
+        this.checkoutStep = 'shipping';
+      } else {
+        // Invalid OTP
+        const errorMessage = result.message || 'Invalid verification code. Please try again.';
+        this.otpError = errorMessage;
+        this.showError(errorMessage);
+        this.otpCode = ''; // Clear the code
+        
+        // Clear all input fields
+        const inputs = this.shadowRoot?.querySelectorAll('.sr-otp-input') as NodeListOf<HTMLInputElement>;
+        inputs.forEach(input => input.value = '');
+        
+        // Focus first input
+        const firstInput = this.shadowRoot?.querySelector('[data-otp-index="0"]') as HTMLInputElement;
+        firstInput?.focus();
+      }
+    } catch (error: any) {
+      console.error('OTP verification failed:', error);
+      // Handle API error response
+      let errorMessage = 'Verification failed. Please try again.';
+      if (error.response?.data?.error?.message) {
+        errorMessage = error.response.data.error.message;
+      } else if (error.data?.error?.message) {
+        errorMessage = error.data.error.message;
+      } else if (error.error?.message) {
+        errorMessage = error.error.message;
+      }
+      
+      this.otpError = errorMessage;
+      this.showError(errorMessage);
+      this.otpCode = ''; // Clear the code
+      
+      // Clear all input fields
+      const inputs = this.shadowRoot?.querySelectorAll('.sr-otp-input') as NodeListOf<HTMLInputElement>;
+      inputs.forEach(input => input.value = '');
+      
+      // Focus first input
+      const firstInput = this.shadowRoot?.querySelector('[data-otp-index="0"]') as HTMLInputElement;
+      firstInput?.focus();
+    } finally {
+      this.verifyingOtp = false;
+    }
+  }
+  
+  private async handleResendOtp(): Promise<void> {
+    this.otpCode = '';
+    this.otpError = '';
+    this.loginLinkSent = false;
+    await this.handleSendLoginLink();
   }
 
   private handleShippingAddressChange(e: CustomEvent): void {
     const { address } = e.detail;
-    this.shippingAddress = address;
+    // Update cart state instead of local state
+    cartState.updateShippingAddress(address);
     this.shippingErrors = {}; // Clear errors on change
-    // Don't save on every keystroke - wait for blur
   }
   
   private handleAddressValidate(): void {
-    // Save to backend when field loses focus (fire and forget)
-    if (this.customerData.email) {
-      this.updateCartWithAddress(); // No await - don't block UI
-    }
+    // Cart state handles debouncing and API sync automatically
+    // No need to manually call debouncedUpdate
   }
 
   private handleBillingAddressChange(e: CustomEvent): void {
     const { address } = e.detail;
-    this.billingAddress = address;
+    // Update cart state instead of local state
+    cartState.updateBillingAddress(address);
     this.billingErrors = {}; // Clear errors on change
-    // Don't save on every keystroke - wait for blur
   }
 
-  private handleSameAsBillingChange(e: Event): void {
-    const checkbox = e.target as HTMLInputElement;
-    this.sameAsBilling = checkbox.checked;
-    
-    if (this.sameAsBilling) {
-      this.shippingAddress = { ...this.billingAddress };
-      this.updateCartWithAddress(); // Fire and forget
-    }
-  }
 
-  private async updateCartWithAddress(): Promise<void> {
-    if (!this.sdk || !this.customerData.email) {
-      return;
-    }
-    
-    try {
-      // Build customer payload with all available data (API now accepts partial)
-      const customerPayload: any = {
-        email: this.customerData.email,
-        first_name: this.customerData.first_name,
-        last_name: this.customerData.last_name,
-        phone: this.customerData.phone,
-        company: this.customerData.company,
-        same_as_billing: this.sameAsBilling
-      };
-
-      // Always include shipping address (even if partial)
-      if (Object.keys(this.shippingAddress).length > 0) {
-        customerPayload.shipping_address = this.shippingAddress;
-      }
-
-      // Include billing address based on same_as_billing setting
-      if (this.sameAsBilling) {
-        customerPayload.billing_address = this.shippingAddress;
-      } else if (Object.keys(this.billingAddress).length > 0) {
-        customerPayload.billing_address = this.billingAddress;
-      }
-
-      const updatedCart = await this.sdk.cart.updateCustomer(customerPayload);
-      // Only update cart if we're not in the middle of checkout navigation
-      // This prevents unnecessary re-renders during step transitions
-      if (!this.isCheckingOut || this.checkoutStep === 'review') {
-        this.cart = updatedCart;
-        this.dispatchCartUpdatedEvent();
-      }
-    } catch (error) {
-      console.error('Failed to update cart with address:', error);
-    }
-  }
+  // Cart state now handles all debouncing and API synchronization
 
   private validateStep(step: string): boolean {
     switch (step) {
@@ -864,8 +967,7 @@ export class CartWidget extends ShoprocketElement {
       return; // Validation failed, don't proceed
     }
 
-    // Save current step data to backend (fire and forget - don't block navigation)
-    this.updateCartWithAddress();
+    // Cart state automatically syncs data to backend
     
     // Navigate immediately
     this.nextCheckoutStep();
@@ -879,8 +981,7 @@ export class CartWidget extends ShoprocketElement {
     this.checkoutLoading = true;
     
     try {
-      // For final checkout, we DO need to wait to ensure data is saved
-      await this.updateCartWithAddress();
+      // Cart state ensures data is already synced
       
       const checkoutResponse = await this.sdk.cart.checkout({
         payment_method_type: 'card', // Default for now
@@ -1160,36 +1261,217 @@ export class CartWidget extends ShoprocketElement {
           .is-guest="${this.isGuest}"
           @customer-change="${this.handleCustomerChange}"
           @customer-validate="${this.handleCustomerValidate}"
+          @customer-check="${this.handleCustomerCheck}"
           @guest-toggle="${(e: CustomEvent) => { this.isGuest = e.detail.isGuest; }}"
         ></shoprocket-customer-form>
+      
+      ${this.checkingCustomer && this.customerData.email ? html`
+        <div class="sr-checking-customer">
+          <span class="sr-spinner"></span>
+          <span class="sr-checking-text">Checking email...</span>
+        </div>
+      ` : this.customerCheckResult && this.customerCheckResult.exists ? html`
+        <div class="sr-auth-section">
+          ${(() => {
+            if (this.customerCheckResult.exists && !this.customerCheckResult.has_password) {
+              // Customer exists but no password (guest checkout previously)
+              return html`
+                  <!-- Guest customer (no account) -->
+                  ${!this.loginLinkSent ? html`
+                    <div class="sr-returning-notice">
+                      <svg class="sr-notice-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <div class="sr-notice-text">
+                        <p>Welcome back!</p>
+                        <button 
+                          class="sr-btn-link"
+                          ?disabled="${this.sendingLoginLink}"
+                          @click="${this.handleSendLoginLink}"
+                        >
+                          ${this.sendingLoginLink ? html`
+                            <span class="sr-spinner"></span> Sending...
+                          ` : 'Load my saved details'}
+                        </button>
+                      </div>
+                    </div>
+                  ` : html`
+                    <!-- OTP verification form -->
+                    <div class="sr-otp-section">
+                      <div class="sr-otp-header">
+                        <h4 class="sr-otp-title">Enter verification code</h4>
+                        <p class="sr-otp-subtitle">We sent a 6-digit code to ${this.customerData.email}</p>
+                      </div>
+                      
+                      <div class="sr-otp-inputs">
+                        ${Array.from({length: 6}, (_, i) => html`
+                          <input
+                            type="text"
+                            inputmode="numeric"
+                            maxlength="1"
+                            class="sr-otp-input ${this.otpError ? 'sr-field-error' : ''}"
+                            .value="${this.otpCode[i] || ''}"
+                            @input="${(e: Event) => this.handleOtpInput(e, i)}"
+                            @keydown="${(e: KeyboardEvent) => this.handleOtpKeydown(e, i)}"
+                            @paste="${(e: ClipboardEvent) => this.handleOtpPaste(e)}"
+                            data-otp-index="${i}"
+                          />
+                        `)}
+                      </div>
+                      
+                      ${this.otpError ? html`
+                        <div class="sr-field-error-message">${this.otpError}</div>
+                      ` : ''}
+                      
+                      ${this.verifyingOtp ? html`
+                        <div class="sr-otp-verifying">
+                          <span class="sr-spinner"></span> Verifying...
+                        </div>
+                      ` : ''}
+                      
+                      <div class="sr-otp-resend">
+                        <p>Didn't receive code? 
+                          <button class="sr-btn-link" @click="${this.handleResendOtp}">
+                            Resend
+                          </button>
+                        </p>
+                      </div>
+                    </div>
+                  `}
+                `;
+              
+            } else if (this.customerCheckResult.exists && this.customerCheckResult.has_password) {
+              // Customer exists with password (registered account)
+              return html`
+                  <!-- Registered customer -->
+                  <div class="sr-auth-notice">
+                    <svg class="sr-auth-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    <div class="sr-auth-content">
+                      <p class="sr-auth-title">Welcome back!</p>
+                      <p class="sr-auth-subtitle">You have an account with this email address.</p>
+                    </div>
+                  </div>
+
+                  ${this.showPasswordField ? html`
+                    <!-- Password authentication -->
+                    <div class="sr-field-group">
+                      <input
+                        type="password"
+                        id="password"
+                        class="sr-field-input peer ${this.customerPassword ? 'has-value' : ''}"
+                        .value="${this.customerPassword}"
+                        placeholder=" "
+                        autocomplete="current-password"
+                        @input="${(e: Event) => { this.customerPassword = (e.target as HTMLInputElement).value; }}"
+                      >
+                      <label class="sr-field-label" for="password">Password</label>
+                    </div>
+                    
+                    <button 
+                      class="sr-btn sr-btn-primary" 
+                      ?disabled="${!this.customerPassword}"
+                      @click="${() => { /* TODO: Handle password login */ }}"
+                    >
+                      Sign In
+                    </button>
+                    
+                    <div class="sr-auth-divider">
+                      <span>or</span>
+                    </div>
+                  ` : ''}
+
+                  <!-- OTP option -->
+                  ${!this.loginLinkSent ? html`
+                    <button 
+                      class="sr-btn ${this.showPasswordField ? 'sr-btn-secondary' : 'sr-btn-primary'}"
+                      ?disabled="${this.sendingLoginLink}"
+                      @click="${this.handleSendLoginLink}"
+                    >
+                      ${this.sendingLoginLink ? html`
+                        <span class="sr-spinner"></span> Sending...
+                      ` : this.showPasswordField ? 'Use email verification instead' : html`
+                        <svg class="sr-btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                        Send Verification Code
+                      `}
+                    </button>
+                  ` : html`
+                    <!-- OTP verification form -->
+                    <div class="sr-otp-section">
+                      <div class="sr-otp-header">
+                        <h4 class="sr-otp-title">Enter verification code</h4>
+                        <p class="sr-otp-subtitle">We sent a 6-digit code to ${this.customerData.email}</p>
+                      </div>
+                      
+                      <div class="sr-otp-inputs">
+                        ${Array.from({length: 6}, (_, i) => html`
+                          <input
+                            type="text"
+                            inputmode="numeric"
+                            maxlength="1"
+                            class="sr-otp-input ${this.otpError ? 'sr-field-error' : ''}"
+                            .value="${this.otpCode[i] || ''}"
+                            @input="${(e: Event) => this.handleOtpInput(e, i)}"
+                            @keydown="${(e: KeyboardEvent) => this.handleOtpKeydown(e, i)}"
+                            @paste="${(e: ClipboardEvent) => this.handleOtpPaste(e)}"
+                            data-otp-index="${i}"
+                          />
+                        `)}
+                      </div>
+                      
+                      ${this.otpError ? html`
+                        <div class="sr-field-error-message">${this.otpError}</div>
+                      ` : ''}
+                      
+                      ${this.verifyingOtp ? html`
+                        <div class="sr-otp-verifying">
+                          <span class="sr-spinner"></span> Verifying...
+                        </div>
+                      ` : ''}
+                      
+                      <div class="sr-otp-resend">
+                        <p>Didn't receive code? 
+                          <button class="sr-btn-link" @click="${this.handleResendOtp}">
+                            Resend
+                          </button>
+                        </p>
+                      </div>
+                    </div>
+                  `}
+
+                  <!-- Guest checkout is implicit - they just continue with the main button -->
+                `;
+            }
+            
+            // Shouldn't reach here but return empty for safety
+            return '';
+          })()}
+        </div>
+      ` : ''}
     `;
   }
 
   private renderShippingContent(): TemplateResult {
     return html`
-        <shoprocket-address-form
-          title=""
-          .sdk="${this.sdk}"
-          .address="${this.shippingAddress}"
-          .errors="${this.shippingErrors}"
-          .required="${true}"
-          .show-name="${true}"
-          .show-phone="${true}"
-          @address-change="${this.handleShippingAddressChange}"
-          @address-validate="${this.handleAddressValidate}"
-        ></shoprocket-address-form>
-
-        <div class="sr-same-as-shipping">
-          <label class="sr-checkbox-label">
-            <input
-              type="checkbox"
-              .checked="${this.sameAsBilling}"
-              @change="${this.handleSameAsBillingChange}"
-            >
-            <span class="sr-checkbox-text">Use same address for billing</span>
-          </label>
-        </div>
-      </>
+      <shoprocket-address-form
+        title=""
+        .sdk="${this.sdk}"
+        .address="${this.shippingAddress}"
+        .errors="${this.shippingErrors}"
+        .required="${true}"
+        .show-name="${false}"
+        .show-phone="${false}"
+        .showSameAsBilling="${true}"
+        .sameAsBilling="${this.sameAsBilling}"
+        @address-change="${this.handleShippingAddressChange}"
+        @address-validate="${this.handleAddressValidate}"
+        @same-as-billing-change="${(e: CustomEvent) => {
+          cartState.setSameAsBilling(e.detail.checked);
+        }}"
+      ></shoprocket-address-form>
     `;
   }
 
@@ -1201,7 +1483,7 @@ export class CartWidget extends ShoprocketElement {
           .address="${this.billingAddress}"
           .errors="${this.billingErrors}"
           .required="${true}"
-          .show-name="${true}"
+          .show-name="${false}"
           @address-change="${this.handleBillingAddressChange}"
           @address-validate="${this.handleAddressValidate}"
         ></shoprocket-address-form>
@@ -1337,6 +1619,34 @@ export class CartWidget extends ShoprocketElement {
 
   // Track the last requested quantity for each item
   private lastRequestedQuantity: Map<string, number> = new Map();
+  
+  // Shared method to update cart totals
+  private updateCartTotals(): void {
+    if (!this.cart || !this.cart.totals) return; // Don't try to update optimistic carts
+    
+    // Update item count
+    this.cart.item_count = this.cart.items?.reduce((count, item) => count + item.quantity, 0) || 0;
+    
+    // Calculate new subtotal
+    const newSubtotalAmount = this.cart.items?.reduce((sum: number, i: any) => {
+      const price = i.price?.amount || 0;
+      const qty = i.quantity || 0;
+      return sum + (price * qty);
+    }, 0) || 0;
+    
+    const currency = this.cart.currency || this.getStoreCurrency();
+    const subtotalObj: Money = {
+      amount: newSubtotalAmount,
+      currency,
+      formatted: new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency
+      }).format(newSubtotalAmount / 100)
+    };
+    
+    this.cart.totals.subtotal = subtotalObj;
+    this.cart.totals.total = subtotalObj; // Simplified - doesn't account for tax/shipping
+  }
 
   private async updateQuantity(itemId: string, quantity: number): Promise<void> {
     if (quantity < 1) return;
@@ -1371,30 +1681,8 @@ export class CartWidget extends ShoprocketElement {
     // Optimistic update - immediately update UI
     item.quantity = quantity;
     
-    // Update line item subtotal (ensure price.amount exists)
-    if (item.price?.amount !== undefined) {
-      (item as any).subtotal = item.price.amount * quantity;
-    }
-    
-    // Update cart total (price is Money object with amount property)
-    if (this.cart) {
-      const newSubtotalAmount = this.cart.items.reduce((sum: number, i: any) => {
-        const price = i.price?.amount || 0;
-        const qty = i.quantity || 0;
-        return sum + (price * qty);
-      }, 0);
-      const currency = this.cart.currency || this.getStoreCurrency();
-      const subtotalObj: Money = {
-        amount: newSubtotalAmount,
-        currency,
-        formatted: new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency
-        }).format(newSubtotalAmount / 100)
-      };
-      this.cart.totals.subtotal = subtotalObj;
-      this.cart.totals.total = subtotalObj; // Simplified - doesn't account for tax/shipping
-    }
+    // Update totals
+    this.updateCartTotals();
     
     // Trigger animations immediately
     this.priceChangedItems.add(itemId);
@@ -1410,8 +1698,7 @@ export class CartWidget extends ShoprocketElement {
     }, 600);
     this.timeouts.add(timeout);
     
-    // Dispatch cart updated event
-    this.dispatchCartUpdatedEvent();
+    // Cart state subscriptions handle updates
     
     // Track quantity change
     const eventType = quantity > originalQuantity ? EVENTS.ADD_TO_CART : EVENTS.REMOVE_FROM_CART;
@@ -1470,23 +1757,8 @@ export class CartWidget extends ShoprocketElement {
         this.showEmptyState = true;
       }
     
-      // Update cart totals
-      const newSubtotalAmount = this.cart.items.reduce((sum: number, i: any) => {
-        const price = i.price?.amount || 0;
-        const qty = i.quantity || 0;
-        return sum + (price * qty);
-      }, 0);
-      const currency = this.cart.currency || this.getStoreCurrency();
-      const subtotalObj: Money = {
-        amount: newSubtotalAmount,
-        currency,
-        formatted: new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency
-        }).format(newSubtotalAmount / 100)
-      };
-      this.cart.totals.subtotal = subtotalObj;
-      this.cart.totals.total = subtotalObj; // Simplified - doesn't account for tax/shipping
+      // Update totals
+      this.updateCartTotals();
       
       // Trigger animation for cart total
       this.priceChangedItems.add('cart-total');
@@ -1516,8 +1788,7 @@ export class CartWidget extends ShoprocketElement {
         this.hashRouter.openCart();
       }
       
-      // Dispatch cart updated event
-      this.dispatchCartUpdatedEvent();
+      // Cart state subscriptions handle updates
       
       // Track item removal
       this.track(EVENTS.REMOVE_FROM_CART, item);

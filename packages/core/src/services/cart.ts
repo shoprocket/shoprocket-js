@@ -28,6 +28,11 @@ export interface Cart {
   totals: CartTotals;
   currency: string;
   item_count: number;
+  visitor_country?: string;
+  has_customer?: boolean;
+  has_billing_address?: boolean;
+  has_shipping_address?: boolean;
+  requires_shipping?: boolean;
 }
 
 export interface AddToCartData {
@@ -37,27 +42,32 @@ export interface AddToCartData {
   source_url?: string;
 }
 
-export interface CustomerData {
+export interface Address {
+  line1: string;
+  line2?: string;
+  city: string;
+  state?: string;
+  postal_code: string;
+  country: string;
+}
+
+export interface CheckoutData {
   email: string;
   first_name: string;
   last_name: string;
   phone?: string;
-  shipping_address: {
-    line1: string;
-    line2?: string;
-    city: string;
-    state?: string;
-    postal_code: string;
-    country: string;
-  };
-  billing_address?: {
-    line1: string;
-    line2?: string;
-    city: string;
-    state?: string;
-    postal_code: string;
-    country: string;
-  };
+  company?: string;
+  shipping_address?: Address;
+  billing_address?: Address;
+  same_as_billing?: boolean;
+}
+
+// Legacy alias for backward compatibility
+export type CustomerData = CheckoutData;
+
+export interface CheckCustomerResponse {
+  exists: boolean;
+  has_password: boolean;
 }
 
 export class CartService {
@@ -88,9 +98,60 @@ export class CartService {
     return response.cart || response.data || response;
   }
 
-  async updateCustomer(customerData: CustomerData): Promise<Cart> {
-    const response = await this.api.put<any>('/cart/customer', customerData);
-    return response.cart || response.data || response;
+  async getCheckoutData(): Promise<CheckoutData> {
+    const response = await this.api.get<any>('/cart/checkout-data');
+    return response.data || response;
+  }
+  
+  // Legacy method for backward compatibility
+  async getCustomer(): Promise<CheckoutData> {
+    return this.getCheckoutData();
+  }
+
+  async updateCheckoutData(checkoutData: CheckoutData): Promise<CheckoutData> {
+    const response = await this.api.put<any>('/cart/checkout-data', checkoutData);
+    return response.data || response;
+  }
+  
+  // Legacy method for backward compatibility
+  async updateCustomer(customerData: CheckoutData): Promise<CheckoutData> {
+    return this.updateCheckoutData(customerData);
+  }
+
+  async checkCheckoutData(email: string): Promise<CheckCustomerResponse> {
+    const response = await this.api.post<any>('/cart/check-customer', {
+      email
+    });
+    return response.data || response;
+  }
+  
+  // Legacy method for backward compatibility
+  async checkCustomer(email: string): Promise<CheckCustomerResponse> {
+    return this.checkCheckoutData(email);
+  }
+
+  async sendAuth(email: string): Promise<{ auth_sent: boolean; auth_method?: string; message?: string }> {
+    const response = await this.api.post<any>('/cart/send-auth', {
+      email
+    });
+    return response.data || response;
+  }
+  
+  async verifyAuth(email: string, code: string): Promise<{ authenticated: boolean; message?: string }> {
+    const response = await this.api.post<any>('/cart/verify-auth', {
+      email,
+      code
+    });
+    return response.data || response;
+  }
+  
+  // Legacy method for backward compatibility
+  async sendLoginLink(email: string): Promise<{ success: boolean; message?: string }> {
+    const result = await this.sendAuth(email);
+    return {
+      success: result.auth_sent,
+      message: result.message
+    };
   }
 
   async checkout(options?: {

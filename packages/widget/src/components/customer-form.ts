@@ -95,6 +95,15 @@ export class CustomerForm extends BaseComponent {
       bubbles: true,
       composed: true
     }));
+
+    // If email field, trigger customer check
+    if (field === 'email' && this.customer.email && this.hasValue(this.customer.email)) {
+      this.dispatchEvent(new CustomEvent('customer-check', {
+        detail: { email: this.customer.email },
+        bubbles: true,
+        composed: true
+      }));
+    }
   }
 
   private handleGuestToggle(): void {

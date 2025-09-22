@@ -72,6 +72,12 @@ export class AddressForm extends BaseComponent {
   @property({ type: Boolean, attribute: 'show-phone' })
   showPhone = false;
 
+  @property({ type: Boolean, attribute: 'show-same-as-billing' })
+  showSameAsBilling = false;
+
+  @property({ type: Boolean, attribute: 'same-as-billing' })
+  sameAsBilling = false;
+
   @state()
   private countries: Country[] = [];
 
@@ -88,23 +94,8 @@ export class AddressForm extends BaseComponent {
   @state()
   private stateFieldType: 'text' | 'select' | 'hidden' = 'text';
 
-  @state()
-  private countrySearch = '';
-
-  @state()
-  private countryDropdownOpen = false;
-
-  @state()
-  private stateSearch = '';
-
-  @state()
-  private stateDropdownOpen = false;
-
-  private highlightedCountryIndex = -1;
-  private highlightedStateIndex = -1;
-
-  private dropdownElement?: HTMLDivElement;
-  private clickOutsideTimeout?: number;
+  // Track autofill to handle async state loading
+  private pendingStateValue?: string;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -130,9 +121,7 @@ export class AddressForm extends BaseComponent {
     Promise.resolve().then(() => {
       // Load countries if not cached
       if (cachedCountries.length === 0) {
-        this.loadCountries().then(() => {
-          console.log('Countries loaded:', this.countries.length);
-        });
+        this.loadCountries();
       }
       
       // Load states if needed and not cached
@@ -141,85 +130,54 @@ export class AddressForm extends BaseComponent {
       }
     });
     
-    // Add global click handler for dropdowns with a delay to avoid immediate closing
-    this.handleGlobalClick = this.handleGlobalClick.bind(this);
+    // Listen for input events to detect autofill
+    this.addEventListener('input', this.handleAutofillDetection);
+    
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    document.removeEventListener('click', this.handleGlobalClick, true);
-    this.removeDropdown();
-    if (this.clickOutsideTimeout) {
-      clearTimeout(this.clickOutsideTimeout);
-    }
+    this.removeEventListener('input', this.handleAutofillDetection);
   }
   
-  private removeDropdown(): void {
-    if (this.dropdownElement) {
-      this.dropdownElement.remove();
-      this.dropdownElement = undefined;
-    }
-  }
-
-  private updateDropdownHighlight(type: 'country' | 'state'): void {
-    if (!this.dropdownElement) return;
+  private handleAutofillDetection = (_e: Event): void => {
+    // When browser autofills, it fires input events on all fields rapidly
+    // Check if state field got a value while states aren't loaded yet
+    const stateSelect = this.querySelector('#state') as HTMLSelectElement;
+    const countrySelect = this.querySelector('#country') as HTMLSelectElement;
     
-    const highlightedIndex = type === 'country' ? this.highlightedCountryIndex : this.highlightedStateIndex;
-    const options = this.dropdownElement.querySelectorAll('.sr-dropdown-option');
-    
-    options.forEach((option, index) => {
-      if (index === highlightedIndex) {
-        option.classList.add('highlighted');
-      } else {
-        option.classList.remove('highlighted');
-      }
-    });
-    
-    // Scroll highlighted option into view if needed
-    if (highlightedIndex >= 0 && options[highlightedIndex]) {
-      const option = options[highlightedIndex] as HTMLElement;
-      const list = this.dropdownElement.querySelector('.sr-dropdown-list') as HTMLElement;
-      if (list && option) {
-        const optionTop = option.offsetTop;
-        const optionBottom = optionTop + option.offsetHeight;
-        const listTop = list.scrollTop;
-        const listBottom = listTop + list.clientHeight;
-        
-        if (optionTop < listTop) {
-          list.scrollTop = optionTop;
-        } else if (optionBottom > listBottom) {
-          list.scrollTop = optionBottom - list.clientHeight;
-        }
+    if (stateSelect && stateSelect.value) {
+      // Check if password manager set a state name instead of code
+      const matchingState = this.states.find(s => 
+        s.name.toLowerCase() === stateSelect.value.toLowerCase()
+      );
+      
+      if (matchingState && matchingState.code !== stateSelect.value) {
+        // Password manager set the name, but we need the code
+        this.handleInputChange('state', matchingState.code);
       }
     }
-  }
-
-  private handleGlobalClick = (e: Event): void => {
-    const target = e.target as HTMLElement;
-    const countryContainer = this.querySelector('.sr-country-select-container');
-    const stateContainer = this.querySelector('.sr-state-select-container');
     
-    if (countryContainer && !countryContainer.contains(target)) {
-      this.closeCountryDropdown();
+    if (stateSelect && countrySelect && stateSelect.value && this.stateFieldType === 'text') {
+      // State was autofilled as text, store it and load states for the country
+      this.pendingStateValue = stateSelect.value;
+      if (countrySelect.value && countrySelect.value !== this.currentCountryCode) {
+        this.loadStates(countrySelect.value).then(() => {
+          // After states load, if we have a matching state, update the field
+          if (this.pendingStateValue) {
+            const matchingState = this.states.find(s => 
+              s.code === this.pendingStateValue || 
+              s.name.toLowerCase() === this.pendingStateValue?.toLowerCase()
+            );
+            if (matchingState) {
+              this.address = { ...this.address, state: matchingState.code };
+              this.requestUpdate();
+              this.pendingStateValue = undefined;
+            }
+          }
+        });
+      }
     }
-    if (stateContainer && !stateContainer.contains(target)) {
-      this.closeStateDropdown();
-    }
-  }
-  
-  private setupClickOutsideListener(): void {
-    // Remove any existing listener
-    document.removeEventListener('click', this.handleGlobalClick, true);
-    
-    // Clear any existing timeout
-    if (this.clickOutsideTimeout) {
-      clearTimeout(this.clickOutsideTimeout);
-    }
-    
-    // Add listener after a delay to avoid the opening click
-    this.clickOutsideTimeout = window.setTimeout(() => {
-      document.addEventListener('click', this.handleGlobalClick, true);
-    }, 100);
   }
 
   private async loadCountries(): Promise<void> {
@@ -255,7 +213,6 @@ export class AddressForm extends BaseComponent {
     // Reset states immediately to avoid stale data
     this.states = [];
     this.stateFieldType = 'text';
-    this.closeStateDropdown(); // Close any open dropdown
     
     // Check cache
     if (cachedStates.has(countryCode)) {
@@ -284,16 +241,31 @@ export class AddressForm extends BaseComponent {
     }
   }
 
-  private handleInputChange(field: keyof AddressData, value: string): void {
+  private handleInputChange(field: keyof AddressData, value: string, isAutofill = false): void {
     const updatedAddress = {
       ...this.address,
       [field]: value || undefined
     };
 
     if (field === 'country' && value && value !== this.currentCountryCode) {
+      // Store current state value if autofill is happening
+      if (isAutofill && this.address.state) {
+        this.pendingStateValue = this.address.state;
+      }
+      
       // Load states asynchronously
-      this.loadStates(value);
-      updatedAddress.state = '';
+      this.loadStates(value).then(() => {
+        // If we had a pending state value from autofill, try to set it now
+        if (this.pendingStateValue && this.states.some(s => s.code === this.pendingStateValue)) {
+          this.handleInputChange('state', this.pendingStateValue);
+          this.pendingStateValue = undefined;
+        }
+      });
+      
+      // Only clear state if not autofilling
+      if (!isAutofill) {
+        updatedAddress.state = '';
+      }
     }
 
     this.dispatchEvent(new CustomEvent('address-change', {
@@ -325,6 +297,19 @@ export class AddressForm extends BaseComponent {
     return value !== undefined && value !== null && value !== '';
   }
 
+  private detectAutofill(): boolean {
+    // Simple heuristic: check if multiple address fields have values
+    // This helps detect when password manager fills the form
+    const filledFields = [
+      this.address.line1,
+      this.address.city,
+      this.address.postal_code,
+      this.address.country
+    ].filter(v => v).length;
+    
+    return filledFields >= 2;
+  }
+
   protected override render(): TemplateResult {
     return html`
       <div class="sr-address-form space-y-3">
@@ -338,6 +323,7 @@ export class AddressForm extends BaseComponent {
           ${this.renderAddressFields()}
           ${this.renderLocationFields()}
           ${this.showPhone ? this.renderPhoneField() : ''}
+          ${this.showSameAsBilling ? this.renderSameAsBillingField() : ''}
         </div>
       </div>
     `;
@@ -454,22 +440,7 @@ export class AddressForm extends BaseComponent {
 
         <!-- State/Region -->
         <div class="sr-field-group">
-          ${this.stateFieldType === 'select' && this.states.length > 0
-            ? this.renderSearchableStateField()
-            : html`
-              <input
-                type="text"
-                id="state"
-                class="sr-field-input peer ${this.hasValue(this.address.state) ? 'has-value' : ''}"
-                .value="${this.address.state || ''}"
-                .disabled="${this.disabled}"
-                placeholder=" "
-                autocomplete="address-level1"
-                @input="${(e: Event) => this.handleInputChange('state', (e.target as HTMLInputElement).value)}"
-                @blur="${() => this.handleBlur('state')}"
-              >
-              <label class="sr-field-label" for="state">State/Province</label>
-            `}
+          ${this.renderStateSelectField()}
         </div>
       </div>
 
@@ -498,7 +469,7 @@ export class AddressForm extends BaseComponent {
 
         <!-- Country -->
         <div class="sr-field-group">
-          ${this.renderSearchableCountryField()}
+          ${this.renderCountryField()}
           ${this.getFieldError('country') ? html`
             <div class="sr-field-error-message">${this.getFieldError('country')}</div>
           ` : ''}
@@ -507,335 +478,87 @@ export class AddressForm extends BaseComponent {
     `;
   }
 
-  private renderSearchableCountryField(): TemplateResult {
-    const selectedCountry = this.countries.find(c => c.code === this.address.country);
-    const displayValue = this.countryDropdownOpen ? this.countrySearch : (selectedCountry?.name || '');
+  private renderCountryField(): TemplateResult {
+    // If we have a country code but countries aren't loaded yet, just show the code
+    const showPlaceholder = this.countries.length === 0 && this.address.country;
     
-
     return html`
-      <div class="sr-field-group sr-country-select-container">
-        <input
-          type="search"
-          id="country"
-          class="sr-field-input peer ${this.address.country ? 'has-value' : ''} ${this.getFieldError('country') ? 'sr-field-error' : ''}"
-          .value="${displayValue}"
-          .disabled="${this.disabled}"
-          placeholder=" "
-          autocomplete="country"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded="${this.countryDropdownOpen}"
-          ?readonly="${!this.countryDropdownOpen}"
-          @click="${() => !this.countryDropdownOpen && this.openCountryDropdown()}"
-          @focus="${() => !this.countryDropdownOpen && this.openCountryDropdown()}"
-          @input="${(e: Event) => {
-            const value = (e.target as HTMLInputElement).value;
-            this.handleCountrySearch(value);
-            if (!this.countryDropdownOpen) this.openCountryDropdown();
-          }}"
-          @keydown="${(e: KeyboardEvent) => this.handleCountryKeydown(e)}"
-        >
-        <label class="sr-field-label" for="country">
-          Country${this.isRequired('country') ? html` <span class="sr-field-required">*</span>` : ''}
-        </label>
-        
-      </div>
+      <select
+        id="country"
+        class="sr-field-select peer ${this.address.country ? 'has-value' : ''} ${this.getFieldError('country') ? 'sr-field-error' : ''}"
+        .value="${this.address.country || ''}"
+        .disabled="${this.disabled}"
+        ?required="${this.isRequired('country')}"
+        autocomplete="country"
+        @change="${(e: Event) => {
+          const select = e.target as HTMLSelectElement;
+          // Detect autofill by checking if multiple fields changed at once
+          const isAutofill = e.isTrusted && this.detectAutofill();
+          this.handleInputChange('country', select.value, isAutofill);
+        }}"
+        @blur="${() => this.handleBlur('country')}"
+      >
+        <option value=""></option>
+        ${showPlaceholder ? html`
+          <option value="${this.address.country}" selected disabled>
+            ${this.address.country}
+          </option>
+        ` : ''}
+        ${this.countries.map(country => html`
+          <option value="${country.code}" ?selected="${country.code === this.address.country}">
+            ${country.name}
+          </option>
+        `)}
+      </select>
+      <label class="sr-field-label" for="country">
+        Country${this.isRequired('country') ? html` <span class="sr-field-required">*</span>` : ''}
+      </label>
     `;
   }
 
-  override updated(changedProperties: Map<string, any>): void {
-    super.updated(changedProperties);
+  private renderStateSelectField(): TemplateResult {
+    // Show current state code as placeholder while loading
+    const showPlaceholder = this.address.state && 
+                           !this.states.some(s => s.code === this.address.state);
     
-    // Update dropdown portal within the cart's shadow DOM
-    if (this.countryDropdownOpen || this.stateDropdownOpen) {
-      requestAnimationFrame(() => this.updateDropdownPortal());
-    } else {
-      this.removeDropdown();
-    }
-  }
-
-  private updateDropdownPortal(): void {
-    const type = this.countryDropdownOpen ? 'country' : 'state';
-    const input = this.querySelector(`#${type}`) as HTMLInputElement;
-    if (!input) {
-      console.warn(`Could not find ${type} input`);
-      return;
-    }
-
-    // Get filtered items
-    let filteredItems: any[];
-    let selectedValue: string | undefined;
-    let highlightedIndex: number;
+    // Only disable if no country selected (not when loading - this allows autofill)
+    const isDisabled = this.disabled || !this.address.country;
     
-    if (type === 'country') {
-      filteredItems = this.countrySearch
-        ? this.countries.filter(c => 
-            c.name.toLowerCase().includes(this.countrySearch.toLowerCase()) ||
-            c.code.toLowerCase().includes(this.countrySearch.toLowerCase())
-          )
-        : this.countries;
-      selectedValue = this.address.country;
-      highlightedIndex = this.highlightedCountryIndex;
-    } else {
-      filteredItems = this.stateSearch
-        ? this.states.filter(s => 
-            s.name.toLowerCase().includes(this.stateSearch.toLowerCase()) ||
-            s.code.toLowerCase().includes(this.stateSearch.toLowerCase())
-          )
-        : this.states;
-      selectedValue = this.address.state;
-      highlightedIndex = this.highlightedStateIndex;
-    }
-
-    // Create or get dropdown element - append to the current root (shadow or document)
-    if (!this.dropdownElement) {
-      // Get the root node where this component is rendered
-      const rootNode = this.getRootNode();
-      
-      // If we're in a shadow DOM, append to that shadow root
-      // Otherwise append to document body
-      const appendTarget = rootNode instanceof ShadowRoot ? rootNode : document.body;
-      
-      this.dropdownElement = document.createElement('div');
-      this.dropdownElement.className = 'sr-dropdown-portal';
-      appendTarget.appendChild(this.dropdownElement);
-    }
-
-    // Position dropdown using fixed positioning relative to viewport
-    const inputRect = input.getBoundingClientRect();
+    // Keep label consistent, let the disabled state speak for itself
+    const labelText = this.loadingStatesList 
+      ? 'State/Province (Loading...)'
+      : 'State/Province';
     
-    this.dropdownElement.style.cssText = `
-      position: fixed;
-      top: ${inputRect.bottom + 2}px;
-      left: ${inputRect.left}px;
-      width: ${inputRect.width}px;
-      z-index: 10002;
-    `;
-
-    // Render dropdown content
-    this.dropdownElement.innerHTML = `
-      <div class="sr-dropdown-list">
-        ${filteredItems.length > 0 ? filteredItems.map((item, index) => `
-          <div class="sr-dropdown-option ${
-            item.code === selectedValue ? 'selected' : ''
-          } ${
-            index === highlightedIndex ? 'highlighted' : ''
-          }" data-value="${item.code}" data-index="${index}">
-            ${item.name}
-          </div>
-        `).join('') : '<div class="sr-dropdown-empty">No results found</div>'}
-      </div>
-    `;
-
-    // Add event listeners - only click events, no hover listeners
-    this.dropdownElement.querySelectorAll('.sr-dropdown-option').forEach((option: Element) => {
-      const element = option as HTMLElement;
-      element.addEventListener('click', () => {
-        const value = element.dataset['value'];
-        if (value) {
-          if (type === 'country') {
-            this.selectCountry(value);
-          } else {
-            this.selectState(value);
-          }
-        }
-      });
-    });
-  }
-
-  private openCountryDropdown(): void {
-    if (this.countryDropdownOpen) return;
-    this.countryDropdownOpen = true;
-    this.countrySearch = '';
-    this.highlightedCountryIndex = -1;
-    this.setupClickOutsideListener();
-    this.requestUpdate(); // Force update to trigger dropdown render
-  }
-
-  private closeCountryDropdown(): void {
-    this.countryDropdownOpen = false;
-    this.countrySearch = '';
-    this.highlightedCountryIndex = -1;
-    // Remove listener when closing
-    document.removeEventListener('click', this.handleGlobalClick, true);
-  }
-
-  private handleCountrySearch(value: string): void {
-    this.countrySearch = value;
-    this.highlightedCountryIndex = 0; // Highlight first result
-  }
-
-  private handleCountryKeydown(e: KeyboardEvent): void {
-    const filteredCountries = this.countrySearch
-      ? this.countries.filter(c => 
-          c.name.toLowerCase().includes(this.countrySearch.toLowerCase()) ||
-          c.code.toLowerCase().includes(this.countrySearch.toLowerCase())
-        )
-      : this.countries;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (!this.countryDropdownOpen) {
-          this.openCountryDropdown();
-        } else {
-          this.highlightedCountryIndex = Math.min(
-            this.highlightedCountryIndex + 1,
-            filteredCountries.length - 1
-          );
-          this.updateDropdownHighlight('country');
-        }
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        this.highlightedCountryIndex = Math.max(this.highlightedCountryIndex - 1, 0);
-        this.updateDropdownHighlight('country');
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (this.countryDropdownOpen && this.highlightedCountryIndex >= 0) {
-          const country = filteredCountries[this.highlightedCountryIndex];
-          if (country) {
-            this.selectCountry(country.code);
-          }
-        } else if (!this.countryDropdownOpen) {
-          this.openCountryDropdown();
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        this.closeCountryDropdown();
-        break;
-      case 'Tab':
-        if (this.countryDropdownOpen) {
-          this.closeCountryDropdown();
-        }
-        break;
-    }
-  }
-
-  private selectCountry(code: string): void {
-    this.handleInputChange('country', code);
-    this.closeCountryDropdown();
-    
-    // Skip focusing on state field - let user tab naturally
-    // This avoids conflicts with password managers and API updates
-    this.handleBlur('country');
-  }
-
-  private renderSearchableStateField(): TemplateResult {
-    const selectedState = this.states.find(s => s.code === this.address.state);
-    const displayValue = this.stateDropdownOpen ? this.stateSearch : (selectedState?.name || '');
-    
-
     return html`
-      <div class="sr-field-group sr-state-select-container">
-        <input
-          type="search"
-          id="state"
-          class="sr-field-input peer ${this.address.state ? 'has-value' : ''}"
-          .value="${displayValue}"
-          .disabled="${this.disabled || this.loadingStatesList}"
-          placeholder=" "
-          autocomplete="address-level1"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded="${this.stateDropdownOpen}"
-          ?readonly="${!this.stateDropdownOpen}"
-          @click="${() => !this.stateDropdownOpen && this.openStateDropdown()}"
-          @focus="${() => !this.stateDropdownOpen && this.openStateDropdown()}"
-          @input="${(e: Event) => {
-            const value = (e.target as HTMLInputElement).value;
-            this.handleStateSearch(value);
-            if (!this.stateDropdownOpen) this.openStateDropdown();
-          }}"
-          @keydown="${(e: KeyboardEvent) => this.handleStateKeydown(e)}"
-        >
-        <label class="sr-field-label" for="state">
-          State/Province${this.loadingStatesList ? ' (Loading...)' : ''}
-        </label>
-        
-      </div>
+      <select
+        id="state"
+        class="sr-field-select peer ${this.address.state ? 'has-value' : ''}"
+        .value="${this.address.state || ''}"
+        .disabled="${isDisabled}"
+        autocomplete="address-level1"
+        @change="${(e: Event) => this.handleInputChange('state', (e.target as HTMLSelectElement).value)}"
+        @blur="${() => this.handleBlur('state')}"
+      >
+        <option value=""></option>
+        ${showPlaceholder ? html`
+          <option value="${this.address.state}" selected>
+            ${this.address.state}
+          </option>
+        ` : ''}
+        ${this.states.map(state => html`
+          <option 
+            value="${state.code}" 
+            ?selected="${state.code === this.address.state}"
+            data-name="${state.name}"
+          >
+            ${state.name}
+          </option>
+        `)}
+      </select>
+      <label class="sr-field-label" for="state">
+        ${labelText}
+      </label>
     `;
-  }
-
-  private openStateDropdown(): void {
-    if (this.stateDropdownOpen) return;
-    if (this.states.length === 0) return;
-    this.stateDropdownOpen = true;
-    this.stateSearch = '';
-    this.highlightedStateIndex = -1;
-    this.setupClickOutsideListener();
-    this.requestUpdate(); // Force update to trigger dropdown render
-  }
-
-  private closeStateDropdown(): void {
-    this.stateDropdownOpen = false;
-    this.stateSearch = '';
-    this.highlightedStateIndex = -1;
-    // Remove listener when closing
-    document.removeEventListener('click', this.handleGlobalClick, true);
-  }
-
-  private handleStateSearch(value: string): void {
-    this.stateSearch = value;
-    this.highlightedStateIndex = 0; // Highlight first result
-  }
-
-  private handleStateKeydown(e: KeyboardEvent): void {
-    const filteredStates = this.stateSearch
-      ? this.states.filter(s => 
-          s.name.toLowerCase().includes(this.stateSearch.toLowerCase()) ||
-          s.code.toLowerCase().includes(this.stateSearch.toLowerCase())
-        )
-      : this.states;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (!this.stateDropdownOpen) {
-          this.openStateDropdown();
-        } else {
-          this.highlightedStateIndex = Math.min(
-            this.highlightedStateIndex + 1,
-            filteredStates.length - 1
-          );
-          this.updateDropdownHighlight('state');
-        }
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        this.highlightedStateIndex = Math.max(this.highlightedStateIndex - 1, 0);
-        this.updateDropdownHighlight('state');
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (this.stateDropdownOpen && this.highlightedStateIndex >= 0) {
-          const state = filteredStates[this.highlightedStateIndex];
-          if (state) {
-            this.selectState(state.code);
-          }
-        } else if (!this.stateDropdownOpen) {
-          this.openStateDropdown();
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        this.closeStateDropdown();
-        break;
-      case 'Tab':
-        if (this.stateDropdownOpen) {
-          this.closeStateDropdown();
-        }
-        break;
-    }
-  }
-
-  private selectState(code: string): void {
-    this.handleInputChange('state', code);
-    this.closeStateDropdown();
-    this.handleBlur('state');
-    // Skip auto-focusing - let user navigate naturally
   }
 
 
@@ -860,6 +583,28 @@ export class AddressForm extends BaseComponent {
           <div class="sr-field-error-message">${this.getFieldError('phone')}</div>
         ` : ''}
       </div>
+    `;
+  }
+
+  private renderSameAsBillingField(): TemplateResult {
+    return html`
+      <label for="same-as-billing-${this.id || 'default'}" class="sr-checkbox-label">
+        <input
+          type="checkbox"
+          id="same-as-billing-${this.id || 'default'}"
+          name="same_as_billing"
+          .checked="${this.sameAsBilling}"
+          @change="${(e: Event) => {
+            const checked = (e.target as HTMLInputElement).checked;
+            this.dispatchEvent(new CustomEvent('same-as-billing-change', {
+              detail: { checked },
+              bubbles: true,
+              composed: true
+            }));
+          }}"
+        >
+        <span class="sr-checkbox-text">Use same address for billing</span>
+      </label>
     `;
   }
 }
