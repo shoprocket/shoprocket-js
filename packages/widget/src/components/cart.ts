@@ -9,6 +9,8 @@ import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import './tooltip';
 import { cartState } from '../core/cart-state';
+import { internalState } from '../core/internal-state';
+import { CookieManager } from '../utils/cookie-manager';
 // Lazy import checkout components only when needed
 import type { CustomerData, CustomerFormErrors } from './customer-form';
 import type { AddressData, AddressFormErrors } from './address-form';
@@ -87,6 +89,18 @@ export class CartWidget extends ShoprocketElement {
   
   @state()
   private errorNotificationSliding: 'in' | 'out' | null = null;
+  
+  @state()
+  private showOrderSuccessMessage = false;
+  
+  @state()
+  private orderDetails: any = null;
+  
+  @state()
+  private showOrderFailureMessage = false;
+  
+  @state()
+  private orderFailureReason: string = '';
   
   // Timeout tracking for cleanup
   private timeouts = new Set<NodeJS.Timeout>();
@@ -992,13 +1006,62 @@ export class CartWidget extends ShoprocketElement {
       this.track(EVENTS.PURCHASE, { order: checkoutResponse });
       
       // Handle successful checkout
+      // Handle successful checkout
+      // Show success in the cart body
+      this.showOrderSuccessMessage = true;
+      this.orderDetails = checkoutResponse;
       
-      // Reset checkout state
+      // Clear cart state and checkout data
+      cartState.clear();
+      
+      // Reset the UI to show empty cart
+      this.cart = null;
       this.exitCheckout();
       
-    } catch (error) {
+      // Regenerate cart token for next order
+      const newToken = CookieManager.regenerateCartToken();
+      internalState.setCartToken(newToken);
+      
+      // Update SDK with new token
+      if (this.sdk) {
+        this.sdk.setCartToken(newToken);
+      }
+      
+      // Force refresh of cart state to ensure clean slate
+      await this.loadCart();
+      
+      // Hide success message after 10 seconds
+      const timeout = setTimeout(() => {
+        this.showOrderSuccessMessage = false;
+        this.orderDetails = null;
+      }, 10000);
+      this.timeouts.add(timeout);
+      
+    } catch (error: any) {
       console.error('Checkout failed:', error);
-      // TODO: Show error message to user
+      
+      // Extract error message
+      let errorMessage = 'Checkout failed. Please try again.';
+      if (error.response?.data?.error?.message) {
+        errorMessage = error.response.data.error.message;
+      } else if (error.data?.error?.message) {
+        errorMessage = error.data.error.message;
+      } else if (error.error?.message) {
+        errorMessage = error.error.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Show error in cart view, not as floating notification
+      this.showOrderFailureMessage = true;
+      this.orderFailureReason = errorMessage;
+      
+      // Auto-hide after 10 seconds
+      const timeout = setTimeout(() => {
+        this.showOrderFailureMessage = false;
+        this.orderFailureReason = '';
+      }, 10000);
+      this.timeouts.add(timeout);
     } finally {
       this.checkoutLoading = false;
     }
@@ -1049,7 +1112,9 @@ export class CartWidget extends ShoprocketElement {
           </button>
         </div>
         <div class="sr-cart-body ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-items` : ''}">
-          ${this.isCheckingOut ? this.renderCheckoutFlow() : this.renderCartItems()}
+          ${this.showOrderSuccessMessage ? this.renderOrderSuccess() : 
+            this.showOrderFailureMessage ? this.renderOrderFailure() :
+            this.isCheckingOut ? this.renderCheckoutFlow() : this.renderCartItems()}
         </div>
         <div class="sr-cart-footer ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-footer` : ''}">
           ${this.isCheckingOut ? this.renderCheckoutFooter() : this.renderCartFooter()}
@@ -1180,6 +1245,58 @@ export class CartWidget extends ShoprocketElement {
       <p class="sr-cart-powered-by">
         Taxes and shipping calculated at checkout
       </p>
+    `;
+  }
+  
+  private renderOrderSuccess(): TemplateResult {
+    return html`
+      <div class="sr-order-success" style="text-align: center; padding: 3rem 1rem;">
+        <svg style="width: 64px; height: 64px; color: var(--color-success, #22c55e); margin: 0 auto 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.5rem;">Order Confirmed!</h2>
+        <p style="color: var(--color-text-muted); margin: 0 0 1rem;">Thank you for your purchase</p>
+        ${this.orderDetails?.order_number ? html`
+          <p style="font-size: 0.875rem; color: var(--color-text-muted); margin: 0 0 2rem;">
+            Order number: <strong>${this.orderDetails.order_number}</strong>
+          </p>
+        ` : ''}
+        <button 
+          class="sr-btn sr-btn-primary"
+          @click="${() => {
+            this.showOrderSuccessMessage = false;
+            this.orderDetails = null;
+            this.closeCart();
+          }}"
+          style="width: 100%; max-width: 200px;"
+        >
+          Continue Shopping
+        </button>
+      </div>
+    `;
+  }
+  
+  private renderOrderFailure(): TemplateResult {
+    return html`
+      <div class="sr-order-failure" style="text-align: center; padding: 3rem 1rem;">
+        <svg style="width: 64px; height: 64px; color: var(--color-danger, #ef4444); margin: 0 auto 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.5rem;">Order Failed</h2>
+        <p style="color: var(--color-text-muted); margin: 0 0 1rem;">${this.orderFailureReason}</p>
+        <button 
+          class="sr-btn sr-btn-primary"
+          @click="${() => {
+            this.showOrderFailureMessage = false;
+            this.orderFailureReason = '';
+            // Go back to review step to try again
+            this.checkoutStep = 'review';
+          }}"
+          style="width: 100%; max-width: 200px;"
+        >
+          Try Again
+        </button>
+      </div>
     `;
   }
 
