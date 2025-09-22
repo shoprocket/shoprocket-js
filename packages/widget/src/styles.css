@@ -510,7 +510,7 @@
     /* All inputs/selects 16px on mobile to prevent zoom */
     .sr-cart-panel input,
     .sr-cart-panel select {
-      font-size: 16px;
+      font-size: 16px!important;
     }
   }
 
