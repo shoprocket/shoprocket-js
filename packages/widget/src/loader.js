@@ -58,7 +58,8 @@
   }
   
   // Append version parameter for cache busting
-  bundleScript.src = bundleUrl + '?v=__SHOPROCKET_VERSION__';
+  var versionParam = bundleUrl.indexOf('?') > -1 ? '&v=__SHOPROCKET_VERSION__' : '?v=__SHOPROCKET_VERSION__';
+  bundleScript.src = bundleUrl + versionParam;
   bundleScript.setAttribute('data-shoprocket-bundle', 'true');
   bundleScript.setAttribute('data-pk', publicKey[1]); // Pass the public key
   
