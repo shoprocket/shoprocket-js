@@ -57,6 +57,7 @@ class CartStateManager {
   private listeners = new Set<StateListener>();
   private updateTimer?: number;
   private sdk: any = null;
+  private pendingFields = new Set<string>(); // Track fields being updated
 
   constructor() {
     // Sync with existing internalState for backward compatibility
@@ -200,6 +201,11 @@ class CartStateManager {
     const newData = { ...this.state.checkoutData, ...cleanedData };
     if (this.isEqual(this.state.checkoutData, newData)) return;
     
+    // Track which fields are being updated
+    Object.keys(cleanedData).forEach(field => {
+      this.pendingFields.add(`checkout.${field}`);
+    });
+    
     this.state.checkoutData = newData;
     this.state.customer = newData; // Keep legacy alias in sync
     this.notifyListeners();
@@ -334,12 +340,14 @@ class CartStateManager {
         payload.billing_address = this.state.billingAddress;
       }
       
-      const updatedData = await this.sdk.cart.updateCheckoutData(payload);
+      await this.sdk.cart.updateCheckoutData(payload);
       
-      // Update checkout state with the response
-      this.setCheckoutData(updatedData);
+      // Don't update UI with response - this prevents race conditions
+      // where slow API responses overwrite user input
+      // We only load from API on initial load or after auth
       
-      // Note: We don't update cart here - checkout data and cart are separate
+      // Clear pending fields to indicate successful sync
+      this.pendingFields.clear();
       
     } catch (error) {
       console.error('Failed to sync cart to API:', error);
