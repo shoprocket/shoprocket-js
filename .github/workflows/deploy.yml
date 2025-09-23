@@ -67,13 +67,13 @@ jobs:
         run: |
           echo "🔄 Clearing Cloudflare cache for widget files..."
           
-          # Clear specific files (loader and bundle) using prefixes to handle query parameters
+          # Clear specific hostnames
+          # TODO: Add "cdn.shoprocket.io" for production
           curl -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json" \
             --data '{
               "hosts": [
-                # "cdn.shoprocket.io", # TODO: clear in production
                 "dev-cdn.shoprocket.io"
               ]
             }'
