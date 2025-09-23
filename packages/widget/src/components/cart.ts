@@ -247,9 +247,10 @@ export class CartWidget extends ShoprocketElement {
     const initialState = this.hashRouter.getCurrentState();
     this.isOpen = initialState.cartOpen;
     
-    // If cart is auto-opened from URL, preload checkout data
+    // If cart is auto-opened from URL, preload checkout data and components
     if (this.isOpen) {
       this.preloadCheckoutData();
+      this.preloadCheckoutComponents();
     }
     
     // Apply initial scroll lock if cart is open
@@ -600,6 +601,21 @@ export class CartWidget extends ShoprocketElement {
     }
   }
   
+  private preloadCheckoutComponents(): void {
+    // Preload checkout components if we have items and not already loading
+    if (this.cart?.items?.length && !this.isCheckingOut && !this.chunkLoading) {
+      // Fire and forget - don't await
+      Promise.all([
+        import('./customer-form'),
+        import('./address-form')
+      ]).then(() => {
+        // Components are now cached for instant loading
+      }).catch(() => {
+        // Ignore errors - it's just a preload optimization
+      });
+    }
+  }
+  
   
   private toggleCart = (): void => {
     if (this.isOpen) {
@@ -612,9 +628,10 @@ export class CartWidget extends ShoprocketElement {
   private openCart(): void {
     this.hashRouter.openCart();
     
-    // Preload checkout data when cart opens (if we have items)
+    // Preload checkout data and components when cart opens (if we have items)
     // This reduces latency when user clicks checkout
     this.preloadCheckoutData();
+    this.preloadCheckoutComponents();
     
     // Track cart opened
     this.track(EVENTS.CART_OPENED, this.cart);
