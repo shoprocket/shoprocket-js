@@ -72,9 +72,9 @@ jobs:
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json" \
             --data '{
-              "files": [
-                "https://dev-cdn.shoprocket.io/shoprocket.js",
-                "https://cdn.shoprocket.io/shoprocket.js"
+              "prefix": [
+                "dev-cdn.shoprocket.io/shoprocket.js",
+                "cdn.shoprocket.io/shoprocket.js"
               ]
             }'
           
