@@ -18,7 +18,7 @@
   window.__ShoprocketInit = true;
   
   // Alert for testing caching on mobile/iOS
-  alert('Shoprocket loader.js executed - testing cache behavior');
+  alert('Shoprocket loader.js loaded - testing cache behavior');
   
   // Get current script element and extract parameters
   var currentScript = document.currentScript;
