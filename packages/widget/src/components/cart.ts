@@ -102,6 +102,9 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private orderFailureReason: string = '';
   
+  // Track if checkout data has been loaded
+  private checkoutDataLoaded = false;
+  
   // Timeout tracking for cleanup
   private timeouts = new Set<NodeJS.Timeout>();
   
@@ -240,16 +243,14 @@ export class CartWidget extends ShoprocketElement {
     // Load cart first
     await this.loadCart();
     
-    // Only load checkout data if cart indicates there is checkout data
-    if (this.cart?.has_checkout_data) {
-      await this.loadCheckoutData();
-      // Don't auto-enter checkout on page load - let user click checkout button
-      // This provides better UX on page refresh
-    }
-    
     // Set initial cart state from hash
     const initialState = this.hashRouter.getCurrentState();
     this.isOpen = initialState.cartOpen;
+    
+    // If cart is auto-opened from URL, preload checkout data
+    if (this.isOpen) {
+      this.preloadCheckoutData();
+    }
     
     // Apply initial scroll lock if cart is open
     if (this.isOpen) {
@@ -577,11 +578,25 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private async loadCheckoutData(): Promise<void> {
+    // Skip if already loaded
+    if (this.checkoutDataLoaded) return;
+    
     try {
       await cartState.loadCheckoutData();
+      this.checkoutDataLoaded = true;
     } catch (err) {
       console.error('Failed to load checkout data:', err);
       // It's ok if checkout data load fails - might be a new cart
+    }
+  }
+  
+  private preloadCheckoutData(): void {
+    // Preload checkout data if we have items and not already in checkout
+    if (this.cart?.items?.length && !this.isCheckingOut && !this.checkoutDataLoaded) {
+      // Fire and forget - don't await
+      this.loadCheckoutData().catch(() => {
+        // Ignore errors - it's just a preload optimization
+      });
     }
   }
   
@@ -596,6 +611,10 @@ export class CartWidget extends ShoprocketElement {
   
   private openCart(): void {
     this.hashRouter.openCart();
+    
+    // Preload checkout data when cart opens (if we have items)
+    // This reduces latency when user clicks checkout
+    this.preloadCheckoutData();
     
     // Track cart opened
     this.track(EVENTS.CART_OPENED, this.cart);
@@ -614,10 +633,12 @@ export class CartWidget extends ShoprocketElement {
     this.chunkLoading = true;
     
     try {
-      // Lazy load checkout components only when needed
+      // Lazy load checkout components and data in parallel
       await Promise.all([
         import('./customer-form'),
-        import('./address-form')
+        import('./address-form'),
+        // Always try to load checkout data when starting checkout
+        this.loadCheckoutData()
       ]);
       
       this.isCheckingOut = true;
@@ -636,6 +657,11 @@ export class CartWidget extends ShoprocketElement {
     this.customerErrors = {};
     this.shippingErrors = {};
     this.billingErrors = {};
+    
+    // Reset checkout data flag after successful order completion
+    if (this.showOrderSuccessMessage) {
+      this.checkoutDataLoaded = false;
+    }
   }
 
   private nextCheckoutStep(): void {

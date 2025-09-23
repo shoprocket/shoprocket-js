@@ -92,6 +92,12 @@ export class ProductCatalog extends ShoprocketElement {
   private loadingPages: Map<number, Promise<void>> = new Map();
   // AbortController for cancelling product detail loading
   private productLoadAbortController?: AbortController;
+  
+  // Store individually loaded products separately to avoid conflicts
+  private individualProducts: Map<string, Product> = new Map();
+  
+  // Analytics tracking
+  private currentTrackedPage = 0;
 
   private savedScrollPosition = 0;
   private hashRouter!: HashRouter;
@@ -103,19 +109,25 @@ export class ProductCatalog extends ShoprocketElement {
 
   private async updateViewFromState(state: HashState): Promise<void> {
     if (state.view === 'product' && state.productSlug) {
-      // Extract page from params
-      const targetPage = state.params['page'] ? parseInt(state.params['page'], 10) : 1;
+      // Set view to product immediately to prevent list from showing
+      this.currentView = 'product';
+      this.currentProductSlug = state.productSlug;
       
-      // Update current page
-      this.currentPage = targetPage;
-      
-      // Ensure the page is loaded
-      await this.loadProducts(targetPage);
-      
-      // Show the product
-      if (this.currentView !== 'product' || this.currentProductSlug !== state.productSlug) {
-        await this.showProductBySlug(state.productSlug);
+      // If we have a page parameter, use it
+      if (state.params['page']) {
+        const targetPage = parseInt(state.params['page'], 10);
+        this.currentPage = targetPage;
+        
+        // Ensure the page is loaded before showing the product
+        if (!this.loadedPages.has(targetPage)) {
+          await this.loadProducts(targetPage);
+        }
       }
+      // If no page parameter, we need to find which page the product is on
+      // showProductBySlug will handle loading the product and finding its page
+      
+      // Now show the product
+      await this.showProductBySlug(state.productSlug);
       
     } else if (this.currentView === 'product') {
       // Transitioning FROM product view to list
@@ -140,6 +152,25 @@ export class ProductCatalog extends ShoprocketElement {
     if (!this.isPrimary) {
       await this.loadProducts(this.currentPage);
     }
+  }
+  
+  protected override updated(_changedProperties: PropertyValues): void {
+    super.updated(_changedProperties);
+    
+    // Track view_item_list when list view is shown for a new page
+    if (this.currentView === 'list' && this.currentPage !== this.currentTrackedPage) {
+      const pageProducts = this.getPageProducts();
+      if (pageProducts.length > 0) {
+        this.track(EVENTS.VIEW_ITEM_LIST, {
+          items: pageProducts,
+          item_list_name: this.category || 'All Products',
+          item_list_id: `page_${this.currentPage}`
+        });
+        this.currentTrackedPage = this.currentPage;
+      }
+    }
+    
+    // Note: view_item tracking is handled by the product-detail component itself
   }
   
   private async loadProducts(page: number = 1): Promise<void> {
@@ -186,14 +217,6 @@ export class ProductCatalog extends ShoprocketElement {
           } else if (response.meta?.pagination) {
             this.totalPages = response.meta.pagination.total_pages;
           }
-        }
-        
-        // Track product list view
-        if (products.length > 0) {
-          this.track(EVENTS.VIEW_ITEM_LIST, { 
-            items: products,
-            item_list_name: this.category || 'All Products'
-          });
         }
         
         this.clearError();
@@ -387,8 +410,34 @@ export class ProductCatalog extends ShoprocketElement {
   }
   
   private getCurrentProduct(): Product | undefined {
-    // Use the product at the current index
-    return this.allProducts.get(this.currentProductIndex);
+    if (!this.currentProductSlug) return undefined;
+    
+    // First check individually loaded products
+    const individualProduct = this.individualProducts.get(this.currentProductSlug);
+    if (individualProduct) {
+      return individualProduct;
+    }
+    
+    // Then try to get the product at the current index
+    const productAtIndex = this.allProducts.get(this.currentProductIndex);
+    
+    // Verify it's the correct product by checking the slug
+    if (productAtIndex) {
+      const productSlug = productAtIndex.slug || productAtIndex.id;
+      if (productSlug === this.currentProductSlug) {
+        return productAtIndex;
+      }
+    }
+    
+    // If not found at index, search all paginated products
+    for (const [, product] of this.allProducts) {
+      const productSlug = product.slug || product.id;
+      if (productSlug === this.currentProductSlug) {
+        return product;
+      }
+    }
+    
+    return undefined;
   }
 
   private getPrevProduct(): Product | null {
@@ -606,24 +655,51 @@ export class ProductCatalog extends ShoprocketElement {
     // Save current scroll position
     this.savedScrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
     
-    this.currentProductSlug = productSlug;
-    this.currentView = 'product';
+    // Only update if not already set (to avoid triggering re-renders)
+    if (this.currentProductSlug !== productSlug) {
+      this.currentProductSlug = productSlug;
+    }
+    if (this.currentView !== 'product') {
+      this.currentView = 'product';
+    }
     
     // Try to find the product in our loaded products
     let targetIndex = this.findProductIndex(productSlug);
     
-    // Always load full product details (even if we have it in the list)
-    await this.loadFullProduct(productSlug);
+    // Check if we already have the full product details
+    const existingProduct = targetIndex !== -1 ? this.allProducts.get(targetIndex) : undefined;
+    const hasFullDetails = existingProduct && existingProduct.description !== undefined;
     
-    // If it wasn't in our list before, find its index now
-    if (targetIndex === -1) {
-      targetIndex = this.findProductIndex(productSlug);
+    // Only load full product if we don't have it or it's missing details
+    if (!hasFullDetails) {
+      await this.loadFullProduct(productSlug);
+      
+      // If it wasn't in our list before, find its index now
+      if (targetIndex === -1) {
+        targetIndex = this.findProductIndex(productSlug);
+      }
     }
     
+    // If we still don't have an index, the product might be on a different page
+    // In this case, we've already loaded the full product details, so just show it
     if (targetIndex !== -1) {
       this.currentProductIndex = targetIndex;
+      
+      // Calculate which page this product is on
+      const pageSize = this.limit || 12;
+      const productPage = Math.floor(targetIndex / pageSize) + 1;
+      
+      // Update current page if needed
+      if (this.currentPage !== productPage) {
+        this.currentPage = productPage;
+      }
+      
       // Ensure adjacent products are loaded
       await this.ensureProductLoaded(targetIndex);
+    } else {
+      // Product loaded but not in our paginated list
+      // This happens when navigating directly to a product URL without page info
+      // We have the full product loaded, so it will still display correctly
     }
   }
   
@@ -654,14 +730,15 @@ export class ProductCatalog extends ShoprocketElement {
         // Find which page this product would be on based on its position in the catalog
         // This requires knowing its position, which we might not have...
         // For now, just ensure we can display it
-        const existingIndex = this.findProductIndex(fullProduct.slug || fullProduct.id);
+        const productKey = fullProduct.slug || fullProduct.id;
+        const existingIndex = this.findProductIndex(productKey);
+        
+        // Always store in individualProducts to avoid conflicts
+        this.individualProducts.set(productKey, fullProduct);
+        
         if (existingIndex === -1) {
-          // Product not in our loaded set, add it temporarily
-          // We'll need to load the correct page to get its actual position
-          // For now, just store it so we can display it
-          const tempIndex = this.allProducts.size;
-          this.allProducts.set(tempIndex, fullProduct);
-          this.currentProductIndex = tempIndex;
+          // Product not in our paginated set
+          // Don't set a specific index - let getCurrentProduct find it
         } else {
           // Update the existing product with full details
           this.allProducts.set(existingIndex, fullProduct);

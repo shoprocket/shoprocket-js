@@ -119,7 +119,7 @@ export class ProductDetail extends ShoprocketElement {
           this.selectedVariant = this.product.variants[0];
         }
         
-        // Track product view
+        // Track product view - sanitizer will format it properly
         this.track(EVENTS.VIEW_ITEM, this.product);
         
         // Check if in cart
