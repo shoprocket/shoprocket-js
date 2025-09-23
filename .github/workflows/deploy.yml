@@ -73,8 +73,8 @@ jobs:
             -H "Content-Type: application/json" \
             --data '{
               "files": [
-                "https://cdn.shoprocket.io/*shoprocket.js*",
-                "https://dev-cdn.shoprocket.io/*shoprocket.js*"
+                "https://dev-cdn.shoprocket.io/shoprocket.js",
+                "https://cdn.shoprocket.io/shoprocket.js"
               ]
             }'
           
