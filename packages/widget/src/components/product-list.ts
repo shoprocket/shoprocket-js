@@ -1,6 +1,5 @@
 import { html, type TemplateResult } from 'lit';
 import type { Product } from '../types/api';
-import { skeleton } from '../utils/skeleton';
 import { formatProductPrice } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
@@ -27,10 +26,17 @@ export class ProductListTemplates {
       isLoadingItem: (key: string) => boolean;
     }
   ): TemplateResult {
-    // Show skeleton loaders while loading
-    if (isLoading && !products.length) {
-      return ProductListTemplates.renderSkeletonGrid(limit);
-    }
+    // Create skeleton products for initial loading
+    const displayProducts = isLoading && !products.length
+      ? Array(limit || 12).fill(null).map((_, i) => ({
+          id: `skeleton-${i}`,
+          name: '',
+          price: 0,
+          media: [null],
+          in_stock: true,
+          quick_add_eligible: true
+        } as any))
+      : products;
 
     // Empty content for when no products are found
     const emptyContent = !isLoading && !products.length && !errorMessage ? html`
@@ -53,33 +59,15 @@ export class ProductListTemplates {
           ${successMessage}
         </div>
       ` : ''}
-      <div class="sr-product-grid" data-shoprocket="product-list">
-        ${products.length > 0 
-          ? products.map(product => ProductListTemplates.renderProduct(product, addedToCartProducts, handlers))
+      <div class="sr-product-grid" data-shoprocket="product-list" ?data-loading="${isLoading}">
+        ${displayProducts.length > 0 
+          ? displayProducts.map(product => ProductListTemplates.renderProduct(product, addedToCartProducts, handlers))
           : emptyContent
         }
       </div>
     `;
   }
 
-  static renderSkeletonGrid(limit: number): TemplateResult {
-    const skeletonCount = limit ? Math.min(limit, 8) : 6;
-    
-    return html`
-      <div class="sr-product-grid" data-shoprocket="product-list-skeleton">
-        ${Array(skeletonCount).fill(0).map(() => html`
-          <div class="sr-product-card-skeleton">
-            ${skeleton('image')}
-            <div class="sr-product-card-skeleton-content">
-              ${skeleton('title')}
-              ${skeleton('price')}
-              ${skeleton('button')}
-            </div>
-          </div>
-        `)}
-      </div>
-    `;
-  }
 
   static renderProduct(
     product: Product,
@@ -93,49 +81,49 @@ export class ProductListTemplates {
       isLoadingItem: (key: string) => boolean;
     }
   ): TemplateResult {
+    // Check if this is a skeleton product
+    const isSkeleton = product.id.startsWith('skeleton-');
+    
     // Let the API determine if quick add is eligible - it knows about variants, options, etc.
-    const needsOptions = product.quick_add_eligible === false;
+    const needsOptions = !isSkeleton && product.quick_add_eligible === false;
     const loadingKey = needsOptions ? `viewProduct-${product.id}` : `addToCart-${product.id}`;
-    const isLoading = handlers.isLoadingItem(loadingKey);
-    const isAdded = addedToCartProducts.has(product.id);
-    const isOutOfStock = product.in_stock === false;
+    const isLoading = !isSkeleton && handlers.isLoadingItem(loadingKey);
+    const isAdded = !isSkeleton && addedToCartProducts.has(product.id);
+    const isOutOfStock = !isSkeleton && product.in_stock === false;
     
     // Check if all available stock is already in cart
-    const stockStatus = isAllStockInCart(
+    const stockStatus = !isSkeleton ? isAllStockInCart(
       product.id, 
       product.default_variant_id, 
       product.inventory_count
-    );
+    ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
     
     return html`
       <article class="sr-product-card">
         <div class="sr-product-image-container"
-             @click="${() => handlers.handleProductClick(product)}">
-          <!-- Skeleton for list image -->
-          <div class="sr-skeleton" data-skeleton></div>
-          <!-- First image -->
-          <img 
-            src="${handlers.getMediaUrl(product.media?.[0])}" 
-            alt="${product.name}" 
-            class="sr-product-image sr-product-image-primary ${product.media?.[1] ? 'has-hover' : ''}"
-            @load="${(e: Event) => {
-              const img = e.target as HTMLImageElement;
-              img.classList.add('loaded');
-              // Hide skeleton
-              const skeleton = img.parentElement?.querySelector('[data-skeleton]');
-              if (skeleton) skeleton.remove();
-            }}"
-            @error="${(e: Event) => handlers.handleImageError(e)}"
-          >
-          <!-- Second image (shown on hover if available) -->
-          ${product.media?.[1] ? html`
+             @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">
+          ${!isSkeleton && product.media?.[0] ? html`
+            <!-- First image -->
             <img 
-              src="${handlers.getMediaUrl(product.media[1])}" 
-              alt="${product.name} - Image 2" 
-              class="sr-product-image sr-product-image-hover"
+              src="${handlers.getMediaUrl(product.media[0])}" 
+              alt="${product.name}" 
+              class="sr-product-image sr-product-image-primary ${product.media[1] ? 'has-hover' : ''}"
+              @load="${(e: Event) => {
+                const img = e.target as HTMLImageElement;
+                img.classList.add('loaded');
+              }}"
               @error="${(e: Event) => handlers.handleImageError(e)}"
             >
+            <!-- Second image (shown on hover if available) -->
+            ${product.media[1] ? html`
+              <img 
+                src="${handlers.getMediaUrl(product.media[1])}" 
+                alt="${product.name} - Image 2" 
+                class="sr-product-image sr-product-image-hover"
+                @error="${(e: Event) => handlers.handleImageError(e)}"
+              >
+            ` : ''}
           ` : ''}
         </div>
         
@@ -143,10 +131,10 @@ export class ProductListTemplates {
         <div class="sr-card-content">
           <div class="sr-product-info">
             <h3 class="sr-product-title"
-                @click="${() => handlers.handleProductClick(product)}">${product.name}</h3>
+                @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">${isSkeleton ? '' : product.name}</h3>
             
             <div>
-              <span class="sr-product-price">${formatProductPrice(product as any)}</span>
+              <span class="sr-product-price">${isSkeleton ? '' : formatProductPrice(product as any)}</span>
             </div>
           </div>
           
@@ -154,10 +142,11 @@ export class ProductListTemplates {
           <div class="sr-product-actions">
             <button 
               class="sr-button ${isAdded ? 'sr-button-success' : 'sr-button-primary'}"
-              @click="${(e: Event) => { e.stopPropagation(); handlers.handleAddToCart(product); }}"
-              ?disabled="${isOutOfStock || allStockInCart}"
+              @click="${(e: Event) => { e.stopPropagation(); !isSkeleton && handlers.handleAddToCart(product); }}"
+              ?disabled="${isSkeleton || isOutOfStock || allStockInCart}"
             >
-              ${isOutOfStock ? 'Out of Stock' : 
+              ${isSkeleton ? '' : 
+                isOutOfStock ? 'Out of Stock' : 
                 allStockInCart ? `Max (${product.inventory_count}) in cart` :
                 isAdded ? html`
                   <span class="sr-button-content">

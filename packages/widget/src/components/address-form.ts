@@ -43,6 +43,8 @@ const cachedStates = new Map<string, State[]>();
  * Address Form Component - Reusable address collection form with modern floating labels
  */
 export class AddressForm extends BaseComponent {
+  @property({ type: String })
+  type: 'shipping' | 'billing' = 'shipping';
   // Use Light DOM to avoid nested shadow DOMs
   protected override createRenderRoot(): HTMLElement {
     return this;
@@ -244,7 +246,7 @@ export class AddressForm extends BaseComponent {
   private handleInputChange(field: keyof AddressData, value: string, isAutofill = false): void {
     const updatedAddress = {
       ...this.address,
-      [field]: value || undefined
+      [field]: value  // Keep empty strings to allow clearing fields
     };
 
     if (field === 'country' && value && value !== this.currentCountryCode) {
@@ -277,7 +279,7 @@ export class AddressForm extends BaseComponent {
 
   private handleBlur(field: keyof AddressData): void {
     this.dispatchEvent(new CustomEvent('address-validate', {
-      detail: { field, address: this.address },
+      detail: { field, address: this.address, type: this.type || 'shipping' },
       bubbles: true,
       composed: true
     }));

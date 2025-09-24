@@ -11,6 +11,7 @@ import './tooltip';
 import { cartState } from '../core/cart-state';
 import { internalState } from '../core/internal-state';
 import { CookieManager } from '../utils/cookie-manager';
+import { validateForm, hasErrors, requiresState, ValidationRules } from '../core/validation';
 // Lazy import checkout components only when needed
 import type { CustomerData, CustomerFormErrors } from './customer-form';
 import type { AddressData, AddressFormErrors } from './address-form';
@@ -578,9 +579,9 @@ export class CartWidget extends ShoprocketElement {
     });
   }
 
-  private async loadCheckoutData(): Promise<void> {
-    // Skip if already loaded
-    if (this.checkoutDataLoaded) return;
+  private async loadCheckoutData(forceReload = false): Promise<void> {
+    // Skip if already loaded (unless forced)
+    if (this.checkoutDataLoaded && !forceReload) return;
     
     try {
       await cartState.loadCheckoutData();
@@ -700,6 +701,11 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private getCheckoutStepTitle(): string {
+    // Special case: if we're on customer step and showing OTP form
+    if (this.checkoutStep === 'customer' && this.loginLinkSent) {
+      return 'Enter verification code';
+    }
+    
     switch (this.checkoutStep) {
       case 'customer': return 'Contact Info';
       case 'shipping': return 'Shipping Address';
@@ -707,6 +713,23 @@ export class CartWidget extends ShoprocketElement {
       case 'payment': return 'Payment';
       case 'review': return 'Review Order';
       default: return 'Checkout';
+    }
+  }
+
+  private handleBackButton(): void {
+    // Special case: if showing OTP form, go back to contact form
+    if (this.checkoutStep === 'customer' && this.loginLinkSent) {
+      this.loginLinkSent = false;
+      this.otpCode = '';
+      this.otpError = '';
+      return;
+    }
+    
+    // Otherwise handle normal back navigation
+    if (this.checkoutStep === 'customer') {
+      this.exitCheckout();
+    } else {
+      this.previousCheckoutStep();
     }
   }
 
@@ -735,10 +758,7 @@ export class CartWidget extends ShoprocketElement {
     this.customerErrors = {}; // Clear errors on change
   }
   
-  private handleCustomerValidate(): void {
-    // Cart state handles debouncing and API sync automatically
-    // No need to manually call debouncedUpdate
-  }
+  
 
   private handleCustomerCheck(e: CustomEvent): void {
     const { email } = e.detail;
@@ -888,8 +908,8 @@ export class CartWidget extends ShoprocketElement {
         this.otpError = ''; // Clear any error
         this.customerCheckResult = undefined; // Clear check result
         
-        // Load the checkout data which now contains the customer's saved details
-        await this.loadCheckoutData();
+        // Force reload the checkout data which now contains the customer's saved details
+        await this.loadCheckoutData(true);
         
         // Move to shipping step automatically since we have their data
         this.checkoutStep = 'shipping';
@@ -950,10 +970,6 @@ export class CartWidget extends ShoprocketElement {
     this.shippingErrors = {}; // Clear errors on change
   }
   
-  private handleAddressValidate(): void {
-    // Cart state handles debouncing and API sync automatically
-    // No need to manually call debouncedUpdate
-  }
 
   private handleBillingAddressChange(e: CustomEvent): void {
     const { address } = e.detail;
@@ -965,76 +981,66 @@ export class CartWidget extends ShoprocketElement {
 
   // Cart state now handles all debouncing and API synchronization
 
-  private validateStep(step: string): boolean {
-    switch (step) {
-      case 'customer':
-        this.customerErrors = {};
-        if (!this.customerData.email) {
-          this.customerErrors.email = 'Email is required';
-        }
-        if (this.isGuest && !this.customerData.first_name) {
-          this.customerErrors.first_name = 'First name is required';
-        }
-        if (this.isGuest && !this.customerData.last_name) {
-          this.customerErrors.last_name = 'Last name is required';
-        }
-        return Object.keys(this.customerErrors).length === 0;
-
-      case 'shipping':
-        this.shippingErrors = {};
-        if (!this.shippingAddress.line1) {
-          this.shippingErrors.line1 = 'Address is required';
-        }
-        if (!this.shippingAddress.city) {
-          this.shippingErrors.city = 'City is required';
-        }
-        if (!this.shippingAddress.postal_code) {
-          this.shippingErrors.postal_code = 'Postal code is required';
-        }
-        if (!this.shippingAddress.country) {
-          this.shippingErrors.country = 'Country is required';
-        }
-        return Object.keys(this.shippingErrors).length === 0;
-
-      case 'billing':
-        if (this.sameAsBilling) return true;
-        
-        this.billingErrors = {};
-        if (!this.billingAddress.line1) {
-          this.billingErrors.line1 = 'Address is required';
-        }
-        if (!this.billingAddress.city) {
-          this.billingErrors.city = 'City is required';
-        }
-        if (!this.billingAddress.postal_code) {
-          this.billingErrors.postal_code = 'Postal code is required';
-        }
-        if (!this.billingAddress.country) {
-          this.billingErrors.country = 'Country is required';
-        }
-        return Object.keys(this.billingErrors).length === 0;
-
-      default:
-        return true;
-    }
-  }
-
   private handleStepNext(): void {
-    if (!this.validateStep(this.checkoutStep)) {
-      return; // Validation failed, don't proceed
+    // Validate based on current step
+    if (this.checkoutStep === 'customer') {
+      // Define validation schema for customer
+      const schema = {
+        email: ['required' as const, 'email' as const],
+        first_name: this.isGuest ? ['required' as const] : [],
+        last_name: this.isGuest ? ['required' as const] : [],
+        phone: ['phone' as const]
+      };
+      
+      this.customerErrors = validateForm(this.customerData, schema) as CustomerFormErrors;
+      
+      if (hasErrors(this.customerErrors)) {
+        this.requestUpdate();
+        return;
+      }
+    } else if (this.checkoutStep === 'shipping') {
+      // Define validation schema for shipping address
+      const schema = {
+        line1: ['required' as const],
+        city: ['required' as const],
+        postal_code: ['required' as const, ValidationRules.postalCode(this.shippingAddress.country)],
+        country: ['required' as const],
+        state: requiresState(this.shippingAddress.country || '') ? ['required' as const] : []
+      };
+      
+      this.shippingErrors = validateForm(this.shippingAddress, schema) as AddressFormErrors;
+      
+      if (hasErrors(this.shippingErrors)) {
+        this.requestUpdate();
+        return;
+      }
+    } else if (this.checkoutStep === 'billing' && !this.sameAsBilling) {
+      // Define validation schema for billing address
+      const schema = {
+        line1: ['required' as const],
+        city: ['required' as const],
+        postal_code: ['required' as const, ValidationRules.postalCode(this.billingAddress.country)],
+        country: ['required' as const],
+        state: requiresState(this.billingAddress.country || '') ? ['required' as const] : []
+      };
+      
+      this.billingErrors = validateForm(this.billingAddress, schema) as AddressFormErrors;
+      
+      if (hasErrors(this.billingErrors)) {
+        this.requestUpdate();
+        return;
+      }
     }
 
-    // Cart state automatically syncs data to backend
-    
-    // Navigate immediately
+    // Clear errors and navigate to next step
+    this.customerErrors = {};
+    this.shippingErrors = {};
+    this.billingErrors = {};
     this.nextCheckoutStep();
   }
 
   private async handleCheckoutComplete(): Promise<void> {
-    if (!this.validateStep(this.checkoutStep)) {
-      return;
-    }
-
+    // No validation needed at review step - already validated in previous steps
     this.checkoutLoading = true;
     
     try {
@@ -1139,7 +1145,7 @@ export class CartWidget extends ShoprocketElement {
           ${this.isCheckingOut ? html`
             <button 
               class="sr-cart-back-arrow" 
-              @click="${this.checkoutStep === 'customer' ? this.exitCheckout : this.previousCheckoutStep}"
+              @click="${this.handleBackButton}"
               title="Back"
             >
               ←
@@ -1155,13 +1161,17 @@ export class CartWidget extends ShoprocketElement {
           </button>
         </div>
         <div class="sr-cart-body ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-items` : ''}">
-          ${this.showOrderSuccessMessage ? this.renderOrderSuccess() : 
+          ${this.isCheckingOut && !this.showOrderSuccessMessage && !this.showOrderFailureMessage ? 
+            this.renderCheckoutFlow() :
+            this.showOrderSuccessMessage ? this.renderOrderSuccess() : 
             this.showOrderFailureMessage ? this.renderOrderFailure() :
-            this.isCheckingOut ? this.renderCheckoutFlow() : this.renderCartItems()}
+            this.renderCartItems()}
         </div>
-        <div class="sr-cart-footer ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-footer` : ''}">
-          ${this.isCheckingOut ? this.renderCheckoutFooter() : this.renderCartFooter()}
-        </div>
+        ${!this.showOrderSuccessMessage && !this.showOrderFailureMessage ? html`
+          <div class="sr-cart-footer ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-footer` : ''}">
+            ${this.isCheckingOut ? this.renderCheckoutFooter() : this.renderCartFooter()}
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -1412,6 +1422,68 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private renderCustomerContent(): TemplateResult {
+    // If OTP form is showing, only render the OTP section
+    if (this.loginLinkSent) {
+      return html`
+        <div class="sr-checkout-step">
+          <!-- OTP verification form -->
+          <div class="sr-otp-section">
+            <div class="sr-otp-header">
+              <h4 class="sr-otp-title">Enter verification code</h4>
+              <p class="sr-otp-subtitle">We sent a 6-digit code to ${this.customerData.email}</p>
+            </div>
+            
+            <div class="sr-otp-inputs">
+              ${Array.from({length: 6}, (_, i) => html`
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="1"
+                  class="sr-otp-input ${this.otpError ? 'sr-field-error' : ''}"
+                  .value="${this.otpCode[i] || ''}"
+                  @input="${(e: Event) => this.handleOtpInput(e, i)}"
+                  @keydown="${(e: KeyboardEvent) => this.handleOtpKeydown(e, i)}"
+                  @paste="${(e: ClipboardEvent) => this.handleOtpPaste(e)}"
+                  data-otp-index="${i}"
+                />
+              `)}
+            </div>
+            
+            ${this.otpError ? html`
+              <div class="sr-field-error-message">${this.otpError}</div>
+            ` : ''}
+            
+            ${this.verifyingOtp ? html`
+              <div class="sr-otp-verifying">
+                <span class="sr-spinner"></span> Verifying...
+              </div>
+            ` : ''}
+            
+            <div class="sr-otp-resend">
+              <p>Didn't receive code? 
+                <button class="sr-btn-link" @click="${this.handleResendOtp}">
+                  Resend
+                </button>
+              </p>
+            </div>
+            
+            <!-- Proceed as guest option -->
+            <div class="sr-otp-guest-option">
+              <button class="sr-btn-link" @click="${() => { 
+                this.loginLinkSent = false; 
+                this.otpCode = ''; 
+                this.otpError = '';
+                this.customerCheckResult = undefined; 
+              }}">
+                Continue as guest instead
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Otherwise show the normal customer form flow
     return html`
       <shoprocket-customer-form
           .customer="${this.customerData}"
@@ -1420,7 +1492,6 @@ export class CartWidget extends ShoprocketElement {
           .show-guest-option="${true}"
           .is-guest="${this.isGuest}"
           @customer-change="${this.handleCustomerChange}"
-          @customer-validate="${this.handleCustomerValidate}"
           @customer-check="${this.handleCustomerCheck}"
           @guest-toggle="${(e: CustomEvent) => { this.isGuest = e.detail.isGuest; }}"
         ></shoprocket-customer-form>
@@ -1455,49 +1526,7 @@ export class CartWidget extends ShoprocketElement {
                         </button>
                       </div>
                     </div>
-                  ` : html`
-                    <!-- OTP verification form -->
-                    <div class="sr-otp-section">
-                      <div class="sr-otp-header">
-                        <h4 class="sr-otp-title">Enter verification code</h4>
-                        <p class="sr-otp-subtitle">We sent a 6-digit code to ${this.customerData.email}</p>
-                      </div>
-                      
-                      <div class="sr-otp-inputs">
-                        ${Array.from({length: 6}, (_, i) => html`
-                          <input
-                            type="text"
-                            inputmode="numeric"
-                            maxlength="1"
-                            class="sr-otp-input ${this.otpError ? 'sr-field-error' : ''}"
-                            .value="${this.otpCode[i] || ''}"
-                            @input="${(e: Event) => this.handleOtpInput(e, i)}"
-                            @keydown="${(e: KeyboardEvent) => this.handleOtpKeydown(e, i)}"
-                            @paste="${(e: ClipboardEvent) => this.handleOtpPaste(e)}"
-                            data-otp-index="${i}"
-                          />
-                        `)}
-                      </div>
-                      
-                      ${this.otpError ? html`
-                        <div class="sr-field-error-message">${this.otpError}</div>
-                      ` : ''}
-                      
-                      ${this.verifyingOtp ? html`
-                        <div class="sr-otp-verifying">
-                          <span class="sr-spinner"></span> Verifying...
-                        </div>
-                      ` : ''}
-                      
-                      <div class="sr-otp-resend">
-                        <p>Didn't receive code? 
-                          <button class="sr-btn-link" @click="${this.handleResendOtp}">
-                            Resend
-                          </button>
-                        </p>
-                      </div>
-                    </div>
-                  `}
+                  ` : ''}
                 `;
               
             } else if (this.customerCheckResult.exists && this.customerCheckResult.has_password) {
@@ -1543,64 +1572,20 @@ export class CartWidget extends ShoprocketElement {
                   ` : ''}
 
                   <!-- OTP option -->
-                  ${!this.loginLinkSent ? html`
-                    <button 
-                      class="sr-btn ${this.showPasswordField ? 'sr-btn-secondary' : 'sr-btn-primary'}"
-                      ?disabled="${this.sendingLoginLink}"
-                      @click="${this.handleSendLoginLink}"
-                    >
-                      ${this.sendingLoginLink ? html`
-                        <span class="sr-spinner"></span> Sending...
-                      ` : this.showPasswordField ? 'Use email verification instead' : html`
-                        <svg class="sr-btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        Send Verification Code
-                      `}
-                    </button>
-                  ` : html`
-                    <!-- OTP verification form -->
-                    <div class="sr-otp-section">
-                      <div class="sr-otp-header">
-                        <h4 class="sr-otp-title">Enter verification code</h4>
-                        <p class="sr-otp-subtitle">We sent a 6-digit code to ${this.customerData.email}</p>
-                      </div>
-                      
-                      <div class="sr-otp-inputs">
-                        ${Array.from({length: 6}, (_, i) => html`
-                          <input
-                            type="text"
-                            inputmode="numeric"
-                            maxlength="1"
-                            class="sr-otp-input ${this.otpError ? 'sr-field-error' : ''}"
-                            .value="${this.otpCode[i] || ''}"
-                            @input="${(e: Event) => this.handleOtpInput(e, i)}"
-                            @keydown="${(e: KeyboardEvent) => this.handleOtpKeydown(e, i)}"
-                            @paste="${(e: ClipboardEvent) => this.handleOtpPaste(e)}"
-                            data-otp-index="${i}"
-                          />
-                        `)}
-                      </div>
-                      
-                      ${this.otpError ? html`
-                        <div class="sr-field-error-message">${this.otpError}</div>
-                      ` : ''}
-                      
-                      ${this.verifyingOtp ? html`
-                        <div class="sr-otp-verifying">
-                          <span class="sr-spinner"></span> Verifying...
-                        </div>
-                      ` : ''}
-                      
-                      <div class="sr-otp-resend">
-                        <p>Didn't receive code? 
-                          <button class="sr-btn-link" @click="${this.handleResendOtp}">
-                            Resend
-                          </button>
-                        </p>
-                      </div>
-                    </div>
-                  `}
+                  <button 
+                    class="sr-btn ${this.showPasswordField ? 'sr-btn-secondary' : 'sr-btn-primary'}"
+                    ?disabled="${this.sendingLoginLink}"
+                    @click="${this.handleSendLoginLink}"
+                  >
+                    ${this.sendingLoginLink ? html`
+                      <span class="sr-spinner"></span> Sending...
+                    ` : this.showPasswordField ? 'Use email verification instead' : html`
+                      <svg class="sr-btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                      </svg>
+                      Send Verification Code
+                    `}
+                  </button>
 
                   <!-- Guest checkout is implicit - they just continue with the main button -->
                 `;
@@ -1618,6 +1603,7 @@ export class CartWidget extends ShoprocketElement {
     return html`
       <shoprocket-address-form
         title=""
+        type="shipping"
         .sdk="${this.sdk}"
         .address="${this.shippingAddress}"
         .errors="${this.shippingErrors}"
@@ -1627,8 +1613,7 @@ export class CartWidget extends ShoprocketElement {
         .showSameAsBilling="${true}"
         .sameAsBilling="${this.sameAsBilling}"
         @address-change="${this.handleShippingAddressChange}"
-        @address-validate="${this.handleAddressValidate}"
-        @same-as-billing-change="${(e: CustomEvent) => {
+                @same-as-billing-change="${(e: CustomEvent) => {
           cartState.setSameAsBilling(e.detail.checked);
         }}"
       ></shoprocket-address-form>
@@ -1639,14 +1624,14 @@ export class CartWidget extends ShoprocketElement {
     return html`
       <shoprocket-address-form
           title=""
+          type="billing"
           .sdk="${this.sdk}"
           .address="${this.billingAddress}"
           .errors="${this.billingErrors}"
           .required="${true}"
           .show-name="${false}"
           @address-change="${this.handleBillingAddressChange}"
-          @address-validate="${this.handleAddressValidate}"
-        ></shoprocket-address-form>
+                  ></shoprocket-address-form>
     `;
   }
 
@@ -1736,9 +1721,7 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private renderCheckoutFooter(): TemplateResult {
-    const canProceed = this.checkoutStep === 'customer' ? 
-      this.customerData.email && (!this.isGuest || (this.customerData.first_name && this.customerData.last_name)) :
-      true;
+    const canProceed = true; // Let HTML5 validation handle this
 
     // Show cart summary during checkout
     const subtotal = this.cart?.totals?.subtotal || { amount: 0, currency: 'USD', formatted: '$0.00' };
@@ -1761,7 +1744,7 @@ export class CartWidget extends ShoprocketElement {
         </button>
       ` : html`
         <button 
-          class="sr-cart-checkout-button"
+          class="sr-cart-checkout-button sr-checkout-next-button"
           @click="${this.handleStepNext}"
           ?disabled="${this.checkoutLoading || this.chunkLoading || !canProceed}"
         >
