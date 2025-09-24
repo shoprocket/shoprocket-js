@@ -1,4 +1,4 @@
-import { html, type TemplateResult, type PropertyValues } from 'lit';
+import { html, css, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ApiResponse } from '../types/api';
@@ -44,6 +44,71 @@ import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
  *      data-show="price,title,image"></div>
  */
 export class ProductCatalog extends ShoprocketElement {
+  static override styles = css`
+    /* Skeleton animation and styles for shadow DOM */
+    @keyframes skeleton-shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* Apply skeleton to empty elements when parent has data-loading */
+    [data-loading] :where(h1, h2, h3, p, span):empty {
+      display: block;
+      background: linear-gradient(
+        90deg,
+        rgb(229, 231, 235) 25%,
+        rgb(243, 244, 246) 50%,
+        rgb(229, 231, 235) 75%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      border-radius: 0.25rem;
+    }
+
+    /* Specific sizing */
+    [data-loading] h3:empty { min-height: 1.25rem; width: 75%; }
+    [data-loading] .sr-product-price:empty { min-height: 1rem; width: 5rem; display: inline-block; }
+    [data-loading] button[disabled]:empty { min-height: 2.5rem; width: 100%; }
+
+    /* Disabled buttons skeleton */
+    [data-loading] .sr-button:disabled {
+      color: transparent !important;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    [data-loading] .sr-button:disabled::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        rgb(229, 231, 235) 25%,
+        rgb(243, 244, 246) 50%,
+        rgb(229, 231, 235) 75%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      border-radius: inherit;
+    }
+
+    /* Image containers */
+    [data-loading] .sr-product-image-container::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        rgb(229, 231, 235) 25%,
+        rgb(243, 244, 246) 50%,
+        rgb(229, 231, 235) 75%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      z-index: 1;
+    }
+  `;
+
   // Track primary instance for routing
   private static primaryInstance: ProductCatalog | null = null;
   private isPrimary = false;

@@ -74,10 +74,13 @@ export class CustomerForm extends BaseComponent {
   @state()
   private showNameFields = true;
 
+  private emailCheckTimer?: number;
+  private lastCheckedEmail = '';
+
   private handleInputChange(field: keyof CustomerData, value: string): void {
     const updatedCustomer = {
       ...this.customer,
-      [field]: value || undefined
+      [field]: value  // Keep empty strings to allow clearing fields
     };
 
     // Dispatch change event
@@ -86,23 +89,39 @@ export class CustomerForm extends BaseComponent {
       bubbles: true,
       composed: true
     }));
+
+    // Smart email checking while typing
+    if (field === 'email' && value !== this.lastCheckedEmail) {
+      // Clear existing timer
+      if (this.emailCheckTimer) {
+        clearTimeout(this.emailCheckTimer);
+      }
+
+      // Only check if email looks valid
+      if (value.includes('@') && value.includes('.')) {
+        this.emailCheckTimer = window.setTimeout(() => {
+          this.lastCheckedEmail = value;
+          this.dispatchEvent(new CustomEvent('customer-check', {
+            detail: { email: value },
+            bubbles: true,
+            composed: true
+          }));
+        }, 100); // Check 100ms after typing stops
+      }
+    }
   }
 
   private handleBlur(field: keyof CustomerData): void {
-    // Trigger validation on field blur
-    this.dispatchEvent(new CustomEvent('customer-validate', {
-      detail: { field, customer: this.customer },
-      bubbles: true,
-      composed: true
-    }));
-
-    // If email field, trigger customer check
+    // If email field, trigger customer check (only if not already checked)
     if (field === 'email' && this.customer.email && this.hasValue(this.customer.email)) {
-      this.dispatchEvent(new CustomEvent('customer-check', {
-        detail: { email: this.customer.email },
-        bubbles: true,
-        composed: true
-      }));
+      if (this.customer.email !== this.lastCheckedEmail) {
+        this.lastCheckedEmail = this.customer.email;
+        this.dispatchEvent(new CustomEvent('customer-check', {
+          detail: { email: this.customer.email },
+          bubbles: true,
+          composed: true
+        }));
+      }
     }
   }
 
@@ -146,7 +165,7 @@ export class CustomerForm extends BaseComponent {
 
   protected override render(): TemplateResult {
     return html`
-      <div class="sr-customer-form space-y-3">
+      <form class="sr-customer-form space-y-3" @submit="${(e: Event) => e.preventDefault()}">
         ${this.showGuestOption ? html`
           <!-- Guest/Account Toggle -->
           <div class="sr-guest-toggle">
@@ -180,6 +199,7 @@ export class CustomerForm extends BaseComponent {
             <input
               type="email"
               id="email"
+              name="email"
               class="sr-field-input peer ${this.hasValue(this.customer.email) ? 'has-value' : ''} ${this.getFieldError('email') ? 'sr-field-error' : ''}"
               .value="${this.customer.email || ''}"
               .disabled="${this.disabled}"
@@ -206,6 +226,7 @@ export class CustomerForm extends BaseComponent {
                 <input
                   type="text"
                   id="first_name"
+                  name="first_name"
                   class="sr-field-input peer ${this.hasValue(this.customer.first_name) ? 'has-value' : ''} ${this.getFieldError('first_name') ? 'sr-field-error' : ''}"
                   .value="${this.customer.first_name || ''}"
                   .disabled="${this.disabled}"
@@ -229,6 +250,7 @@ export class CustomerForm extends BaseComponent {
                 <input
                   type="text"
                   id="last_name"
+                  name="last_name"
                   class="sr-field-input peer ${this.hasValue(this.customer.last_name) ? 'has-value' : ''} ${this.getFieldError('last_name') ? 'sr-field-error' : ''}"
                   .value="${this.customer.last_name || ''}"
                   .disabled="${this.disabled}"
@@ -236,7 +258,6 @@ export class CustomerForm extends BaseComponent {
                   placeholder=" "
                   autocomplete="family-name"
                   @input="${(e: Event) => this.handleInputChange('last_name', (e.target as HTMLInputElement).value)}"
-                  @blur="${() => this.handleBlur('last_name')}"
                 >
                 <label class="sr-field-label" for="last_name">
                   Last Name
@@ -298,7 +319,7 @@ export class CustomerForm extends BaseComponent {
             </div>
           ` : ''}
         </div>
-      </div>
+      </form>
     `;
   }
 }

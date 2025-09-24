@@ -141,13 +141,13 @@ class CartStateManager {
   setCheckoutData(data: any): void {
     if (!data) return;
     
-    // Update checkout data fields
+    // Update checkout data fields - preserve empty strings from API
     this.state.checkoutData = {
-      email: data.email || '',
-      first_name: data.first_name || '',
-      last_name: data.last_name || '',
-      phone: data.phone || '',
-      company: data.company || ''
+      email: data.email ?? '',
+      first_name: data.first_name ?? '',
+      last_name: data.last_name ?? '',
+      phone: data.phone ?? '',
+      company: data.company ?? ''
     };
     
     // Keep legacy alias in sync
@@ -294,9 +294,13 @@ class CartStateManager {
    * Check if we have changes to sync
    */
   private hasChanges(): boolean {
-    // We always have changes if we have checkout data with email
-    // Since cart and checkout data are now separate, we can't compare against cart
-    return !!this.state.checkoutData.email;
+    // Check if any checkout data exists (even empty strings)
+    // This ensures clearing fields gets synced to API
+    const hasCheckoutData = Object.keys(this.state.checkoutData).length > 0;
+    const hasShippingData = Object.keys(this.state.shippingAddress).length > 0;
+    const hasBillingData = Object.keys(this.state.billingAddress).length > 0;
+    
+    return hasCheckoutData || hasShippingData || hasBillingData;
   }
 
   /**
@@ -318,10 +322,8 @@ class CartStateManager {
   private async syncToApi(): Promise<void> {
     if (!this.sdk || !this.hasChanges()) return;
     
-    // Only sync if we have minimum required data
-    if (!this.state.checkoutData.email) return;
-    
     try {
+      // Always sync checkout data, even if email is empty (user cleared it)
       const payload: any = {
         ...this.state.checkoutData
         // Don't send same_as_billing - it's UI state only
@@ -363,14 +365,15 @@ class CartStateManager {
   }
 
   /**
-   * Clean object by removing empty string values and undefined
+   * Clean object by removing null and undefined values
+   * Empty strings are kept as they represent intentional clearing
    */
   private cleanObject<T extends Record<string, any>>(obj: T): Partial<T> {
     const cleaned: Partial<T> = {};
     
     for (const [key, value] of Object.entries(obj)) {
-      // Only include non-empty values
-      if (value !== '' && value !== null && value !== undefined) {
+      // Keep empty strings (user cleared the field) but remove null/undefined
+      if (value !== null && value !== undefined) {
         cleaned[key as keyof T] = value;
       }
     }

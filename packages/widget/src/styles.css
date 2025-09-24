@@ -253,17 +253,142 @@
     }
   }
 
-  /* Shimmer/skeleton loader */
-  .sr-skeleton {
+  /* Data-loading skeleton system */
+  @keyframes skeleton-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Apply skeleton effect to all text elements when loading */
+  [data-loading] .sr-product-title,
+  [data-loading] .sr-product-price,
+  [data-loading] .sr-product-detail-title,
+  [data-loading] .sr-product-detail-price,
+  [data-loading] .sr-product-detail-summary {
+    position: relative;
+    color: transparent !important;
+    user-select: none;
+    overflow: hidden;
+  }
+  
+  /* Use ::before for skeleton effect to ensure it always shows */
+  [data-loading] .sr-product-title::before,
+  [data-loading] .sr-product-price::before,
+  [data-loading] .sr-product-detail-title::before,
+  [data-loading] .sr-product-detail-price::before,
+  [data-loading] .sr-product-detail-summary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
     background: linear-gradient(
       90deg,
-      rgb(229 231 235) 0%,
-      rgb(243 244 246) 50%,
-      rgb(229 231 235) 100%
+      rgb(229, 231, 235) 25%,
+      rgb(243, 244, 246) 50%,
+      rgb(229, 231, 235) 75%
     );
     background-size: 200% 100%;
-    animation: srShimmer 1.5s ease-in-out infinite;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-xs, 0.25rem);
+    z-index: 1;
   }
+
+  /* Specific sizing for skeleton elements */
+  [data-loading] .sr-product-title { 
+    min-height: 1.25rem; 
+    width: 75%;
+    display: block;
+  }
+  
+  [data-loading] .sr-product-price { 
+    min-height: 1rem; 
+    width: 5rem; 
+    display: inline-block;
+  }
+  
+  [data-loading] .sr-product-detail-title { 
+    min-height: 2rem; 
+    width: 75%;
+    margin-bottom: 1rem;
+  }
+  
+  [data-loading] .sr-product-detail-price { 
+    min-height: 1.75rem; 
+    width: 6rem;
+    margin-bottom: 1rem;
+  }
+  
+  [data-loading] .sr-product-detail-summary { 
+    min-height: 4rem; 
+    width: 100%;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Button skeletons */
+  [data-loading] .sr-button:disabled,
+  [data-loading] button[disabled] {
+    position: relative;
+    overflow: hidden;
+    color: transparent !important;
+    min-height: 2.5rem;
+  }
+  
+  [data-loading] .sr-button:disabled::before,
+  [data-loading] button[disabled]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      rgb(229, 231, 235) 25%,
+      rgb(243, 244, 246) 50%,
+      rgb(229, 231, 235) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    border-radius: inherit;
+    z-index: 1;
+  }
+
+  /* Image container skeleton - always show when loading */
+  [data-loading] .sr-product-image-container {
+    position: relative;
+    background: linear-gradient(
+      90deg,
+      rgb(229, 231, 235) 25%,
+      rgb(243, 244, 246) 50%,
+      rgb(229, 231, 235) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    overflow: hidden;
+  }
+  
+  /* Media container skeleton */
+  [data-loading] .sr-media-container {
+    position: relative;
+    min-height: 400px;
+    background: linear-gradient(
+      90deg,
+      rgb(229, 231, 235) 25%,
+      rgb(243, 244, 246) 50%,
+      rgb(229, 231, 235) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    overflow: hidden;
+  }
+
+  /* Hide actual images during loading */
+  [data-loading] img {
+    opacity: 0;
+  }
+
+  /* Fade images during pagination for smooth transition */
+  .sr-product-grid[data-loading] .sr-product-image {
+    opacity: 0.3;
+    transition: opacity 0.15s ease-out;
+  }
+
 
   /* Semantic Component Classes */
 
@@ -1170,14 +1295,6 @@
 
 /* No custom utility classes needed - we use Tailwind arbitrary values with CSS variables */
 
-@keyframes srShimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
 
 @keyframes slideIn {
   0% {
@@ -1310,31 +1427,6 @@
   color: var(--color-success, #22c55e);
 }
 
-/* Skeleton Base Styles */
-.sr-skeleton {
-  @apply rounded;
-  /* Animation defined elsewhere */
-}
-
-/* Common skeleton sizes */
-.sr-skeleton { @apply h-4 w-full; } /* Default: text line */
-.sr-skeleton.short { @apply w-3/4; }
-
-/* Specific skeleton types */
-.sr-skeleton-title { @apply h-5 w-3/4 mb-4; }
-.sr-skeleton-price { @apply h-3 w-24 mb-6; }
-.sr-skeleton-button { @apply h-12 w-full; }
-.sr-skeleton-option { @apply h-12 w-20; }
-.sr-skeleton-option-label { @apply h-4 w-20 mb-3; }
-.sr-skeleton-stock { @apply h-4 w-28 mb-6; }
-.sr-skeleton-description-title { @apply h-6 w-32 mb-4; }
-.sr-skeleton-image { @apply relative; aspect-ratio: var(--sr-product-image-aspect-ratio); }
-
-/* Skeleton containers */
-.sr-skeleton-values { @apply flex flex-wrap gap-3; }
-.sr-skeleton-lines { @apply space-y-3; }
-.sr-skeleton-container { /* For components showing skeleton state */ }
-.sr-product-description .sr-skeleton-lines { @apply space-y-2; }
 
 /* Unified Media Container System */
 .sr-media-container {
@@ -1362,16 +1454,16 @@
   transition: opacity 0.3s ease;
 }
 
-.sr-media-skeleton {
+.sr-media-loading {
   @apply absolute inset-0;
   background: linear-gradient(
     90deg,
-    var(--color-skeleton-base, #e5e7eb) 0%,
-    var(--color-skeleton-highlight, #f3f4f6) 50%,
-    var(--color-skeleton-base, #e5e7eb) 100%
+    rgb(229, 231, 235) 25%,
+    rgb(243, 244, 246) 50%,
+    rgb(229, 231, 235) 75%
   );
   background-size: 200% 100%;
-  animation: srShimmer 1.5s ease-in-out infinite;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
 .sr-media-image {
@@ -1874,84 +1966,6 @@
   @apply max-w-md mx-auto;
 }
 
-/* Skeleton Loading States */
-@keyframes sr-skeleton-shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.sr-skeleton {
-  @apply relative overflow-hidden;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.06) 25%,
-    rgba(0, 0, 0, 0.03) 50%,
-    rgba(0, 0, 0, 0.06) 75%
-  );
-  background-size: 200% 100%;
-  animation: sr-skeleton-shimmer 1.5s ease-in-out infinite;
-}
-
-/* Specific skeleton sizes */
-.sr-product-detail-title.sr-skeleton {
-  @apply h-8 w-3/4 rounded;
-}
-
-.sr-product-detail-price.sr-skeleton {
-  @apply h-7 w-32 rounded;
-}
-
-.sr-stock-status.sr-skeleton {
-  @apply h-5 w-24 rounded;
-}
-
-.sr-product-detail-summary.sr-skeleton {
-  @apply h-12 w-full rounded;
-}
-
-.sr-product-option-label.sr-skeleton {
-  @apply h-5 w-16 rounded inline-block;
-}
-
-.sr-variant-option.sr-skeleton {
-  @apply h-10 w-20;
-}
-
-.sr-product-thumbnail.sr-skeleton {
-  @apply h-16 w-16;
-}
-
-.sr-media-container.sr-skeleton {
-  @apply aspect-square bg-gray-100;
-}
-
-.sr-button.sr-skeleton {
-  @apply h-12 w-full;
-}
-
-.sr-product-description .sr-skeleton {
-  @apply h-4 mb-2 rounded;
-}
-
-.sr-product-description h3.sr-skeleton {
-  @apply h-6 w-32 mb-4;
-}
-
-.sr-product-description p.sr-skeleton:nth-child(1) {
-  @apply w-full;
-}
-
-.sr-product-description p.sr-skeleton:nth-child(2) {
-  @apply w-11/12;
-}
-
-.sr-product-description p.sr-skeleton:nth-child(3) {
-  @apply w-4/5;
-}
 
 /* ==========================================
  * ADDRESS FORM COMPONENT STYLES
@@ -2505,6 +2519,9 @@
 
 .sr-otp-resend p {
   @apply text-sm text-gray-600 m-0;
+}
+.sr-otp-guest-option {
+  @apply text-center mt-6 pt-4 border-t border-gray-200;
 }
 
 .sr-notice-text p {

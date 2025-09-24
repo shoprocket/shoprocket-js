@@ -136,10 +136,10 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   protected override render(): TemplateResult {
-    // Render full structure immediately, with skeletons for missing data
+    // Render full structure immediately, with data-loading for skeleton state
 
     return html`
-      <div class="sr-product-detail" data-shoprocket="product-detail">
+      <div class="sr-product-detail" data-shoprocket="product-detail" ?data-loading="${!this.product}">
         <!-- Back Button -->
         ${this.renderBackButton()}
         
@@ -165,17 +165,17 @@ export class ProductDetail extends ShoprocketElement {
             
             <!-- Product Info - Right side -->
             <div class="sr-product-detail-info">
-              <h1 class="sr-product-detail-title ${!this.product ? 'sr-skeleton' : ''}">
+              <h1 class="sr-product-detail-title">
                 ${this.product?.name || ''}
               </h1>
               
-              <div class="sr-product-detail-price ${!this.product ? 'sr-skeleton' : ''}">
+              <div class="sr-product-detail-price">
                 ${this.product ? this.formatProductPrice(this.product) : ''}
               </div>
               
               ${this.renderStockStatus(this.product)}
               
-              <p class="sr-product-detail-summary ${!this.product ? 'sr-skeleton' : ''}">
+              <p class="sr-product-detail-summary">
                 ${this.product?.summary || ''}
               </p>
               
@@ -302,7 +302,7 @@ export class ProductDetail extends ShoprocketElement {
   }
   
   private renderAddToCartButton = (): TemplateResult => {
-    const buttonClasses = `sr-button sr-add-to-cart-button ${!this.product ? 'sr-skeleton' : ''}`;
+    const buttonClasses = `sr-button sr-add-to-cart-button`;
     
     if (!this.product) {
       return html`<button class="${buttonClasses}" disabled></button>`;
@@ -573,9 +573,9 @@ export class ProductDetail extends ShoprocketElement {
 
   private renderMediaContainer(media: any, size: string, alt: string, className: string = '', showSkeleton: boolean = false): TemplateResult {
     if (showSkeleton) {
-      // Pure skeleton - no image
+      // Empty container - CSS will handle skeleton
       return html`
-        <div class="sr-media-container ${className} sr-skeleton"></div>
+        <div class="sr-media-container ${className}"></div>
       `;
     }
     
@@ -607,7 +607,7 @@ export class ProductDetail extends ShoprocketElement {
         @mouseleave="${isMainImage ? () => this.handleMouseLeaveZoom() : null}"
         @mousemove="${isMainImage ? (e: MouseEvent) => this.handleMouseMoveZoom(e) : null}"
       >
-        ${!isLoaded ? html`<div class="sr-media-skeleton"></div>` : ''}
+        ${!isLoaded ? html`<div class="sr-media-loading"></div>` : ''}
         <img 
           src="${url}"
           alt="${alt}"
