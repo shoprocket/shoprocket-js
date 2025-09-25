@@ -1652,68 +1652,161 @@ export class CartWidget extends ShoprocketElement {
 
   private renderReviewContent(): TemplateResult {
     return html`
-        <!-- Order Summary -->
-        <div class="sr-order-summary">
-          <h4>Order Summary</h4>
-          <div class="sr-order-items">
-            ${this.cart?.items?.map(item => html`
-              <div class="sr-order-item">
-                <span class="sr-order-item-name">${item.product_name}</span>
-                <span class="sr-order-item-quantity">×${item.quantity}</span>
-                <span class="sr-order-item-price">${this.formatPrice(item.price)}</span>
-              </div>
-            `)}
+      <div class="sr-review-container">
+        <!-- Order Summary Card -->
+        <div class="sr-review-card">
+          <div class="sr-review-card-header">
+            <div class="sr-review-card-title">
+              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4"></path>
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
+              </svg>
+              <h4>Order Summary</h4>
+            </div>
+            <button class="sr-review-edit-btn" @click="${() => this.exitCheckout()}">
+              Edit
+            </button>
           </div>
           
-          <div class="sr-order-totals">
-            <div class="sr-order-total-line">
-              <span>Subtotal</span>
-              <span>${this.formatPrice(this.cart?.totals?.subtotal)}</span>
+          <div class="sr-review-card-content">
+            <div class="sr-order-items-review">
+              ${this.cart?.items?.map(item => html`
+                <div class="sr-order-item-review">
+                  <div class="sr-order-item-details">
+                    ${item.media?.[0] ? html`
+                      <img 
+                        src="${this.getMediaUrl(item.media[0], 'w=64,h=64,fit=cover')}" 
+                        alt="${item.product_name}" 
+                        class="sr-order-item-image"
+                        @error="${(e: Event) => this.handleImageError(e)}"
+                      >
+                    ` : html`
+                      <div class="sr-order-item-image-placeholder"></div>
+                    `}
+                    <div class="sr-order-item-info">
+                      <span class="sr-order-item-name">${item.product_name}</span>
+                      ${item.variant_name ? html`
+                        <span class="sr-order-item-variant">${item.variant_name}</span>
+                      ` : ''}
+                      <span class="sr-order-item-quantity">Qty: ${item.quantity}</span>
+                    </div>
+                  </div>
+                  <span class="sr-order-item-price">${this.formatPrice(item.price)}</span>
+                </div>
+              `)}
             </div>
-            ${this.cart?.totals?.tax ? html`
+            
+            <div class="sr-order-totals-review">
               <div class="sr-order-total-line">
-                <span>Tax</span>
-                <span>${this.formatPrice(this.cart.totals.tax)}</span>
+                <span>Subtotal</span>
+                <span>${this.formatPrice(this.cart?.totals?.subtotal)}</span>
               </div>
-            ` : ''}
-            ${this.cart?.totals?.shipping ? html`
-              <div class="sr-order-total-line">
-                <span>Shipping</span>
-                <span>${this.formatPrice(this.cart.totals.shipping)}</span>
+              ${this.cart?.totals?.discount && this.cart.totals.discount.amount > 0 ? html`
+                <div class="sr-order-total-line sr-discount-line">
+                  <span>Discount</span>
+                  <span class="sr-discount-amount">-${this.formatPrice(this.cart.totals.discount)}</span>
+                </div>
+              ` : ''}
+              ${this.cart?.totals?.tax ? html`
+                <div class="sr-order-total-line">
+                  <span>Tax</span>
+                  <span>${this.formatPrice(this.cart.totals.tax)}</span>
+                </div>
+              ` : ''}
+              ${this.cart?.totals?.shipping ? html`
+                <div class="sr-order-total-line">
+                  <span>Shipping</span>
+                  <span>${this.formatPrice(this.cart.totals.shipping)}</span>
+                </div>
+              ` : ''}
+              <div class="sr-order-total-final">
+                <span>Total</span>
+                <span class="sr-order-total-amount">${this.formatPrice(this.cart?.totals?.total)}</span>
               </div>
-            ` : ''}
-            <div class="sr-order-total-line sr-order-total-final">
-              <span>Total</span>
-              <span>${this.formatPrice(this.cart?.totals?.total)}</span>
             </div>
           </div>
         </div>
 
-        <!-- Customer & Address Summary -->
-        <div class="sr-checkout-summary">
-          <div class="sr-summary-section">
-            <h5>Contact</h5>
-            <p>${this.customerData.email}</p>
+        <!-- Contact Information Card -->
+        <div class="sr-review-card">
+          <div class="sr-review-card-header">
+            <div class="sr-review-card-title">
+              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <h4>Contact Information</h4>
+            </div>
+            <button class="sr-review-edit-btn" @click="${() => this.checkoutStep = 'customer'}">
+              Edit
+            </button>
           </div>
           
-          <div class="sr-summary-section">
-            <h5>Shipping Address</h5>
-            <div class="sr-summary-address">
+          <div class="sr-review-card-content">
+            <p class="sr-review-value">${this.customerData.email}</p>
+            ${this.customerData.phone ? html`
+              <p class="sr-review-value">${this.customerData.phone}</p>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Shipping Address Card -->
+        <div class="sr-review-card">
+          <div class="sr-review-card-header">
+            <div class="sr-review-card-title">
+              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+              <h4>Shipping Address</h4>
+            </div>
+            <button class="sr-review-edit-btn" @click="${() => this.checkoutStep = 'shipping'}">
+              Edit
+            </button>
+          </div>
+          
+          <div class="sr-review-card-content">
+            <div class="sr-review-address">
               ${this.shippingAddress.name ? html`<p>${this.shippingAddress.name}</p>` : ''}
+              ${this.shippingAddress.company ? html`<p>${this.shippingAddress.company}</p>` : ''}
               <p>${this.shippingAddress.line1}</p>
               ${this.shippingAddress.line2 ? html`<p>${this.shippingAddress.line2}</p>` : ''}
               <p>${this.shippingAddress.city}, ${this.shippingAddress.state} ${this.shippingAddress.postal_code}</p>
               <p>${this.shippingAddress.country}</p>
             </div>
           </div>
+        </div>
+
+        <!-- Billing Address Card -->
+        <div class="sr-review-card">
+          <div class="sr-review-card-header">
+            <div class="sr-review-card-title">
+              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+              <h4>Billing Address</h4>
+            </div>
+            ${!this.sameAsBilling ? html`
+              <button class="sr-review-edit-btn" @click="${() => this.checkoutStep = 'billing'}">
+                Edit
+              </button>
+            ` : ''}
+          </div>
           
-          <div class="sr-summary-section">
-            <h5>Billing Address</h5>
+          <div class="sr-review-card-content">
             ${this.sameAsBilling ? html`
-              <p>Same as shipping address</p>
+              <div class="sr-review-same-address">
+                <svg class="sr-check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Same as shipping address</span>
+              </div>
             ` : html`
-              <div class="sr-summary-address">
+              <div class="sr-review-address">
                 ${this.billingAddress.name ? html`<p>${this.billingAddress.name}</p>` : ''}
+                ${this.billingAddress.company ? html`<p>${this.billingAddress.company}</p>` : ''}
                 <p>${this.billingAddress.line1}</p>
                 ${this.billingAddress.line2 ? html`<p>${this.billingAddress.line2}</p>` : ''}
                 <p>${this.billingAddress.city}, ${this.billingAddress.state} ${this.billingAddress.postal_code}</p>
@@ -1722,6 +1815,35 @@ export class CartWidget extends ShoprocketElement {
             `}
           </div>
         </div>
+
+        <!-- Payment Method Card (placeholder for now) -->
+        <div class="sr-review-card">
+          <div class="sr-review-card-header">
+            <div class="sr-review-card-title">
+              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+              <h4>Payment Method</h4>
+            </div>
+            <button class="sr-review-edit-btn" @click="${() => this.checkoutStep = 'payment'}">
+              Edit
+            </button>
+          </div>
+          
+          <div class="sr-review-card-content">
+            <p class="sr-review-payment-placeholder">Payment will be processed securely</p>
+          </div>
+        </div>
+
+        <!-- Security Notice -->
+        <div class="sr-review-security">
+          <svg class="sr-security-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0110 0v4"></path>
+          </svg>
+          <span>Your information is secure and encrypted</span>
+        </div>
       </div>
     `;
   }
@@ -1729,16 +1851,18 @@ export class CartWidget extends ShoprocketElement {
   private renderCheckoutFooter(): TemplateResult {
     const canProceed = true; // Let HTML5 validation handle this
 
-    // Show cart summary during checkout
+    // Show cart summary during checkout (except review step which shows full breakdown in main content)
     const subtotal = this.cart?.totals?.subtotal || { amount: 0, currency: 'USD', formatted: '$0.00' };
     
     return html`
-      <div class="sr-cart-subtotal">
-        <span class="sr-cart-subtotal-label">Subtotal</span>
-        <span class="sr-cart-subtotal-amount">
-          <span class="sr-cart-total-price">${this.formatPrice(subtotal)}</span>
-        </span>
-      </div>
+      ${this.checkoutStep !== 'review' ? html`
+        <div class="sr-cart-subtotal">
+          <span class="sr-cart-subtotal-label">Subtotal</span>
+          <span class="sr-cart-subtotal-amount">
+            <span class="sr-cart-total-price">${this.formatPrice(subtotal)}</span>
+          </span>
+        </div>
+      ` : ''}
       
       ${this.checkoutStep === 'review' ? html`
         <button 
