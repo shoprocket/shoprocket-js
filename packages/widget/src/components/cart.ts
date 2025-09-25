@@ -11,7 +11,7 @@ import './tooltip';
 import { cartState } from '../core/cart-state';
 import { internalState } from '../core/internal-state';
 import { CookieManager } from '../utils/cookie-manager';
-import { validateForm, hasErrors, requiresState, ValidationRules } from '../core/validation';
+import { validateForm, hasErrors } from '../core/validation';
 // Lazy import checkout components only when needed
 import type { CustomerData, CustomerFormErrors } from './customer-form';
 import type { AddressData, AddressFormErrors } from './address-form';
@@ -248,11 +248,9 @@ export class CartWidget extends ShoprocketElement {
     const initialState = this.hashRouter.getCurrentState();
     this.isOpen = initialState.cartOpen;
     
-    // If cart is auto-opened from URL, preload checkout data and components
-    if (this.isOpen) {
-      this.preloadCheckoutData();
-      this.preloadCheckoutComponents();
-    }
+    // Don't preload checkout data on initial page load, even if cart is open from URL
+    // This prevents unnecessary API calls on page load
+    // Checkout data will be loaded when user actually starts checkout
     
     // Apply initial scroll lock if cart is open
     if (this.isOpen) {
@@ -551,11 +549,12 @@ export class CartWidget extends ShoprocketElement {
           // Update cart state - this will trigger subscription and update UI
           cartState.setCart(cart);
           
-          // If visitor_country is provided and no addresses exist, use it as default
-          if (cart?.visitor_country && !cart.has_shipping_address && !cart.has_billing_address) {
-            cartState.updateShippingAddress({ country: cart.visitor_country });
-            cartState.updateBillingAddress({ country: cart.visitor_country });
-          }
+          // Don't auto-set visitor_country as default - this causes unnecessary API calls on page load
+          // The user can select their country when they get to checkout
+          // if (cart?.visitor_country && !cart.has_shipping_address && !cart.has_billing_address) {
+          //   cartState.updateShippingAddress({ country: cart.visitor_country });
+          //   cartState.updateBillingAddress({ country: cart.visitor_country });
+          // }
           
           // Reset empty state if cart has items
           if (cart?.items?.length > 0) {
@@ -820,6 +819,12 @@ export class CartWidget extends ShoprocketElement {
         this.loginLinkSent = true;
         // Don't auto-hide when showing OTP form - user needs time to enter code
         // The OTP form will clear loginLinkSent when verification is complete or resend is clicked
+        
+        // Auto-focus the first OTP input after render
+        this.updateComplete.then(() => {
+          const firstInput = this.shadowRoot?.querySelector('[data-otp-index="0"]') as HTMLInputElement;
+          firstInput?.focus();
+        });
       }
     } catch (error) {
       console.error('Failed to send authentication:', error);
@@ -982,14 +987,14 @@ export class CartWidget extends ShoprocketElement {
   // Cart state now handles all debouncing and API synchronization
 
   private handleStepNext(): void {
-    // Validate based on current step
+    // Basic validation - just check required fields are not empty
+    // Full validation happens server-side on checkout submit
     if (this.checkoutStep === 'customer') {
-      // Define validation schema for customer
+      // Basic required field check
       const schema = {
         email: ['required' as const, 'email' as const],
         first_name: this.isGuest ? ['required' as const] : [],
-        last_name: this.isGuest ? ['required' as const] : [],
-        phone: ['phone' as const]
+        last_name: this.isGuest ? ['required' as const] : []
       };
       
       this.customerErrors = validateForm(this.customerData, schema) as CustomerFormErrors;
@@ -999,13 +1004,13 @@ export class CartWidget extends ShoprocketElement {
         return;
       }
     } else if (this.checkoutStep === 'shipping') {
-      // Define validation schema for shipping address
+      // Basic required field check - no complex validation
       const schema = {
         line1: ['required' as const],
         city: ['required' as const],
-        postal_code: ['required' as const, ValidationRules.postalCode(this.shippingAddress.country)],
-        country: ['required' as const],
-        state: requiresState(this.shippingAddress.country || '') ? ['required' as const] : []
+        postal_code: ['required' as const],
+        country: ['required' as const]
+        // State requirement will be validated server-side
       };
       
       this.shippingErrors = validateForm(this.shippingAddress, schema) as AddressFormErrors;
@@ -1015,13 +1020,13 @@ export class CartWidget extends ShoprocketElement {
         return;
       }
     } else if (this.checkoutStep === 'billing' && !this.sameAsBilling) {
-      // Define validation schema for billing address
+      // Basic required field check - no complex validation
       const schema = {
         line1: ['required' as const],
         city: ['required' as const],
-        postal_code: ['required' as const, ValidationRules.postalCode(this.billingAddress.country)],
-        country: ['required' as const],
-        state: requiresState(this.billingAddress.country || '') ? ['required' as const] : []
+        postal_code: ['required' as const],
+        country: ['required' as const]
+        // State requirement will be validated server-side
       };
       
       this.billingErrors = validateForm(this.billingAddress, schema) as AddressFormErrors;
@@ -1040,12 +1045,13 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private async handleCheckoutComplete(): Promise<void> {
-    // No validation needed at review step - already validated in previous steps
+    // Server will perform full validation (stock, prices, taxes, addresses, etc.)
+    // and return errors if anything is invalid
     this.checkoutLoading = true;
     
     try {
       // Cart state ensures data is already synced
-      
+      // Server validates everything: stock levels, prices, addresses, etc.
       const checkoutResponse = await this.sdk.cart.checkout({
         payment_method_type: 'card', // Default for now
         locale: 'en'
