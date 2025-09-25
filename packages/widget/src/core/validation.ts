@@ -1,6 +1,6 @@
 /**
- * Centralized validation system for form fields
- * Provides reusable validation rules and utilities
+ * Lightweight validation for immediate UX feedback
+ * Heavy validation happens server-side on checkout submit
  */
 
 export interface ValidationRule {
@@ -9,7 +9,7 @@ export interface ValidationRule {
 }
 
 /**
- * Built-in validation rules
+ * Basic validation rules for instant feedback
  */
 export const ValidationRules = {
   required: {
@@ -20,43 +20,7 @@ export const ValidationRules = {
   email: {
     test: (value: string) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
     message: 'Please enter a valid email'
-  } as ValidationRule,
-  
-  minLength: (min: number): ValidationRule => ({
-    test: (value: string) => !value || value.length >= min,
-    message: `Must be at least ${min} characters`
-  }),
-  
-  maxLength: (max: number): ValidationRule => ({
-    test: (value: string) => !value || value.length <= max,
-    message: `Must be no more than ${max} characters`
-  }),
-  
-  phone: {
-    test: (value: string) => !value || /^[\d\s\-\+\(\)]+$/.test(value),
-    message: 'Please enter a valid phone number'
-  } as ValidationRule,
-  
-  postalCode: (country?: string): ValidationRule => ({
-    test: (value: string) => {
-      if (!value) return false; // Required check happens separately
-      
-      // Country-specific postal code validation
-      const patterns: Record<string, RegExp> = {
-        US: /^\d{5}(-\d{4})?$/,
-        UK: /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i,
-        CA: /^[A-Z]\d[A-Z] ?\d[A-Z]\d$/i,
-        AU: /^\d{4}$/,
-        DE: /^\d{5}$/,
-        FR: /^\d{5}$/,
-        JP: /^\d{3}-?\d{4}$/,
-        // Add more as needed
-      };
-      
-      return country && patterns[country] ? patterns[country].test(value) : true;
-    },
-    message: 'Please enter a valid postal code'
-  })
+  } as ValidationRule
 };
 
 /**
@@ -115,16 +79,4 @@ export function validateForm<T extends Record<string, any>>(
  */
 export function hasErrors<T extends Record<string, any>>(errors: Partial<Record<keyof T, string | null>>): boolean {
   return Object.values(errors).some(error => error !== null);
-}
-
-/**
- * Countries that require state/province
- */
-export const COUNTRIES_WITH_STATES = ['US', 'CA', 'AU', 'BR', 'IN', 'MX'];
-
-/**
- * Check if country requires state/province
- */
-export function requiresState(countryCode: string): boolean {
-  return COUNTRIES_WITH_STATES.includes(countryCode);
 }
