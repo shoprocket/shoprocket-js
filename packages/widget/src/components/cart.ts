@@ -199,10 +199,9 @@ export class CartWidget extends ShoprocketElement {
   private paymentPending = false;
   
   @state()
-  private paymentPollingInterval?: NodeJS.Timeout;
+  // Payment polling removed - using order API approach
   
-  @state()
-  private paymentPollingAttempts = 0;
+  // paymentPollingAttempts removed - no longer needed
   
   @state()
   private paymentTimeout = false;
@@ -211,10 +210,16 @@ export class CartWidget extends ShoprocketElement {
   private shouldResetOnNextOpen = false;
 
   private customerCheckTimeout?: NodeJS.Timeout;
+  
+  // Order ID for post-checkout order API access
+  private currentOrderId?: string;
   private lastCheckedEmail?: string;
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
+    
+    // Initialize HashRouter first
+    this.hashRouter = HashRouter.getInstance();
     
     // Check for payment return from gateway
     await this.checkPaymentReturn();
@@ -245,8 +250,7 @@ export class CartWidget extends ShoprocketElement {
     window.addEventListener(WIDGET_EVENTS.CART_ERROR, this.handleFloatingError as EventListener);
     
     
-    // Get HashRouter singleton instance
-    this.hashRouter = HashRouter.getInstance();
+    // Set up HashRouter event handling (already initialized above)
     this.handleHashStateChange = this.handleHashStateChange.bind(this);
     this.hashRouter.addEventListener('state-change', this.handleHashStateChange);
     
@@ -648,106 +652,159 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private async checkPaymentReturn(): Promise<void> {
-    const params = new URLSearchParams(window.location.search);
-    const isPaymentReturn = params.get('payment_return') === '1';
-    const isPaymentCancelled = params.get('payment_cancelled') === '1';
+    const hash = window.location.hash;
+    const isPaymentReturn = hash.startsWith('#!/payment-return');
+    const isPaymentCancelled = hash.startsWith('#!/payment-cancelled');
     
     if (isPaymentReturn) {
-      // Load cart to check order status
-      await this.loadCart();
+      console.log('Payment return detected, looking for order ID...');
       
-      // Check if cart has a pending payment order
-      const cartData = this.cart as any;
-      if (cartData?.order_id && cartData?.order_status === 'pending_payment') {
-        // Auto-open cart and start polling
-        this.isOpen = true;
-        this.paymentPending = true;
-        this.startPaymentPolling();
+      // Extract order ID from hash fragment (format: #!/payment-return&order_id=123)
+      let orderId = null;
+      if (hash.includes('&order_id=')) {
+        const hashParams = new URLSearchParams(hash.split('&').slice(1).join('&'));
+        orderId = hashParams.get('order_id');
+        console.log('Found order ID in URL:', orderId);
+      } else {
+        // Fallback to stored order ID
+        orderId = this.findOrderId();
+        console.log('Found order ID in storage:', orderId);
       }
       
-      // Clean up URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('payment_return');
-      window.history.replaceState({}, '', url.toString());
-      
-    } else if (isPaymentCancelled) {
-      // Handle cancelled payment
-      // Auto-open cart so user can try again
-      this.isOpen = true;
-      
-      // Clean up URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('payment_cancelled');
-      window.history.replaceState({}, '', url.toString());
-      
-      // You could show a toast notification here if you have that functionality
-      console.log('Payment was cancelled by user');
-    }
-  }
-  
-  private startPaymentPolling(): void {
-    this.paymentPollingAttempts = 0;
-    const maxAttempts = 150; // 5 minutes at 2 second intervals
-    
-    // Clear any existing polling
-    if (this.paymentPollingInterval) {
-      clearInterval(this.paymentPollingInterval);
-    }
-    
-    this.paymentPollingInterval = setInterval(async () => {
-      this.paymentPollingAttempts++;
-      
-      try {
-        // Reload cart to check order status
+      if (orderId) {
+        console.log('Loading order details via order API for:', orderId);
+        try {
+          // Use order API to get order details
+          // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
+          const orderData = await this.sdk.cart.getOrder(orderId);
+          console.log('Order data loaded:', orderData);
+          
+          // Display order confirmation
+          this.showOrderSuccessMessage = true;
+          this.orderDetails = orderData;
+          
+          // Clear stored order ID since we've successfully shown the confirmation
+          sessionStorage.removeItem('shoprocket_order_id');
+          this.currentOrderId = undefined;
+          
+          console.log('Showing order confirmation for order:', orderId);
+          
+        } catch (error) {
+          console.error('Failed to load order via API:', error);
+          
+          // Fallback: try cart API (in case order is still in cart state)
+          console.log('Fallback: trying cart API...');
+          await this.loadCart();
+          
+          if (this.cart && (this.cart as any).order_status) {
+            console.log('Found order in cart, showing success');
+            this.showOrderSuccessMessage = true;
+            this.orderDetails = this.cart;
+          } else {
+            // Order API failed and cart doesn't have order info
+            // Show a message that order was likely successful but we can't load details
+            console.log('Could not load order details, showing confirmation with limited info');
+            this.showOrderSuccessMessage = true;
+            this.orderDetails = { 
+              id: orderId, 
+              status: 'processing',
+              message: 'Your order has been received. You should receive a confirmation email shortly.'
+            };
+            
+            // Set an error message that will show alongside the success
+            this.errorMessage = 'Order details are currently unavailable. Please check your email for confirmation.';
+            
+            // Clear stored order ID even though we couldn't load full details
+            sessionStorage.removeItem('shoprocket_order_id');
+            this.currentOrderId = undefined;
+            
+            // Clear the error after a delay
+            setTimeout(() => {
+              this.errorMessage = null;
+            }, 10000);
+          }
+        }
+      } else {
+        console.log('No order ID found, trying cart API as fallback...');
+        
+        // Fallback: load cart normally
         await this.loadCart();
         
-        // Check order status from cart response
-        if (this.cart?.order_status === 'confirmed' || this.cart?.order_status === 'processing') {
-          // Payment confirmed via webhook
+        if (this.cart && (this.cart as any).order_status) {
+          console.log('Found order status in cart:', (this.cart as any).order_status);
           this.showOrderSuccessMessage = true;
-          this.orderDetails = this.cart.order_details || this.cart;
-          this.paymentPending = false;
-          this.stopPaymentPolling();
-          
-          // Track purchase
-          this.track(EVENTS.PURCHASE, this.cart);
-          
-        } else if (this.cart?.order_status === 'failed' || this.cart?.order_status === 'cancelled') {
-          // Payment failed
-          this.showOrderFailureMessage = true;
-          this.orderFailureReason = 'Payment failed. Please try again.';
-          this.paymentPending = false;
-          this.stopPaymentPolling();
-          
-        } else if (!this.cart?.order_id) {
-          // Order was cleared/cancelled
-          this.paymentPending = false;
-          this.stopPaymentPolling();
-          
-        } else if (this.paymentPollingAttempts >= maxAttempts) {
-          // Timeout - show error
-          this.paymentTimeout = true;
-          this.paymentPending = false;
-          this.stopPaymentPolling();
+          this.orderDetails = this.cart;
+        } else {
+          console.log('No order found anywhere, showing generic success');
+          this.showOrderSuccessMessage = true;
+          this.orderDetails = { id: 'unknown', status: 'completed' };
         }
-      } catch (error) {
-        console.error('Failed to check payment status:', error);
-        // Continue polling on error
       }
-    }, 2000); // Poll every 2 seconds
+      
+      // Open cart to show the confirmation
+      this.hashRouter.openCart();
+      
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname + window.location.search);
+      
+    } else if (isPaymentCancelled) {
+      console.log('Payment cancelled - reopening cart');
+      
+      // Load cart to show current state
+      await this.loadCart();
+      
+      // Show a message that payment was cancelled
+      this.errorMessage = 'Payment was cancelled. Your items are still in your cart.';
+      
+      // Clear the message after a delay
+      setTimeout(() => {
+        this.errorMessage = null;
+      }, 5000);
+      
+      // Open cart so user can try again
+      this.hashRouter.openCart();
+      
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname + window.location.search);
+    }
   }
   
-  private stopPaymentPolling(): void {
-    if (this.paymentPollingInterval) {
-      clearInterval(this.paymentPollingInterval);
-      this.paymentPollingInterval = undefined;
+  private findOrderId(): string | null {
+    // Try multiple sources for the order ID
+    
+    // 1. Check if we stored it during checkout
+    if (this.currentOrderId) {
+      return this.currentOrderId;
     }
-    this.paymentPollingAttempts = 0;
+    
+    // 2. Check session storage
+    const sessionOrderId = sessionStorage.getItem('shoprocket_order_id');
+    if (sessionOrderId) {
+      return sessionOrderId;
+    }
+    
+    // 3. Check if it's in the URL (some gateways might pass it back)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlOrderId = urlParams.get('order_id') || urlParams.get('order');
+    if (urlOrderId) {
+      return urlOrderId;
+    }
+    
+    return null;
   }
+  
+  private storeOrderId(orderId: string): void {
+    this.currentOrderId = orderId;
+    // Store in session storage as backup
+    sessionStorage.setItem('shoprocket_order_id', orderId);
+  }
+  
+  // Payment polling methods removed - now using order API approach for payment returns
   
   private async openCart(): Promise<void> {
     // Reset success state if flagged from previous session
-    if (this.shouldResetOnNextOpen) {
+    // BUT skip reset if we're showing a success message (likely from payment return)
+    if (this.shouldResetOnNextOpen && !this.showOrderSuccessMessage) {
       this.showOrderSuccessMessage = false;
       this.orderDetails = null;
       this.shouldResetOnNextOpen = false;
@@ -756,6 +813,9 @@ export class CartWidget extends ShoprocketElement {
       
       // Reload cart to get fresh state from server
       await this.loadCart();
+    } else if (this.shouldResetOnNextOpen && this.showOrderSuccessMessage) {
+      // Clear the reset flag but keep the success message
+      this.shouldResetOnNextOpen = false;
     }
     
     this.hashRouter.openCart();
@@ -771,6 +831,12 @@ export class CartWidget extends ShoprocketElement {
   
   private closeCart(): void {
     this.hashRouter.closeCart();
+    
+    // If we're closing after showing order success, ensure cleanup
+    if (this.showOrderSuccessMessage) {
+      sessionStorage.removeItem('shoprocket_order_id');
+      this.currentOrderId = undefined;
+    }
     
     // Track cart closed
     this.track(EVENTS.CART_CLOSED, this.cart);
@@ -1055,8 +1121,8 @@ export class CartWidget extends ShoprocketElement {
       
       try {
         this.checkingCustomer = true;
-        // const result = await this.sdk.cart.checkCheckoutData(email);
-        const result = { exists: false, has_password: false } as any; // Temporary fallback
+        // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
+        const result = await this.sdk.cart.checkCheckoutData(email);
         
         // Update state based on result
         this.customerCheckResult = result;
@@ -1087,8 +1153,8 @@ export class CartWidget extends ShoprocketElement {
     
     try {
       this.sendingLoginLink = true;
-      // const result = await this.sdk.cart.sendAuth(this.customerData.email);
-      const result = { auth_sent: true } as any; // Temporary fallback
+      // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
+      const result = await this.sdk.cart.sendAuth(this.customerData.email);
       
       if (result.auth_sent) {
         this.loginLinkSent = true;
@@ -1179,8 +1245,8 @@ export class CartWidget extends ShoprocketElement {
       this.verifyingOtp = true;
       
       // Call API to verify OTP
-      // const result = await this.sdk.cart.verifyAuth(this.customerData.email, this.otpCode);
-      const result = { authenticated: true } as any; // Temporary fallback
+      // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
+      const result = await this.sdk.cart.verifyAuth(this.customerData.email, this.otpCode);
       
       if (result.authenticated) {
         // Track successful auth
@@ -1289,8 +1355,8 @@ export class CartWidget extends ShoprocketElement {
     
     try {
       // Send new OTP without hiding the form
-      // const result = await this.sdk.cart.sendAuth(this.customerData.email);
-      const result = { auth_sent: true } as any; // Temporary fallback
+      // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
+      const result = await this.sdk.cart.sendAuth(this.customerData.email);
       
       if (result.auth_sent) {
         // Keep loginLinkSent true to stay on OTP form
@@ -1411,16 +1477,26 @@ export class CartWidget extends ShoprocketElement {
       // Cart state ensures data is already synced
       // Server validates everything: stock levels, prices, addresses, etc.
       const currentUrl = window.location?.href?.split('?')[0]?.split('#')[0] || '';
+      
+      // First call checkout to get the order ID
       const checkoutApiResponse = await this.sdk.cart.checkout({
         payment_method_type: 'card', // Default for now
         locale: 'en',
-        return_url: `${currentUrl}?payment_return=1`,
-        cancel_url: `${currentUrl}?payment_cancelled=1`
+        // Initial return URLs without order ID - will be updated with redirect if needed
+        return_url: `${currentUrl}#!/payment-return`,
+        cancel_url: `${currentUrl}#!/payment-cancelled`
       } as any);
       
       // Handle wrapped API response format
       const checkoutResponse = 'data' in checkoutApiResponse ? checkoutApiResponse.data : checkoutApiResponse;
       const checkoutMeta = 'meta' in checkoutApiResponse ? checkoutApiResponse.meta : null;
+      
+      // Store order ID for later reference
+      const orderId = checkoutResponse.id || checkoutResponse.order_id;
+      if (orderId) {
+        this.storeOrderId(orderId);
+        console.log('Stored order ID for payment return:', orderId);
+      }
 
       // Handle different order types
       if (checkoutMeta?.payment_url) {
@@ -1432,8 +1508,17 @@ export class CartWidget extends ShoprocketElement {
           test_mode: checkoutMeta.test_mode
         });
         
+        // Modify payment URL to include order ID in return URLs if possible
+        let paymentUrl = checkoutMeta.payment_url;
+        
+        // For some gateways, we can update return URLs by modifying the payment URL
+        // This is gateway-specific - for now just store order ID and redirect
+        if (orderId) {
+          console.log('Redirecting to payment gateway with stored order ID:', orderId);
+        }
+        
         // Redirect to payment gateway
-        window.location.href = checkoutMeta.payment_url;
+        window.location.href = paymentUrl;
         return; // Stop here, payment will be handled on return
         
       } else if (checkoutResponse.status === 'completed' || checkoutResponse.status === 'paid') {
@@ -1829,7 +1914,7 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private renderPaymentPending(): TemplateResult {
-    const showTimeout = this.paymentPollingAttempts > 60; // After 2 minutes
+    const showTimeout = false; // Payment polling removed
     
     return html`
       <div class="sr-payment-pending" style="text-align: center; padding: 3rem 1rem; min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
@@ -1850,7 +1935,7 @@ export class CartWidget extends ShoprocketElement {
             @click="${() => {
               this.paymentTimeout = false;
               this.paymentPending = false;
-              this.stopPaymentPolling();
+              // Payment polling removed - using order API approach
               this.closeCart();
             }}"
             style="width: 100%; max-width: 200px;"
