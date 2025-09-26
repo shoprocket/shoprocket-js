@@ -190,6 +190,9 @@ export class CartWidget extends ShoprocketElement {
   
   @state()
   private otpError = '';
+  
+  @state()
+  private resendingOtp = false;
 
   private customerCheckTimeout?: NodeJS.Timeout;
   private lastCheckedEmail?: string;
@@ -661,14 +664,46 @@ export class CartWidget extends ShoprocketElement {
       this.isCheckingOut = true;
       this.checkoutStep = 'customer';
       
-      // Track checkout started
-      this.track(EVENTS.BEGIN_CHECKOUT, this.cart);
+      // Track checkout started with enhanced data
+      this.track(EVENTS.BEGIN_CHECKOUT, {
+        cart: this.cart,
+        items_count: this.cart?.items?.length || 0,
+        cart_value: this.cart?.totals?.total?.amount,
+        currency: this.cart?.currency
+      });
+      
+      // Track viewing first step with specific event
+      this.track(EVENTS.CHECKOUT_CONTACT_VIEWED, {
+        step_name: 'contact_information',
+        step_number: 1,
+        total_steps: this.sameAsBilling ? 4 : 5,
+        cart_value: this.cart?.totals?.total?.amount
+      });
     } finally {
       this.chunkLoading = false;
     }
   }
 
   private exitCheckout(): void {
+    const wasOnStep = this.checkoutStep;
+    
+    // Track checkout abandonment (unless it's after successful order)
+    if (!this.showOrderSuccessMessage && wasOnStep) {
+      const stepNames: Record<string, string> = {
+        'customer': 'contact_information',
+        'shipping': 'shipping_address', 
+        'billing': 'billing_address',
+        'payment': 'payment_method',
+        'review': 'order_review'
+      };
+      
+      this.track(EVENTS.CHECKOUT_ABANDONED, {
+        abandoned_at_step: stepNames[wasOnStep] || wasOnStep,
+        cart_value: this.cart?.totals?.total?.amount,
+        items_count: this.cart?.items?.length || 0
+      });
+    }
+    
     this.isCheckingOut = false;
     this.checkoutStep = 'customer';
     this.customerErrors = {};
@@ -679,6 +714,33 @@ export class CartWidget extends ShoprocketElement {
     if (this.showOrderSuccessMessage) {
       this.checkoutDataLoaded = false;
     }
+  }
+
+  private getStepEventName(step: string, type: 'viewed' | 'completed'): string {
+    const eventMap: Record<string, Record<'viewed' | 'completed', string>> = {
+      'customer': {
+        'viewed': EVENTS.CHECKOUT_CONTACT_VIEWED,
+        'completed': EVENTS.CHECKOUT_CONTACT_COMPLETED
+      },
+      'shipping': {
+        'viewed': EVENTS.CHECKOUT_SHIPPING_VIEWED,
+        'completed': EVENTS.CHECKOUT_SHIPPING_COMPLETED
+      },
+      'billing': {
+        'viewed': EVENTS.CHECKOUT_BILLING_VIEWED,
+        'completed': EVENTS.CHECKOUT_BILLING_COMPLETED
+      },
+      'payment': {
+        'viewed': EVENTS.CHECKOUT_PAYMENT_VIEWED,
+        'completed': EVENTS.CHECKOUT_PAYMENT_COMPLETED
+      },
+      'review': {
+        'viewed': EVENTS.CHECKOUT_REVIEW_VIEWED,
+        'completed': EVENTS.CHECKOUT_REVIEW_COMPLETED
+      }
+    };
+    
+    return eventMap[step]?.[type] || `checkout_${step}_${type}`;
   }
 
   private nextCheckoutStep(): void {
@@ -694,7 +756,38 @@ export class CartWidget extends ShoprocketElement {
     if (currentIndex >= 0 && currentIndex < steps.length - 1) {
       const nextStep = steps[currentIndex + 1];
       if (nextStep) {
+        const previousStep = this.checkoutStep;
+        
+        // Map internal step names to readable names
+        const stepNames: Record<string, string> = {
+          'customer': 'contact_information',
+          'shipping': 'shipping_address',
+          'billing': 'billing_address', 
+          'payment': 'payment_method',
+          'review': 'order_review'
+        };
+        
+        // Track completion of current step with specific event
+        this.track(this.getStepEventName(previousStep, 'completed'), {
+          step_name: stepNames[previousStep],
+          step_number: steps.indexOf(previousStep) + 1,
+          next_step: stepNames[nextStep],
+          total_steps: steps.length,
+          cart_value: this.cart?.totals?.total?.amount,
+          progress_percentage: Math.round(((steps.indexOf(nextStep) + 1) / steps.length) * 100)
+        });
+        
+        // Move to next step
         this.checkoutStep = nextStep;
+        
+        // Track viewing the new step with specific event
+        this.track(this.getStepEventName(nextStep, 'viewed'), {
+          step_name: stepNames[nextStep],
+          step_number: steps.indexOf(nextStep) + 1,
+          from_step: stepNames[previousStep],
+          total_steps: steps.length,
+          cart_value: this.cart?.totals?.total?.amount
+        });
       }
     }
   }
@@ -745,6 +838,27 @@ export class CartWidget extends ShoprocketElement {
     if (currentIndex > 0 && currentIndex < steps.length) {
       const previousStep = steps[currentIndex - 1];
       if (previousStep) {
+        const fromStep = this.checkoutStep;
+        
+        // Map internal step names to readable names
+        const stepNames: Record<string, string> = {
+          'customer': 'contact_information',
+          'shipping': 'shipping_address',
+          'billing': 'billing_address',
+          'payment': 'payment_method',
+          'review': 'order_review'
+        };
+        
+        // Track going back
+        this.track(EVENTS.CHECKOUT_STEP_BACK, {
+          from_step: stepNames[fromStep],
+          to_step: stepNames[previousStep],
+          step_number: steps.indexOf(previousStep) + 1,
+          total_steps: steps.length,
+          cart_value: this.cart?.totals?.total?.amount
+        });
+        
+        // Move back to previous step
         this.checkoutStep = previousStep;
       }
     }
@@ -755,6 +869,29 @@ export class CartWidget extends ShoprocketElement {
     // Update cart state instead of local state
     cartState.updateCheckoutData(customer);
     this.customerErrors = {}; // Clear errors on change
+    
+    // Track customer data entry
+    if (customer.email && customer.email !== this.customerData.email) {
+      this.track(EVENTS.CHECKOUT_EMAIL_ENTERED, {
+        step: 'customer',
+        has_account: this.customerCheckResult?.exists || false
+      });
+    }
+    
+    if (customer.first_name && customer.last_name && 
+        (customer.first_name !== this.customerData.first_name || 
+         customer.last_name !== this.customerData.last_name)) {
+      this.track(EVENTS.CHECKOUT_NAME_ENTERED, {
+        step: 'customer',
+        is_guest: this.isGuest
+      });
+    }
+    
+    if (customer.phone && customer.phone !== this.customerData.phone) {
+      this.track(EVENTS.CHECKOUT_PHONE_ENTERED, {
+        step: 'customer'
+      });
+    }
   }
   
   
@@ -810,6 +947,13 @@ export class CartWidget extends ShoprocketElement {
 
   private async handleSendLoginLink(): Promise<void> {
     if (!this.customerData.email || this.sendingLoginLink) return;
+    
+    // Track auth request
+    this.track(EVENTS.CHECKOUT_AUTH_REQUESTED, {
+      email: this.customerData.email,
+      step: 'customer',
+      method: 'otp'
+    });
     
     try {
       this.sendingLoginLink = true;
@@ -907,6 +1051,13 @@ export class CartWidget extends ShoprocketElement {
       const result = await this.sdk.cart.verifyAuth(this.customerData.email, this.otpCode);
       
       if (result.authenticated) {
+        // Track successful auth
+        this.track(EVENTS.CHECKOUT_AUTH_SUCCESS, {
+          email: this.customerData.email,
+          step: 'customer',
+          method: 'otp'
+        });
+        
         // Success - customer is now linked to cart
         this.loginLinkSent = false;
         this.otpCode = '';
@@ -918,7 +1069,32 @@ export class CartWidget extends ShoprocketElement {
         
         // Move to shipping step automatically since we have their data
         this.checkoutStep = 'shipping';
+        
+        // Track auto-advance after authentication
+        this.track(EVENTS.CHECKOUT_CONTACT_COMPLETED, {
+          step_name: 'contact_information',
+          step_number: 1,
+          next_step: 'shipping_address',
+          total_steps: this.sameAsBilling ? 4 : 5,
+          auto_advance: true,
+          reason: 'authenticated_user'
+        });
+        
+        this.track(EVENTS.CHECKOUT_SHIPPING_VIEWED, {
+          step_name: 'shipping_address',
+          step_number: 2,
+          from_step: 'contact_information',
+          total_steps: this.sameAsBilling ? 4 : 5
+        });
       } else {
+        // Track failed auth
+        this.track(EVENTS.CHECKOUT_AUTH_FAILED, {
+          email: this.customerData.email,
+          step: 'customer',
+          method: 'otp',
+          error: 'invalid_code'
+        });
+        
         // Invalid OTP
         const errorMessage = result.message || 'Invalid verification code. Please try again.';
         this.otpError = errorMessage;
@@ -962,10 +1138,41 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private async handleResendOtp(): Promise<void> {
+    // Track OTP resend
+    this.track(EVENTS.CHECKOUT_AUTH_RESENT, {
+      email: this.customerData.email,
+      step: 'customer'
+    });
+    
+    // Clear the OTP code and error, but keep the form visible
     this.otpCode = '';
     this.otpError = '';
-    this.loginLinkSent = false;
-    await this.handleSendLoginLink();
+    this.resendingOtp = true;
+    
+    // Clear all input fields
+    this.updateComplete.then(() => {
+      const inputs = this.shadowRoot?.querySelectorAll('.sr-otp-input') as NodeListOf<HTMLInputElement>;
+      inputs.forEach(input => input.value = '');
+    });
+    
+    try {
+      // Send new OTP without hiding the form
+      const result = await this.sdk.cart.sendAuth(this.customerData.email);
+      
+      if (result.auth_sent) {
+        // Keep loginLinkSent true to stay on OTP form
+        // Just focus the first input again
+        this.updateComplete.then(() => {
+          const firstInput = this.shadowRoot?.querySelector('[data-otp-index="0"]') as HTMLInputElement;
+          firstInput?.focus();
+        });
+      }
+    } catch (error) {
+      console.error('Failed to resend authentication:', error);
+      this.otpError = 'Failed to resend code. Please try again.';
+    } finally {
+      this.resendingOtp = false;
+    }
   }
 
   private handleShippingAddressChange(e: CustomEvent): void {
@@ -973,6 +1180,15 @@ export class CartWidget extends ShoprocketElement {
     // Update cart state instead of local state
     cartState.updateShippingAddress(address);
     this.shippingErrors = {}; // Clear errors on change
+    
+    // Track shipping address entry (only when complete)
+    if (address.line1 && address.city && address.postal_code && address.country) {
+      this.track(EVENTS.CHECKOUT_SHIPPING_ENTERED, {
+        step: 'shipping',
+        country: address.country,
+        has_line2: !!address.line2
+      });
+    }
   }
   
 
@@ -981,6 +1197,15 @@ export class CartWidget extends ShoprocketElement {
     // Update cart state instead of local state
     cartState.updateBillingAddress(address);
     this.billingErrors = {}; // Clear errors on change
+    
+    // Track billing address entry (only when complete and not same as shipping)
+    if (!this.sameAsBilling && address.line1 && address.city && address.postal_code && address.country) {
+      this.track(EVENTS.CHECKOUT_BILLING_ENTERED, {
+        step: 'billing',
+        country: address.country,
+        different_from_shipping: true
+      });
+    }
   }
 
 
@@ -1085,15 +1310,18 @@ export class CartWidget extends ShoprocketElement {
       // Force refresh of cart state to ensure clean slate
       await this.loadCart();
       
-      // Hide success message after 10 seconds
-      const timeout = setTimeout(() => {
-        this.showOrderSuccessMessage = false;
-        this.orderDetails = null;
-      }, 10000);
-      this.timeouts.add(timeout);
+      // Don't auto-hide success message - let user dismiss it
+      // Users need time to read/screenshot their order details
       
     } catch (error: any) {
       console.error('Checkout failed:', error);
+      
+      // Track checkout error
+      this.track(EVENTS.CHECKOUT_ERROR, {
+        step: 'review',
+        error_type: 'checkout_failed',
+        error_message: error.message || 'Unknown error'
+      });
       
       // Extract error message
       let errorMessage = 'Checkout failed. Please try again.';
@@ -1173,7 +1401,7 @@ export class CartWidget extends ShoprocketElement {
             this.showOrderFailureMessage ? this.renderOrderFailure() :
             this.renderCartItems()}
         </div>
-        ${!this.showOrderSuccessMessage && !this.showOrderFailureMessage ? html`
+        ${!this.showOrderSuccessMessage && !this.showOrderFailureMessage && this.cart?.items?.length ? html`
           <div class="sr-cart-footer ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-footer` : ''}">
             ${this.isCheckingOut ? this.renderCheckoutFooter() : this.renderCartFooter()}
           </div>
@@ -1213,6 +1441,10 @@ export class CartWidget extends ShoprocketElement {
             <img 
               src="${this.getMediaUrl(item.image, 'w=128,h=128,fit=cover')}" 
               alt="${item.product_name}"
+              @load="${(e: Event) => {
+                const img = e.target as HTMLImageElement;
+                img.classList.add('loaded');
+              }}"
               @error="${(e: Event) => this.handleImageError(e)}"
             >
           </div>
@@ -1308,18 +1540,90 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private renderOrderSuccess(): TemplateResult {
+    // Extract data from API response structure
+    const orderData = this.orderDetails?.data || this.orderDetails;
+    const customerEmail = orderData?.customer?.email || this.customerData.email;
+    
     return html`
-      <div class="sr-order-success" style="text-align: center; padding: 3rem 1rem;">
-        <svg style="width: 64px; height: 64px; color: var(--color-success, #22c55e); margin: 0 auto 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
+      <div class="sr-order-success" style="text-align: center; padding: 2rem 1rem;">
+        <!-- Success icon with filled green background -->
+        <div style="width: 80px; height: 80px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+          <svg style="width: 40px; height: 40px; color: var(--color-success, #22c55e);" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+          </svg>
+        </div>
+        
         <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.5rem;">Order Confirmed!</h2>
-        <p style="color: var(--color-text-muted); margin: 0 0 1rem;">Thank you for your purchase</p>
-        ${this.orderDetails?.order_number ? html`
-          <p style="font-size: 0.875rem; color: var(--color-text-muted); margin: 0 0 2rem;">
-            Order number: <strong>${this.orderDetails.order_number}</strong>
-          </p>
+        <p style="color: var(--color-text-muted); margin: 0 0 1.5rem;">Thank you for your purchase</p>
+        
+        <!-- Email confirmation notice -->
+        ${customerEmail ? html`
+          <div style="background: var(--color-surface-accent, #f9fafb); border-radius: 0.5rem; padding: 1rem; margin: 0 0 1.5rem;">
+            <p style="font-size: 0.875rem; color: var(--color-text); margin: 0 0 0.5rem;">
+              📧 A confirmation email has been sent to:
+            </p>
+            <p style="font-size: 0.875rem; color: var(--color-text); font-weight: 500; margin: 0;">
+              ${customerEmail}
+            </p>
+          </div>
         ` : ''}
+        
+        <!-- Order details -->
+        ${orderData ? html`
+          <div style="text-align: left; background: white; border: 1px solid var(--color-border, #e5e7eb); border-radius: 0.5rem; padding: 1rem; margin: 0 0 1.5rem;">
+            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.75rem;">Order Summary</h3>
+            
+            ${orderData.order_number ? html`
+              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
+                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Order Number</span>
+                <span style="font-size: 0.75rem; font-family: monospace; color: var(--color-text);">${orderData.order_number}</span>
+              </div>
+            ` : ''}
+            
+            ${orderData.items ? html`
+              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
+                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Items</span>
+                <span style="font-size: 0.75rem; font-weight: 500; color: var(--color-text);">${orderData.items.length}</span>
+              </div>
+            ` : ''}
+            
+            ${orderData.subtotal ? html`
+              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
+                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Subtotal</span>
+                <span style="font-size: 0.75rem; color: var(--color-text);">${this.formatPrice(orderData.subtotal)}</span>
+              </div>
+            ` : ''}
+            
+            ${orderData.shipping_cost && orderData.shipping_cost.amount > 0 ? html`
+              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
+                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Shipping</span>
+                <span style="font-size: 0.75rem; color: var(--color-text);">${this.formatPrice(orderData.shipping_cost)}</span>
+              </div>
+            ` : ''}
+            
+            ${orderData.tax_amount && orderData.tax_amount.amount > 0 ? html`
+              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
+                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Tax</span>
+                <span style="font-size: 0.75rem; color: var(--color-text);">${this.formatPrice(orderData.tax_amount)}</span>
+              </div>
+            ` : ''}
+            
+            ${orderData.discount_amount && orderData.discount_amount.amount > 0 ? html`
+              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
+                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Discount</span>
+                <span style="font-size: 0.75rem; color: var(--color-success, #22c55e);">-${this.formatPrice(orderData.discount_amount)}</span>
+              </div>
+            ` : ''}
+            
+            ${orderData.total ? html`
+              <div style="display: flex; justify-content: space-between; padding: 0.75rem 0 0;">
+                <span style="font-size: 0.875rem; font-weight: 600; color: var(--color-text);">Total Paid</span>
+                <span style="font-size: 0.875rem; font-weight: 600; color: var(--color-primary);">${this.formatPrice(orderData.total)}</span>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+        
         <button 
           class="sr-btn sr-btn-primary"
           @click="${() => {
@@ -1439,36 +1743,51 @@ export class CartWidget extends ShoprocketElement {
               <p class="sr-otp-subtitle">We sent a 6-digit code to ${this.customerData.email}</p>
             </div>
             
-            <div class="sr-otp-inputs">
-              ${Array.from({length: 6}, (_, i) => html`
-                <input
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="1"
-                  class="sr-otp-input ${this.otpError ? 'sr-field-error' : ''}"
-                  .value="${this.otpCode[i] || ''}"
-                  @input="${(e: Event) => this.handleOtpInput(e, i)}"
-                  @keydown="${(e: KeyboardEvent) => this.handleOtpKeydown(e, i)}"
-                  @paste="${(e: ClipboardEvent) => this.handleOtpPaste(e)}"
-                  data-otp-index="${i}"
-                />
-              `)}
-            </div>
-            
-            ${this.otpError ? html`
-              <div class="sr-field-error-message">${this.otpError}</div>
-            ` : ''}
-            
-            ${this.verifyingOtp ? html`
-              <div class="sr-otp-verifying">
-                <span class="sr-spinner"></span> Verifying...
+            ${this.resendingOtp ? html`
+              <!-- Show loading state while resending -->
+              <div class="sr-otp-resending" style="text-align: center; padding: 2rem 0;">
+                <span class="sr-spinner"></span>
+                <p style="margin-top: 1rem; color: var(--color-text-muted); font-size: 0.875rem;">
+                  Sending new code...
+                </p>
               </div>
-            ` : ''}
+            ` : html`
+              <!-- Show OTP input fields when not resending -->
+              <div class="sr-otp-inputs">
+                ${Array.from({length: 6}, (_, i) => html`
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="1"
+                    class="sr-otp-input ${this.otpError ? 'sr-field-error' : ''}"
+                    .value="${this.otpCode[i] || ''}"
+                    @input="${(e: Event) => this.handleOtpInput(e, i)}"
+                    @keydown="${(e: KeyboardEvent) => this.handleOtpKeydown(e, i)}"
+                    @paste="${(e: ClipboardEvent) => this.handleOtpPaste(e)}"
+                    data-otp-index="${i}"
+                  />
+                `)}
+              </div>
+              
+              ${this.otpError ? html`
+                <div class="sr-field-error-message">${this.otpError}</div>
+              ` : ''}
+              
+              ${this.verifyingOtp ? html`
+                <div class="sr-otp-verifying">
+                  <span class="sr-spinner"></span> Verifying...
+                </div>
+              ` : ''}
+            `}
             
             <div class="sr-otp-resend">
               <p>Didn't receive code? 
-                <button class="sr-btn-link" @click="${this.handleResendOtp}">
-                  Resend
+                <button 
+                  class="sr-btn-link" 
+                  @click="${this.handleResendOtp}"
+                  ?disabled="${this.resendingOtp}"
+                >
+                  ${this.resendingOtp ? 'Sending...' : 'Resend'}
                 </button>
               </p>
             </div>
@@ -1620,7 +1939,14 @@ export class CartWidget extends ShoprocketElement {
         .sameAsBilling="${this.sameAsBilling}"
         @address-change="${this.handleShippingAddressChange}"
                 @same-as-billing-change="${(e: CustomEvent) => {
-          cartState.setSameAsBilling(e.detail.checked);
+          const checked = e.detail.checked;
+          cartState.setSameAsBilling(checked);
+          
+          // Track billing same as shipping toggle
+          this.track(EVENTS.CHECKOUT_SAME_BILLING_TOGGLED, {
+            step: 'shipping',
+            same_as_shipping: checked
+          });
         }}"
       ></shoprocket-address-form>
     `;
@@ -1673,16 +1999,20 @@ export class CartWidget extends ShoprocketElement {
               ${this.cart?.items?.map(item => html`
                 <div class="sr-order-item-review">
                   <div class="sr-order-item-details">
-                    ${item.media?.[0] ? html`
-                      <img 
-                        src="${this.getMediaUrl(item.media[0], 'w=64,h=64,fit=cover')}" 
-                        alt="${item.product_name}" 
-                        class="sr-order-item-image"
-                        @error="${(e: Event) => this.handleImageError(e)}"
-                      >
-                    ` : html`
-                      <div class="sr-order-item-image-placeholder"></div>
-                    `}
+                    <div class="sr-order-item-image-container">
+                      ${item.image ? html`
+                        <img 
+                          src="${this.getMediaUrl(item.image, 'w=64,h=64,fit=cover')}" 
+                          alt="${item.product_name}" 
+                          class="sr-order-item-image"
+                          @load="${(e: Event) => {
+                            const img = e.target as HTMLImageElement;
+                            img.classList.add('loaded');
+                          }}"
+                          @error="${(e: Event) => this.handleImageError(e)}"
+                        >
+                      ` : ''}
+                    </div>
                     <div class="sr-order-item-info">
                       <span class="sr-order-item-name">${item.product_name}</span>
                       ${item.variant_name ? html`
@@ -1783,8 +2113,8 @@ export class CartWidget extends ShoprocketElement {
           <div class="sr-review-card-header">
             <div class="sr-review-card-title">
               <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                <line x1="1" y1="10" x2="23" y2="10"></line>
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
               </svg>
               <h4>Billing Address</h4>
             </div>
@@ -1883,9 +2213,17 @@ export class CartWidget extends ShoprocketElement {
       `}
       
       <p class="sr-cart-powered-by">
-        ${this.checkoutStep === 'review' ? 
-          'By completing your order, you agree to our terms' : 
-          'Secure checkout powered by Shoprocket'}
+        ${this.checkoutStep === 'review' ? html`
+          By completing your order, you agree to our terms
+        ` : html`
+          Secure checkout powered by
+          <a href="https://shoprocket.io?utm_source=widget&utm_medium=cart&utm_campaign=powered_by" 
+             target="_blank" 
+             rel="noopener noreferrer"
+             class="sr-cart-powered-by-link">
+            <b>Shoprocket</b>
+          </a>
+        `}
       </p>
     `;
   }

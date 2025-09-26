@@ -20,7 +20,37 @@ export const EVENTS = {
   CART_OPENED: 'cart_opened',
   CART_CLOSED: 'cart_closed',
   BEGIN_CHECKOUT: 'begin_checkout',
-  PURCHASE: 'purchase'
+  PURCHASE: 'purchase',
+  // Checkout funnel events - specific per step
+  CHECKOUT_CONTACT_VIEWED: 'checkout_contact_information_viewed',
+  CHECKOUT_CONTACT_COMPLETED: 'checkout_contact_information_completed',
+  CHECKOUT_SHIPPING_VIEWED: 'checkout_shipping_address_viewed',
+  CHECKOUT_SHIPPING_COMPLETED: 'checkout_shipping_address_completed',
+  CHECKOUT_BILLING_VIEWED: 'checkout_billing_address_viewed',
+  CHECKOUT_BILLING_COMPLETED: 'checkout_billing_address_completed',
+  CHECKOUT_PAYMENT_VIEWED: 'checkout_payment_method_viewed',
+  CHECKOUT_PAYMENT_COMPLETED: 'checkout_payment_method_completed',
+  CHECKOUT_REVIEW_VIEWED: 'checkout_order_review_viewed',
+  CHECKOUT_REVIEW_COMPLETED: 'checkout_order_review_completed',
+  CHECKOUT_STEP_BACK: 'checkout_step_back',
+  CHECKOUT_ABANDONED: 'checkout_abandoned',
+  // Customer data events
+  CHECKOUT_EMAIL_ENTERED: 'checkout_email_entered',
+  CHECKOUT_NAME_ENTERED: 'checkout_name_entered',
+  CHECKOUT_PHONE_ENTERED: 'checkout_phone_entered',
+  // Authentication events
+  CHECKOUT_AUTH_REQUESTED: 'checkout_auth_requested',
+  CHECKOUT_AUTH_RESENT: 'checkout_auth_resent',
+  CHECKOUT_AUTH_SUCCESS: 'checkout_auth_success',
+  CHECKOUT_AUTH_FAILED: 'checkout_auth_failed',
+  // Address events
+  CHECKOUT_SHIPPING_ENTERED: 'checkout_shipping_entered',
+  CHECKOUT_BILLING_ENTERED: 'checkout_billing_entered',
+  CHECKOUT_SAME_BILLING_TOGGLED: 'checkout_same_billing_toggled',
+  // Payment events
+  CHECKOUT_PAYMENT_SELECTED: 'checkout_payment_selected',
+  // Error events
+  CHECKOUT_ERROR: 'checkout_error'
 } as const;
 
 export class AnalyticsManager {
