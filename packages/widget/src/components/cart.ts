@@ -744,8 +744,8 @@ export class CartWidget extends ShoprocketElement {
       // Open cart to show the confirmation
       this.hashRouter.openCart();
       
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname + window.location.search);
+      // Don't clean up URL immediately - leave it for user to see
+      // The hash will naturally be cleaned when user navigates or closes cart
       
     } else if (isPaymentCancelled) {
       console.log('Payment cancelled - reopening cart');
@@ -764,8 +764,8 @@ export class CartWidget extends ShoprocketElement {
       // Open cart so user can try again
       this.hashRouter.openCart();
       
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname + window.location.search);
+      // Don't clean up URL immediately - leave it for user to see
+      // The hash will naturally be cleaned when user navigates or closes cart
     }
   }
   
