@@ -20,6 +20,7 @@ import { ProductDetail } from './components/product-detail';
 import { ProductView } from './components/product-view';
 import { CartWidget } from './components/cart';
 import { Tooltip } from './components/tooltip';
+import { TestModeBanner } from './components/test-mode-banner';
 import { initializeConfig, getConfig } from './core/config';
 
 // ProductGrid and CartWidget are now imported from their respective files
@@ -159,6 +160,9 @@ if (!customElements.get('shoprocket-cart')) {
 }
 if (!customElements.get('sr-tooltip')) {
   customElements.define('sr-tooltip', Tooltip);
+}
+if (!customElements.get('shoprocket-test-banner')) {
+  customElements.define('shoprocket-test-banner', TestModeBanner);
 }
 
 /**

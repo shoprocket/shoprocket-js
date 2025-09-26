@@ -95,6 +95,15 @@ export interface Cart {
   has_billing_address?: boolean;
   has_shipping_address?: boolean;
   requires_shipping?: boolean;
+  // Order fields added for post-checkout state
+  order_status?: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'cancelled' | 'failed';
+  order_details?: {
+    order_id: string;
+    order_number?: string;
+    created_at?: string;
+    payment_method?: string;
+  };
+  order_id?: string;
 }
 
 export interface Store {
@@ -134,6 +143,11 @@ export interface ApiResponse<T> {
       current_page: number;
       total_pages: number;
     };
+    // Payment-related meta fields
+    payment_url?: string;
+    payment_gateway?: string;
+    test_mode?: boolean;
+    message?: string;
   };
 }
 

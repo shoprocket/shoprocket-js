@@ -1012,6 +1012,21 @@
     width: 70px;
     height: 13px;
   }
+  
+  /* Cart Test Mode Indicator */
+  .sr-cart-test-indicator {
+    @apply text-xs text-center mt-2 py-1 px-2 rounded;
+    background: rgba(251, 191, 36, 0.1);
+    color: rgb(180, 83, 9);
+  }
+  
+  .sr-cart-test-indicator-checkout {
+    @apply mt-3;
+  }
+  
+  .sr-cart-test-indicator span {
+    @apply font-medium;
+  }
 
   /* Product Detail Components */
 
@@ -2494,6 +2509,54 @@
 /* Payment Placeholder */
 .sr-review-payment-placeholder {
   @apply text-xs text-gray-500 m-0;
+}
+
+/* Test Mode Banner */
+.sr-test-banner {
+  @apply fixed top-0 left-1/2 -translate-x-1/2 z-[99999] transition-all duration-300;
+}
+
+.sr-test-banner-minimized {
+  @apply -translate-y-full opacity-0;
+}
+
+.sr-test-banner-content {
+  @apply flex items-center gap-2 px-3 py-1.5 text-xs rounded-b-lg shadow-md;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.sr-test-banner-icon {
+  @apply text-sm;
+}
+
+.sr-test-banner-text {
+  @apply font-medium whitespace-nowrap;
+}
+
+.sr-test-banner-minimize {
+  @apply ml-2 w-5 h-5 flex items-center justify-center rounded-full cursor-pointer transition-opacity;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.7;
+}
+
+.sr-test-banner-minimize:hover {
+  opacity: 1;
+}
+
+/* Floating pill when minimized - separate from banner */
+.sr-test-banner-pill {
+  @apply fixed top-2 left-1/2 -translate-x-1/2 z-[99999];
+  @apply px-3 py-1.5 text-xs font-medium rounded-full shadow-md cursor-pointer;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  @apply hover:shadow-lg transition-shadow;
 }
 
 /* Security Notice */

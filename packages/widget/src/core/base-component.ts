@@ -167,8 +167,15 @@ export class BaseComponent extends LitElement {
    * Get the store currency
    */
   protected getStoreCurrency(): string {
-    const store = (window as any).Shoprocket?.store?.get?.();
+    const store = this.getStore();
     return store?.base_currency_code || 'USD';
+  }
+  
+  /**
+   * Get the store data
+   */
+  protected getStore(): any {
+    return (window as any).Shoprocket?.store?.get?.();
   }
 }
 
