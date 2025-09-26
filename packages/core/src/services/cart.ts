@@ -157,13 +157,28 @@ export class CartService {
   async checkout(options?: {
     payment_method_type?: string;
     locale?: string;
+    return_url?: string;
+    cancel_url?: string;
   }): Promise<{ order: any }> {
     const data = {
       payment_method_type: options?.payment_method_type || 'card',
-      locale: options?.locale || 'en'
+      locale: options?.locale || 'en',
+      ...(options?.return_url && { return_url: options.return_url }),
+      ...(options?.cancel_url && { cancel_url: options.cancel_url })
     };
     
     const response = await this.api.post<any>('/cart/checkout', data);
     return response;
+  }
+
+  // Order API methods - for post-checkout order access
+  async getOrder(orderId: string): Promise<any> {
+    const response = await this.api.get<any>(`/orders/${orderId}`);
+    return response.data || response;
+  }
+
+  async getOrderStatus(orderId: string): Promise<{ status: string; payment_status?: string }> {
+    const response = await this.api.get<any>(`/orders/${orderId}/status`);
+    return response.data || response;
   }
 }
