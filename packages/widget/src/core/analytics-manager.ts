@@ -49,6 +49,7 @@ export const EVENTS = {
   CHECKOUT_SAME_BILLING_TOGGLED: 'checkout_same_billing_toggled',
   // Payment events
   CHECKOUT_PAYMENT_SELECTED: 'checkout_payment_selected',
+  CHECKOUT_PAYMENT_REDIRECT: 'checkout_payment_redirect',
   // Error events
   CHECKOUT_ERROR: 'checkout_error'
 } as const;

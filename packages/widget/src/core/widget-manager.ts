@@ -201,6 +201,11 @@ export class WidgetManager {
         internalState.setStore(store);
         internalState.setSdk(this.sdk);
         
+        // Check for test mode and create banner if needed
+        if (store?.store_mode === 'test') {
+          this.createTestModeBanner();
+        }
+        
         // Set up auth token if present
         const accessToken = CookieManager.getAccessToken();
         if (accessToken) {
@@ -307,6 +312,27 @@ export class WidgetManager {
     this.mount(floatingCart, 'cart', { floating: 'true' });
   }
 
+  /**
+   * Create test mode banner if store is in test mode
+   */
+  private createTestModeBanner(): void {
+    // Check if banner already exists
+    if (document.querySelector('shoprocket-test-banner')) return;
+    
+    // Create the banner component
+    const banner = document.createElement('shoprocket-test-banner');
+    (banner as any).sdk = this.sdk;
+    document.body.appendChild(banner);
+    
+    // Don't add body padding since it's a centered tab
+    // The tab doesn't push content down
+    
+    // Listen for minimize/maximize events if needed
+    banner.addEventListener('toggle-minimize', () => {
+      // No padding adjustment needed for tab style
+    });
+  }
+  
   /**
    * Auto-mount widgets based on data attributes
    */
