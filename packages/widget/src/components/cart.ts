@@ -2326,18 +2326,16 @@ export class CartWidget extends ShoprocketElement {
                 <div class="sr-order-item-review">
                   <div class="sr-order-item-details">
                     <div class="sr-order-item-image-container">
-                      ${(item as any).image ? html`
-                        <img 
-                          src="${this.getMediaUrl((item as any).image, 'w=64,h=64,fit=cover')}" 
-                          alt="${item.product_name}" 
-                          class="sr-order-item-image"
-                          @load="${(e: Event) => {
-                            const img = e.target as HTMLImageElement;
-                            img.classList.add('loaded');
-                          }}"
-                          @error="${(e: Event) => this.handleImageError(e)}"
-                        >
-                      ` : ''}
+                      <img 
+                        src="${this.getMediaUrl((item as any).image || item.media?.[0], 'w=64,h=64,fit=cover')}" 
+                        alt="${item.product_name}" 
+                        class="sr-order-item-image"
+                        @load="${(e: Event) => {
+                          const img = e.target as HTMLImageElement;
+                          img.classList.add('loaded');
+                        }}"
+                        @error="${(e: Event) => this.handleImageError(e)}"
+                      >
                     </div>
                     <div class="sr-order-item-info">
                       <span class="sr-order-item-name">${item.product_name}</span>
