@@ -103,12 +103,12 @@ export class ProductListTemplates {
       <article class="sr-product-card">
         <div class="sr-product-image-container"
              @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">
-          ${!isSkeleton && product.media?.[0] ? html`
-            <!-- First image -->
+          ${!isSkeleton ? html`
+            <!-- Always render img tag to ensure placeholder shows on error -->
             <img 
-              src="${handlers.getMediaUrl(product.media[0])}" 
+              src="${product.media?.[0] ? handlers.getMediaUrl(product.media[0]) : '/placeholder-not-found.jpg'}" 
               alt="${product.name}" 
-              class="sr-product-image sr-product-image-primary ${product.media[1] ? 'has-hover' : ''}"
+              class="sr-product-image sr-product-image-primary ${product.media?.[1] ? 'has-hover' : ''}"
               @load="${(e: Event) => {
                 const img = e.target as HTMLImageElement;
                 img.classList.add('loaded');
@@ -116,7 +116,7 @@ export class ProductListTemplates {
               @error="${(e: Event) => handlers.handleImageError(e)}"
             >
             <!-- Second image (shown on hover if available) -->
-            ${product.media[1] ? html`
+            ${product.media?.[1] ? html`
               <img 
                 src="${handlers.getMediaUrl(product.media[1])}" 
                 alt="${product.name} - Image 2" 
