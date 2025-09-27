@@ -405,7 +405,6 @@
   .sr-product-image-container {
     @apply relative w-full overflow-hidden flex-shrink-0 mb-4;
     aspect-ratio: var(--sr-product-image-aspect-ratio);
-    background: var(--sr-product-image-bg);
     border-radius: var(--sr-product-image-radius);
   }
 
