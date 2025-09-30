@@ -271,9 +271,6 @@ export class CustomerForm extends BaseComponent {
               <div class="sr-field-error-message">${this.getFieldError('email')}</div>
             ` : ''}
           </div>
-          <div class="sr-field-helper-text">
-            We'll send your order confirmation here
-          </div>
 
           ${this.showNameFields ? html`
             <!-- Name Fields Row -->
