@@ -18,16 +18,11 @@ import type { AddressData, AddressFormErrors } from './address-form';
 // Import SVG as string - Vite will inline it at build time
 import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
 
-// Import extracted render modules
-import { renderCartItems, type CartItemsContext } from './cart/cart-items';
-import { renderCartFooter, type CartFooterContext } from './cart/cart-footer';
-import { renderTriggerContent, renderNotification, type CartTriggerContext } from './cart/cart-trigger';
-import {
-  renderOrderSuccess,
-  renderPaymentPending,
-  renderOrderFailure,
-  type OrderResultContext
-} from './cart/order-result';
+// Import types only (won't bundle the modules)
+import type { CartItemsContext } from './cart/cart-items';
+import type { CartFooterContext } from './cart/cart-footer';
+import type { CartTriggerContext } from './cart/cart-trigger';
+import type { OrderResultContext } from './cart/order-result';
 import type { OrderDetails } from './cart/cart-types';
 
 /**
@@ -74,6 +69,16 @@ export class CartWidget extends ShoprocketElement {
   // Provide SDK via context to all child components (Phase 2: will enable this)
   // @provide({ context: sdkContext })
   // override sdk!: ShoprocketCore;
+
+  // Lazy-loaded module cache (Phase 3: background prefetch)
+  private cartModules: {
+    cartItems?: typeof import('./cart/cart-items');
+    cartFooter?: typeof import('./cart/cart-footer');
+    cartTrigger?: typeof import('./cart/cart-trigger');
+    orderResult?: typeof import('./cart/order-result');
+  } = {};
+
+  private modulesPrefetched = false;
 
   @property({ type: String })
   position = 'bottom-right';
@@ -297,6 +302,9 @@ export class CartWidget extends ShoprocketElement {
     if (this.isOpen) {
       document.body.style.overflow = 'hidden';
     }
+
+    // Start prefetching cart modules in background (Phase 3: lazy loading)
+    this.prefetchCartModules();
   }
 
   override disconnectedCallback(): void {
@@ -338,7 +346,78 @@ export class CartWidget extends ShoprocketElement {
     if (this.errorNotificationTimeouts?.remove) {
       clearTimeout(this.errorNotificationTimeouts.remove);
     }
-    
+
+  }
+
+  /**
+   * Prefetch cart modules in background for instant cart opening
+   * Uses requestIdleCallback to avoid blocking critical rendering
+   */
+  private prefetchCartModules(): void {
+    if (this.modulesPrefetched) return;
+
+    const prefetch = async () => {
+      try {
+        // Load all cart modules in parallel during browser idle time
+        const [cartItems, cartFooter, cartTrigger, orderResult] = await Promise.all([
+          import('./cart/cart-items'),
+          import('./cart/cart-footer'),
+          import('./cart/cart-trigger'),
+          import('./cart/order-result')
+        ]);
+
+        // Cache the loaded modules
+        this.cartModules = {
+          cartItems,
+          cartFooter,
+          cartTrigger,
+          orderResult
+        };
+
+        this.modulesPrefetched = true;
+      } catch (error) {
+        console.warn('[Cart] Failed to prefetch modules:', error);
+        // Non-critical error - modules will lazy load on demand
+      }
+    };
+
+    // Use requestIdleCallback if available, otherwise setTimeout
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(prefetch);
+    } else {
+      setTimeout(prefetch, 100);
+    }
+  }
+
+  /**
+   * Lazy load a cart module on demand (fallback if prefetch hasn't completed)
+   */
+  private async ensureModule<K extends keyof typeof this.cartModules>(
+    module: K
+  ): Promise<NonNullable<typeof this.cartModules[K]>> {
+    // Return cached module if available
+    if (this.cartModules[module]) {
+      return this.cartModules[module]!;
+    }
+
+    // Load on demand
+    switch (module) {
+      case 'cartItems':
+        this.cartModules.cartItems = await import('./cart/cart-items');
+        return this.cartModules.cartItems as any;
+      case 'cartFooter':
+        this.cartModules.cartFooter = await import('./cart/cart-footer');
+        return this.cartModules.cartFooter as any;
+      case 'cartTrigger':
+        this.cartModules.cartTrigger = await import('./cart/cart-trigger');
+        return this.cartModules.cartTrigger as any;
+      case 'orderResult':
+        this.cartModules.orderResult = await import('./cart/order-result');
+        return this.cartModules.orderResult as any;
+      default:
+        throw new Error(`Unknown module: ${module}`);
+    }
+
     // Clear any pending updates
     this.pendingUpdates.forEach(timeout => clearTimeout(timeout));
     this.pendingUpdates.clear();
@@ -1689,6 +1768,12 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private renderCartItems(): TemplateResult {
+    // If modules not loaded yet, show loading spinner (rare - only if user is very fast)
+    if (!this.cartModules.cartItems) {
+      this.ensureModule('cartItems').then(() => this.requestUpdate());
+      return loadingSpinner('md');
+    }
+
     const context: CartItemsContext = {
       cart: this.cart,
       showEmptyState: this.showEmptyState,
@@ -1703,10 +1788,15 @@ export class CartWidget extends ShoprocketElement {
       handleImageError: (e) => this.handleImageError(e)
     };
 
-    return renderCartItems(context);
+    return this.cartModules.cartItems.renderCartItems(context);
   }
 
   private renderCartFooter(): TemplateResult {
+    if (!this.cartModules.cartFooter) {
+      this.ensureModule('cartFooter').then(() => this.requestUpdate());
+      return html``;
+    }
+
     const context: CartFooterContext = {
       cart: this.cart,
       priceChangedItems: this.priceChangedItems,
@@ -1715,10 +1805,15 @@ export class CartWidget extends ShoprocketElement {
       startCheckout: () => this.startCheckout()
     };
 
-    return renderCartFooter(context);
+    return this.cartModules.cartFooter.renderCartFooter(context);
   }
   
   private renderOrderSuccess(): TemplateResult {
+    if (!this.cartModules.orderResult) {
+      this.ensureModule('orderResult').then(() => this.requestUpdate());
+      return loadingSpinner('lg');
+    }
+
     const orderData = this.orderDetails?.data || this.orderDetails;
     const customerEmail = orderData?.customer?.email || this.customerData.email;
 
@@ -1732,7 +1827,7 @@ export class CartWidget extends ShoprocketElement {
       handleImageError: (e) => this.handleImageError(e)
     };
 
-    return renderOrderSuccess(this.orderDetails as OrderDetails, customerEmail, context);
+    return this.cartModules.orderResult.renderOrderSuccess(this.orderDetails as OrderDetails, customerEmail, context);
   }
   
   private handleContinueShopping(): void {
@@ -1746,6 +1841,11 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private renderPaymentPending(): TemplateResult {
+    if (!this.cartModules.orderResult) {
+      this.ensureModule('orderResult').then(() => this.requestUpdate());
+      return loadingSpinner('lg');
+    }
+
     const context: OrderResultContext = {
       formatPrice: (amount) => this.formatPrice(amount),
       handleContinueShopping: () => this.handleContinueShopping(),
@@ -1756,10 +1856,15 @@ export class CartWidget extends ShoprocketElement {
       handleImageError: (e) => this.handleImageError(e)
     };
 
-    return renderPaymentPending(this.paymentTimeout, context);
+    return this.cartModules.orderResult.renderPaymentPending(this.paymentTimeout, context);
   }
   
   private renderOrderFailure(): TemplateResult {
+    if (!this.cartModules.orderResult) {
+      this.ensureModule('orderResult').then(() => this.requestUpdate());
+      return loadingSpinner('lg');
+    }
+
     const context: OrderResultContext = {
       formatPrice: (amount) => this.formatPrice(amount),
       handleContinueShopping: () => this.handleContinueShopping(),
@@ -1774,7 +1879,7 @@ export class CartWidget extends ShoprocketElement {
       handleImageError: (e) => this.handleImageError(e)
     };
 
-    return renderOrderFailure(this.orderFailureReason, context);
+    return this.cartModules.orderResult.renderOrderFailure(this.orderFailureReason, context);
   }
 
   private renderCheckoutFlow(): TemplateResult {
@@ -2537,7 +2642,13 @@ export class CartWidget extends ShoprocketElement {
 
 
   private renderTriggerContent(itemCount: number): TemplateResult {
-    return renderTriggerContent(itemCount, this.position, shoppingBasketIcon);
+    if (!this.cartModules.cartTrigger) {
+      this.ensureModule('cartTrigger').then(() => this.requestUpdate());
+      // Minimal fallback for trigger (must always render something)
+      return html`<span>${itemCount}</span>`;
+    }
+
+    return this.cartModules.cartTrigger.renderTriggerContent(itemCount, this.position, shoppingBasketIcon);
   }
   
   private handleFloatingError = (event: CustomEvent): void => {
@@ -2583,6 +2694,12 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private renderNotification(): TemplateResult {
+    if (!this.cartModules.cartTrigger) {
+      // Notifications are non-critical, return empty if not loaded yet
+      this.ensureModule('cartTrigger').then(() => this.requestUpdate());
+      return html``;
+    }
+
     const context: CartTriggerContext = {
       position: this.position,
       recentlyAddedProduct: this.recentlyAddedProduct,
@@ -2594,6 +2711,6 @@ export class CartWidget extends ShoprocketElement {
       handleImageError: (e) => this.handleImageError(e)
     };
 
-    return renderNotification(context);
+    return this.cartModules.cartTrigger.renderNotification(context);
   }
 }
