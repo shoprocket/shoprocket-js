@@ -2053,19 +2053,12 @@
 }
 
 .sr-field-icon {
-  @apply absolute start-3 pointer-events-none transition-all duration-200;
-  top: 0.875rem;
+  @apply absolute start-3 pointer-events-none;
+  top: 50%;
+  transform: translateY(-50%);
   width: 1.125rem;
   height: 1.125rem;
   color: var(--color-text-muted);
-}
-
-/* Move icon up when field is focused or has value */
-.peer:focus ~ .sr-field-icon,
-.peer:not(:placeholder-shown) ~ .sr-field-icon {
-  top: 0.5rem;
-  width: 0.875rem;
-  height: 0.875rem;
 }
 
 /* Adjust input padding when icon is present */
