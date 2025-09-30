@@ -14,6 +14,8 @@ export interface OrderResultContext {
   handleCheckOrderStatus: () => void;
   handleRetryPayment: () => void;
   handleBackToCart: () => void;
+  getMediaUrl: (media: any, transforms?: string) => string;
+  handleImageError: (e: Event) => void;
 }
 
 export function renderOrderSuccess(
