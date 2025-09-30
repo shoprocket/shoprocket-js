@@ -163,6 +163,58 @@ export class CustomerForm extends BaseComponent {
     return value !== undefined && value !== null && value !== '';
   }
 
+  private isFieldValid(field: keyof CustomerData): boolean {
+    // Field is valid if it has a value, no errors, and passes basic validation
+    const value = this.customer[field];
+    if (!this.hasValue(value)) return false;
+    if (this.getFieldError(field)) return false;
+
+    // Additional validation checks
+    if (field === 'email') {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value as string);
+    }
+    if (field === 'first_name' || field === 'last_name') {
+      return (value as string).length >= 2;
+    }
+    if (field === 'phone' && value) {
+      return (value as string).length >= 7;
+    }
+
+    return true;
+  }
+
+  private renderEmailIcon(): TemplateResult {
+    return html`
+      <svg class="sr-field-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>
+    `;
+  }
+
+  private renderUserIcon(): TemplateResult {
+    return html`
+      <svg class="sr-field-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+      </svg>
+    `;
+  }
+
+  private renderPhoneIcon(): TemplateResult {
+    return html`
+      <svg class="sr-field-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+      </svg>
+    `;
+  }
+
+  private renderCheckIcon(): TemplateResult {
+    return html`
+      <svg class="sr-field-success-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+    `;
+  }
+
   protected override render(): TemplateResult {
     return html`
       <form class="sr-customer-form space-y-3" @submit="${(e: Event) => e.preventDefault()}">
@@ -195,12 +247,12 @@ export class CustomerForm extends BaseComponent {
         
         <div class="sr-customer-form-fields space-y-3">
           <!-- Email Field -->
-          <div class="sr-field-group">
+          <div class="sr-field-group-with-icon ${this.isFieldValid('email') ? 'sr-field-valid' : ''}">
             <input
               type="email"
               id="email"
               name="email"
-              class="sr-field-input peer ${this.hasValue(this.customer.email) ? 'has-value' : ''} ${this.getFieldError('email') ? 'sr-field-error' : ''}"
+              class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.email) ? 'has-value' : ''} ${this.getFieldError('email') ? 'sr-field-error' : ''}"
               .value="${this.customer.email || ''}"
               .disabled="${this.disabled}"
               ?required="${this.getRequiredAttribute('email')}"
@@ -209,25 +261,30 @@ export class CustomerForm extends BaseComponent {
               @input="${(e: Event) => this.handleInputChange('email', (e.target as HTMLInputElement).value)}"
               @blur="${() => this.handleBlur('email')}"
             >
+            ${this.renderEmailIcon()}
             <label class="sr-field-label" for="email">
               Email Address
               ${this.getRequiredAttribute('email') ? html`<span class="sr-field-required">*</span>` : ''}
             </label>
+            ${this.renderCheckIcon()}
             ${this.getFieldError('email') ? html`
               <div class="sr-field-error-message">${this.getFieldError('email')}</div>
             ` : ''}
+          </div>
+          <div class="sr-field-helper-text">
+            We'll send your order confirmation here
           </div>
 
           ${this.showNameFields ? html`
             <!-- Name Fields Row -->
             <div class="grid grid-cols-2 gap-3">
               <!-- First Name -->
-              <div class="sr-field-group">
+              <div class="sr-field-group-with-icon ${this.isFieldValid('first_name') ? 'sr-field-valid' : ''}">
                 <input
                   type="text"
                   id="first_name"
                   name="first_name"
-                  class="sr-field-input peer ${this.hasValue(this.customer.first_name) ? 'has-value' : ''} ${this.getFieldError('first_name') ? 'sr-field-error' : ''}"
+                  class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.first_name) ? 'has-value' : ''} ${this.getFieldError('first_name') ? 'sr-field-error' : ''}"
                   .value="${this.customer.first_name || ''}"
                   .disabled="${this.disabled}"
                   ?required="${this.getRequiredAttribute('first_name')}"
@@ -236,22 +293,24 @@ export class CustomerForm extends BaseComponent {
                   @input="${(e: Event) => this.handleInputChange('first_name', (e.target as HTMLInputElement).value)}"
                   @blur="${() => this.handleBlur('first_name')}"
                 >
+                ${this.renderUserIcon()}
                 <label class="sr-field-label" for="first_name">
                   First Name
                   ${this.getRequiredAttribute('first_name') ? html`<span class="sr-field-required">*</span>` : ''}
                 </label>
+                ${this.renderCheckIcon()}
                 ${this.getFieldError('first_name') ? html`
                   <div class="sr-field-error-message">${this.getFieldError('first_name')}</div>
                 ` : ''}
               </div>
 
               <!-- Last Name -->
-              <div class="sr-field-group">
+              <div class="sr-field-group-with-icon ${this.isFieldValid('last_name') ? 'sr-field-valid' : ''}">
                 <input
                   type="text"
                   id="last_name"
                   name="last_name"
-                  class="sr-field-input peer ${this.hasValue(this.customer.last_name) ? 'has-value' : ''} ${this.getFieldError('last_name') ? 'sr-field-error' : ''}"
+                  class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.last_name) ? 'has-value' : ''} ${this.getFieldError('last_name') ? 'sr-field-error' : ''}"
                   .value="${this.customer.last_name || ''}"
                   .disabled="${this.disabled}"
                   ?required="${this.getRequiredAttribute('last_name')}"
@@ -259,10 +318,12 @@ export class CustomerForm extends BaseComponent {
                   autocomplete="family-name"
                   @input="${(e: Event) => this.handleInputChange('last_name', (e.target as HTMLInputElement).value)}"
                 >
+                ${this.renderUserIcon()}
                 <label class="sr-field-label" for="last_name">
                   Last Name
                   ${this.getRequiredAttribute('last_name') ? html`<span class="sr-field-required">*</span>` : ''}
                 </label>
+                ${this.renderCheckIcon()}
                 ${this.getFieldError('last_name') ? html`
                   <div class="sr-field-error-message">${this.getFieldError('last_name')}</div>
                 ` : ''}
@@ -271,11 +332,11 @@ export class CustomerForm extends BaseComponent {
           ` : ''}
 
           <!-- Phone Field -->
-          <div class="sr-field-group">
+          <div class="sr-field-group-with-icon ${this.isFieldValid('phone') ? 'sr-field-valid' : ''}">
             <input
               type="tel"
               id="phone"
-              class="sr-field-input peer ${this.hasValue(this.customer.phone) ? 'has-value' : ''} ${this.getFieldError('phone') ? 'sr-field-error' : ''}"
+              class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.phone) ? 'has-value' : ''} ${this.getFieldError('phone') ? 'sr-field-error' : ''}"
               .value="${this.customer.phone || ''}"
               .disabled="${this.disabled}"
               placeholder=" "
@@ -283,7 +344,9 @@ export class CustomerForm extends BaseComponent {
               @input="${(e: Event) => this.handleInputChange('phone', (e.target as HTMLInputElement).value)}"
               @blur="${() => this.handleBlur('phone')}"
             >
+            ${this.renderPhoneIcon()}
             <label class="sr-field-label" for="phone">Phone Number (optional)</label>
+            ${this.renderCheckIcon()}
             ${this.getFieldError('phone') ? html`
               <div class="sr-field-error-message">${this.getFieldError('phone')}</div>
             ` : ''}
