@@ -46,6 +46,7 @@
     "directory": "packages/widget"
   },
   "dependencies": {
+    "@lit/context": "^1.1.6",
     "@shoprocket/core": "file:../core",
     "@tailwindcss/postcss": "^4.1.13",
     "lit": "^3.1.0"
