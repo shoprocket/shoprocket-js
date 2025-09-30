@@ -2022,18 +2022,33 @@ export class CartWidget extends ShoprocketElement {
   // Shared method to update cart totals
   private updateCartTotals(): void {
     if (!this.cart || !this.cart.totals) return; // Don't try to update optimistic carts
-    
+
     // Update item count
     this.cart.item_count = this.cart.items?.reduce((count, item) => count + item.quantity, 0) || 0;
-    
-    // Calculate new subtotal
-    const newSubtotalAmount = this.cart.items?.reduce((sum: number, i: any) => {
-      const price = i.price?.amount || 0;
-      const qty = i.quantity || 0;
-      return sum + (price * qty);
-    }, 0) || 0;
-    
+
     const currency = this.cart.currency || this.getStoreCurrency();
+
+    // Update each line item's subtotal (for optimistic updates)
+    this.cart.items?.forEach((item: any) => {
+      const price = item.price?.amount || 0;
+      const qty = item.quantity || 0;
+      const lineTotal = price * qty;
+
+      item.subtotal = {
+        amount: lineTotal,
+        currency,
+        formatted: new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency
+        }).format(lineTotal / 100)
+      };
+    });
+
+    // Calculate new cart subtotal
+    const newSubtotalAmount = this.cart.items?.reduce((sum: number, i: any) => {
+      return sum + (i.subtotal?.amount || 0);
+    }, 0) || 0;
+
     const subtotalObj: Money = {
       amount: newSubtotalAmount,
       currency,
@@ -2042,7 +2057,7 @@ export class CartWidget extends ShoprocketElement {
         currency
       }).format(newSubtotalAmount / 100)
     };
-    
+
     this.cart.totals.subtotal = subtotalObj;
     this.cart.totals.total = subtotalObj; // Simplified - doesn't account for tax/shipping
   }
