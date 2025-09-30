@@ -1006,6 +1006,10 @@
     opacity: 0.7;
   }
 
+  .sr-secure-icon {
+    @apply inline-block flex-shrink-0;
+  }
+
   .sr-cart-logo {
     @apply inline-block align-middle;
     width: 70px;
@@ -1954,7 +1958,7 @@
 
 /* Pagination */
 .sr-pagination {
-  @apply flex items-center justify-center gap-2 mt-8 py-4;
+  @apply flex items-center justify-center gap-2 mt-4 py-4;
 }
 
 .sr-pagination-pages {
@@ -1962,7 +1966,8 @@
 }
 
 .sr-pagination-button {
-  @apply px-3 py-2 bg-transparent border rounded-md cursor-pointer text-sm font-medium transition-all;
+  @apply px-3 py-2 border rounded-md cursor-pointer text-sm font-medium transition-all;
+  background: var(--color-surface);
   border-color: var(--color-border);
   color: var(--color-on-surface);
 }

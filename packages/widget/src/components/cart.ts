@@ -2,6 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { repeat } from 'lit/directives/repeat.js';
+// import { provide } from '@lit/context'; // Phase 2: for SDK context
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Cart, ApiResponse, Money } from '../types/api';
 import { loadingSpinner } from './loading-spinner';
@@ -12,12 +13,26 @@ import { cartState } from '../core/cart-state';
 import { internalState } from '../core/internal-state';
 import { CookieManager } from '../utils/cookie-manager';
 import { validateForm, hasErrors } from '../core/validation';
+// import { sdkContext } from '../core/sdk-context'; // Phase 2: for SDK context
+
 // Lazy import checkout components only when needed
 import type { CustomerData, CustomerFormErrors } from './customer-form';
 import type { AddressData, AddressFormErrors } from './address-form';
 
 // Import SVG as string - Vite will inline it at build time
 import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
+
+// Import extracted render modules (Phase 2: these will replace existing render methods)
+// import { renderCartItems, type CartItemsContext } from './cart/cart-items';
+// import { renderCartFooter, type CartFooterContext } from './cart/cart-footer';
+// import { renderTriggerContent, renderNotification, type CartTriggerContext } from './cart/cart-trigger';
+// import {
+//   renderOrderSuccess,
+//   renderPaymentPending,
+//   renderOrderFailure,
+//   type OrderResultContext
+// } from './cart/order-result';
+// import type { OrderDetails } from './cart/cart-types';
 
 /**
  * Cart Widget Component - Shopping cart with slide-out panel
@@ -60,6 +75,10 @@ import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
  *      data-position="bottom-left"></div>
  */
 export class CartWidget extends ShoprocketElement {
+  // Provide SDK via context to all child components (Phase 2: will enable this)
+  // @provide({ context: sdkContext })
+  // override sdk!: ShoprocketCore;
+
   @property({ type: String })
   position = 'bottom-right';
 
@@ -1799,11 +1818,6 @@ export class CartWidget extends ShoprocketElement {
       <p class="sr-cart-powered-by">
         Taxes and shipping calculated at checkout
       </p>
-      ${this.getStore()?.store_mode === 'test' ? html`
-        <div class="sr-cart-test-indicator">
-          <span>🧪 Test Mode</span>
-        </div>
-      ` : ''}
     `;
   }
   
@@ -2540,20 +2554,18 @@ export class CartWidget extends ShoprocketElement {
         ${this.checkoutStep === 'review' ? html`
           By completing your order, you agree to our terms
         ` : html`
+          <svg class="sr-secure-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 0.75L1.5 2.625V5.625C1.5 8.4375 3.4875 11.0625 6 11.625C8.5125 11.0625 10.5 8.4375 10.5 5.625V2.625L6 0.75ZM9.375 5.625C9.375 7.9125 7.8 9.9375 6 10.4625C4.2 9.9375 2.625 7.9125 2.625 5.625V3.3L6 1.875L9.375 3.3V5.625ZM4.6875 6L4.125 6.5625L5.25 7.6875L7.875 5.0625L7.3125 4.5L5.25 6.5625L4.6875 6Z" fill="#10B981"/>
+          </svg>
           Secure checkout powered by
-          <a href="https://shoprocket.io?utm_source=widget&utm_medium=cart&utm_campaign=powered_by" 
-             target="_blank" 
+          <a href="https://shoprocket.io?utm_source=widget&utm_medium=cart&utm_campaign=powered_by"
+             target="_blank"
              rel="noopener noreferrer"
              class="sr-cart-powered-by-link">
             <b>Shoprocket</b>
           </a>
         `}
       </p>
-      ${this.getStore()?.store_mode === 'test' ? html`
-        <div class="sr-cart-test-indicator sr-cart-test-indicator-checkout">
-          <span>🧪 Test Payment Mode</span>
-        </div>
-      ` : ''}
     `;
   }
 
