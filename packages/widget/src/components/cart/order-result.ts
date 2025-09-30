@@ -190,3 +190,25 @@ export function renderOrderFailure(
     </div>
   `;
 }
+
+export function renderOrderNotFound(context: OrderResultContext): TemplateResult {
+  return html`
+    <div class="sr-order-not-found" style="text-align: center; padding: 3rem 1rem;">
+      <svg style="width: 64px; height: 64px; color: var(--color-warning, #f59e0b); margin: 0 auto 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.5rem;">Order Not Found</h2>
+      <p style="color: var(--color-text-muted); margin: 0 0 1.5rem; max-width: 400px;">
+        Unable to find order details. If you just completed a payment, please check your email for confirmation.
+      </p>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
+        <button
+          class="sr-btn sr-btn-primary"
+          @click="${context.handleContinueShopping}"
+        >
+          Continue Shopping
+        </button>
+      </div>
+    </div>
+  `;
+}

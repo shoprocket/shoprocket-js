@@ -617,6 +617,27 @@
     @apply opacity-0 pointer-events-none;
   }
 
+  /* Middle position toggle buttons - tab style (narrower, taller) */
+  .sr-cart-toggle-middle-right .sr-cart-toggle-button,
+  .sr-cart-toggle-middle-left .sr-cart-toggle-button {
+    @apply w-12 h-20 flex-col gap-1 rounded-none;
+  }
+
+  .sr-cart-toggle-middle-right .sr-cart-toggle-button {
+    @apply rounded-s;
+  }
+
+  .sr-cart-toggle-middle-left .sr-cart-toggle-button {
+    @apply rounded-e;
+  }
+
+  @media (max-width: 640px) {
+    .sr-cart-toggle-middle-right .sr-cart-toggle-button,
+    .sr-cart-toggle-middle-left .sr-cart-toggle-button {
+      @apply w-10 h-16;
+    }
+  }
+
   /* Cart Panel */
   .sr-cart-panel {
     @apply fixed shadow-2xl flex flex-col z-[10001] transition-all duration-300 ease-out;
@@ -650,7 +671,7 @@
   .sr-cart-panel-sidebar,
   .sr-cart-panel-drawer {
     @apply w-[100dvw] h-[100dvh] rounded-none;
-    @apply md:w-[400px] md:max-w-[calc(100vw-40px)];
+    @apply md:w-[400px] md:max-w-[calc(100vw-40px)] md:h-[100vh];
   }
 
   /* Cart Panel Positions - Bubble Style */
@@ -694,10 +715,10 @@
     @apply translate-x-full opacity-0 md:translate-x-0 md:translate-y-0 md:scale-0;
   }
 
-  /* Left side positions need different slide direction */
+  /* Left side positions need different slide direction on mobile only */
   .sr-cart-panel-bubble.sr-cart-panel-bottom-left.closed,
   .sr-cart-panel-bubble.sr-cart-panel-top-left.closed {
-    @apply -translate-x-full;
+    @apply -translate-x-full md:translate-x-0;
   }
 
   /* Cart Panel States - Sidebar Style */
@@ -2054,11 +2075,11 @@
 
 .sr-field-icon {
   @apply absolute start-3 pointer-events-none;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0.875rem; /* Fixed position to match input, stays stable when error messages appear */
   width: 1.125rem;
   height: 1.125rem;
   color: var(--color-text-muted);
+  opacity: 0.5;
 }
 
 /* Adjust input padding when icon is present */
@@ -2161,8 +2182,11 @@
 
 .sr-field-input:disabled,
 .sr-field-select:disabled {
-  @apply bg-gray-50 text-gray-400 cursor-not-allowed;
-  border-color: #f3f4f6;
+  @apply cursor-not-allowed;
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  border-color: var(--color-border);
 }
 
 .sr-field-input.sr-field-error,
@@ -2237,6 +2261,13 @@
   /* Spacing handled by .sr-field-group mb-4 */
 }
 
+.sr-form-intro-text {
+  @apply text-xs mb-3;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+  line-height: 1.5;
+}
+
 
 /* Guest/Account Toggle */
 .sr-guest-toggle {
@@ -2249,7 +2280,12 @@
 
 .sr-guest-option {
   @apply flex items-center cursor-pointer p-3 border rounded-md transition-colors duration-200;
-  @apply border-gray-300 bg-[var(--color-surface)] hover:border-[var(--color-primary)];
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.sr-guest-option:hover {
+  border-color: var(--color-primary);
 }
 
 .sr-guest-option.sr-guest-active {
@@ -2278,11 +2314,14 @@
 
 /* Account Notice */
 .sr-account-notice {
-  @apply flex items-start space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-md;
+  @apply flex items-start space-x-3 p-4 rounded-md;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
 }
 
 .sr-account-notice-icon {
-  @apply w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0;
+  @apply w-5 h-5 mt-0.5 flex-shrink-0;
+  color: var(--color-text-muted);
 }
 
 .sr-account-notice-text {
@@ -2290,11 +2329,13 @@
 }
 
 .sr-account-notice-text strong {
-  @apply font-medium text-blue-900 block mb-1;
+  @apply font-medium block mb-1;
+  color: var(--color-text);
 }
 
 .sr-account-notice-text p {
-  @apply text-blue-700 m-0;
+  @apply m-0;
+  color: var(--color-text-muted);
 }
 
 /* ==========================================
@@ -2315,7 +2356,8 @@
 }
 
 .sr-checkout-progress {
-  @apply text-sm text-gray-500;
+  @apply text-sm;
+  color: var(--color-text-muted);
 }
 
 /* Checkout Navigation */
@@ -2669,13 +2711,13 @@
 
 .sr-auth-notice {
   @apply flex items-start gap-3 p-4 rounded-lg;
-  background: var(--color-surface-alt, #f8f9fa);
-  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
 }
 
 .sr-auth-icon {
   @apply w-6 h-6 flex-shrink-0;
-  color: var(--color-primary, #3B82F6);
+  color: var(--color-text-muted);
 }
 
 .sr-auth-content {
@@ -2708,21 +2750,7 @@
   color: var(--color-text-secondary, #6b7280);
 }
 
-.sr-btn-secondary {
-  @apply flex items-center justify-center gap-2 px-4 py-2 rounded-lg border transition-colors;
-  background: var(--color-surface, #ffffff);
-  border-color: var(--color-border, #e5e7eb);
-  color: var(--color-text, #1f2937);
-}
-
-.sr-btn-secondary:hover:not(:disabled) {
-  background: var(--color-surface-alt, #f8f9fa);
-  border-color: var(--color-primary, #3B82F6);
-}
-
-.sr-btn-secondary:disabled {
-  @apply opacity-50 cursor-not-allowed;
-}
+/* Removed duplicate - using definition at line 821 */
 
 .sr-btn-text {
   @apply text-sm underline transition-colors;
@@ -2758,13 +2786,13 @@
 .sr-returning-notice {
   @apply flex items-start gap-3 p-3 mb-4;
   border-radius: var(--sr-button-radius);
-  background: #f0f9ff; /* Light blue background */
-  border: 1px solid #bae6fd;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
 }
 
 .sr-notice-icon {
   @apply w-5 h-5 flex-shrink-0 mt-0.5;
-  color: #0ea5e9; /* Sky blue icon */
+  color: var(--color-text-muted);
 }
 
 .sr-notice-text {

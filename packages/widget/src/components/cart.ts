@@ -85,11 +85,22 @@ export class CartWidget extends ShoprocketElement {
   @property({ type: String })
   position = 'bottom-right';
 
-  @property({ type: String, attribute: 'data-style' })
+  @property({ type: String, attribute: 'widget-style' })
   widgetStyle = 'bubble';
 
   @property({ type: Boolean })
   floating = false;
+
+  /**
+   * Get the effective widget style - forces 'sidebar' for middle positions
+   */
+  private get effectiveWidgetStyle(): string {
+    // Middle positions only work with sidebar style
+    if (this.position === 'middle-left' || this.position === 'middle-right') {
+      return 'sidebar';
+    }
+    return this.widgetStyle;
+  }
 
   @state()
   private isOpen = false;
@@ -121,11 +132,16 @@ export class CartWidget extends ShoprocketElement {
   
   @state()
   private showOrderFailureMessage = false;
-  
+
   @state()
   private orderFailureReason: string = '';
-  
-  
+
+  @state()
+  private isPaymentFailure = false; // Track if failure is from payment gateway (don't auto-hide)
+
+  @state()
+  private showOrderNotFound = false; // Show when order ID is missing on payment return
+
   // Track if checkout data has been loaded
   private checkoutDataLoaded = false;
   
@@ -778,16 +794,52 @@ export class CartWidget extends ShoprocketElement {
           // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
           const orderData = await this.sdk.cart.getOrder(orderId);
           console.log('Order data loaded:', orderData);
-          
-          // Display order confirmation
-          this.showOrderSuccessMessage = true;
-          this.orderDetails = orderData;
-          
-          // Clear stored order ID since we've successfully shown the confirmation
-          sessionStorage.removeItem('shoprocket_order_id');
-          this.currentOrderId = undefined;
-          
-          console.log('Showing order confirmation for order:', orderId);
+
+          // Check order status to determine if payment succeeded or failed
+          const status = orderData?.status || orderData?.payment_status;
+
+          if (status === 'paid' || status === 'completed' || status === 'processing') {
+            // Payment successful - show success message
+            this.showOrderSuccessMessage = true;
+            this.orderDetails = orderData;
+            console.log('Payment successful, showing order confirmation:', orderId);
+
+            // Clear stored order ID only for successful payments
+            sessionStorage.removeItem('shoprocket_order_id');
+            this.currentOrderId = undefined;
+
+            // Regenerate cart token immediately on success (order is complete)
+            const newToken = CookieManager.regenerateCartToken();
+            internalState.setCartToken(newToken);
+            if (this.sdk) {
+              this.sdk.setCartToken(newToken);
+            }
+          } else if (status === 'failed' || status === 'declined' || status === 'cancelled') {
+            // Payment failed - return to checkout review step
+            this.showOrderFailureMessage = true;
+            this.isPaymentFailure = true; // Mark as payment failure (won't auto-hide)
+            this.orderFailureReason = orderData?.error_message || 'Payment was declined. Please try again or use a different payment method.';
+            console.log('Payment failed with status:', status);
+
+            // Reload cart to restore items and data
+            await this.loadCart();
+
+            // Keep user in checkout mode at review step
+            this.isCheckingOut = true;
+            this.checkoutStep = 'review';
+
+            // Keep order ID in storage for failed payments
+            // This allows refresh to show failure state again
+            // It will be cleared when user successfully retries or goes back to cart
+          } else {
+            // Unknown status - show warning
+            console.warn('Unknown order status:', status);
+            this.showOrderFailureMessage = true;
+            this.orderFailureReason = 'Unable to verify payment status. Please check your email for confirmation.';
+            await this.loadCart();
+
+            // Don't clear order ID for unknown status either
+          }
           
         } catch (error) {
           console.error('Failed to load order via API:', error);
@@ -811,34 +863,22 @@ export class CartWidget extends ShoprocketElement {
               message: 'Your order has been received. You should receive a confirmation email shortly.'
             };
             
-            // Set an error message that will show alongside the success
-            this.errorMessage = 'Order details are currently unavailable. Please check your email for confirmation.';
-            
             // Clear stored order ID even though we couldn't load full details
             sessionStorage.removeItem('shoprocket_order_id');
             this.currentOrderId = undefined;
-            
-            // Clear the error after a delay
-            setTimeout(() => {
-              this.errorMessage = null;
-            }, 10000);
+
+            // Show error notification
+            this.showError('Order details are currently unavailable. Please check your email for confirmation.', 10000);
           }
         }
       } else {
-        console.log('No order ID found, trying cart API as fallback...');
-        
-        // Fallback: load cart normally
+        console.log('No order ID found in payment return URL');
+
+        // Load cart to show current state
         await this.loadCart();
-        
-        if (this.cart && (this.cart as any).order_status) {
-          console.log('Found order status in cart:', (this.cart as any).order_status);
-          this.showOrderSuccessMessage = true;
-          this.orderDetails = this.cart;
-        } else {
-          console.log('No order found anywhere, showing generic success');
-          this.showOrderSuccessMessage = true;
-          this.orderDetails = { id: 'unknown', status: 'completed' };
-        }
+
+        // Show order not found view
+        this.showOrderNotFound = true;
       }
       
       // Open cart to show the confirmation
@@ -849,17 +889,12 @@ export class CartWidget extends ShoprocketElement {
       
     } else if (isPaymentCancelled) {
       console.log('Payment cancelled - reopening cart');
-      
+
       // Load cart to show current state
       await this.loadCart();
-      
-      // Show a message that payment was cancelled
-      this.errorMessage = 'Payment was cancelled. Your items are still in your cart.';
-      
-      // Clear the message after a delay
-      setTimeout(() => {
-        this.errorMessage = null;
-      }, 5000);
+
+      // Show error notification
+      this.showError('Payment was cancelled. Your items are still in your cart.', 5000);
       
       // Open cart so user can try again
       this.hashRouter.openCart();
@@ -909,6 +944,7 @@ export class CartWidget extends ShoprocketElement {
       this.orderDetails = null;
       this.shouldResetOnNextOpen = false;
       this.showOrderFailureMessage = false;
+      this.isPaymentFailure = false;
       this.orderFailureReason = '';
       
       // Reload cart to get fresh state from server
@@ -930,14 +966,42 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private closeCart(): void {
-    this.hashRouter.closeCart();
-    
-    // If we're closing after showing order success, ensure cleanup
+    // Clean up payment return URL if present (before hashRouter acts on it)
+    const hash = window.location.hash;
+    const isPaymentReturnUrl = hash.includes('#!/payment-return') || hash.includes('#!/payment-cancelled');
+
+    if (isPaymentReturnUrl) {
+      // Clean to base URL first
+      const baseUrl = (window.location.href.split('?')[0] || '').split('#')[0] || window.location.origin;
+      window.history.replaceState(null, '', baseUrl);
+
+      // Manually trigger HashRouter sync (replaceState doesn't fire hashchange)
+      this.hashRouter['updateStateFromHash']();
+    } else {
+      // Normal close - use hashRouter
+      this.hashRouter.closeCart();
+    }
+
+    // Clear order success/failure states for privacy (don't show on next open)
     if (this.showOrderSuccessMessage) {
+      this.showOrderSuccessMessage = false;
+      this.orderDetails = null;
       sessionStorage.removeItem('shoprocket_order_id');
       this.currentOrderId = undefined;
     }
-    
+
+    if (this.showOrderFailureMessage) {
+      this.showOrderFailureMessage = false;
+      this.isPaymentFailure = false;
+      this.orderFailureReason = '';
+      sessionStorage.removeItem('shoprocket_order_id');
+      this.currentOrderId = undefined;
+    }
+
+    if (this.showOrderNotFound) {
+      this.showOrderNotFound = false;
+    }
+
     // Track cart closed
     this.track(EVENTS.CART_CLOSED, this.cart);
   }
@@ -1611,18 +1675,22 @@ export class CartWidget extends ShoprocketElement {
           payment_gateway: checkoutMeta.payment_gateway,
           test_mode: checkoutMeta.test_mode
         });
-        
+
         // Modify payment URL to include order ID in return URLs if possible
         let paymentUrl = checkoutMeta.payment_url;
-        
+
         // For some gateways, we can update return URLs by modifying the payment URL
         // This is gateway-specific - for now just store order ID and redirect
         if (orderId) {
           console.log('Redirecting to payment gateway with stored order ID:', orderId);
         }
-        
-        // Redirect to payment gateway
+
+        // Keep loading state active during redirect
+        // Don't set checkoutLoading = false, let the redirect happen with spinner visible
         window.location.href = paymentUrl;
+
+        // Return early but don't clear loading state
+        // The finally block will be skipped by returning here without throwing
         return; // Stop here, payment will be handled on return
         
       } else if (checkoutResponse.status === 'completed' || checkoutResponse.status === 'paid') {
@@ -1652,7 +1720,10 @@ export class CartWidget extends ShoprocketElement {
         
         // Force refresh of cart state to ensure clean slate
         await this.loadCart();
-        
+
+        // Clear loading state for completed orders
+        this.checkoutLoading = false;
+
       } else if (checkoutResponse.status === 'pending' && checkoutResponse.payment_method === 'offline') {
         // Offline payment method (cash on delivery, bank transfer, etc.)
         // Track as purchase but show special instructions
@@ -1677,6 +1748,9 @@ export class CartWidget extends ShoprocketElement {
           this.sdk.setCartToken(newToken);
         }
         await this.loadCart();
+
+        // Clear loading state for offline payment orders
+        this.checkoutLoading = false;
       }
       
     } catch (error: any) {
@@ -1703,17 +1777,23 @@ export class CartWidget extends ShoprocketElement {
       
       // Show error in cart view, not as floating notification
       this.showOrderFailureMessage = true;
+      this.isPaymentFailure = false; // API errors can auto-hide
       this.orderFailureReason = errorMessage;
-      
-      // Auto-hide after 10 seconds
+
+      // Auto-hide after 10 seconds (only for API errors, not payment failures)
       const timeout = setTimeout(() => {
-        this.showOrderFailureMessage = false;
-        this.orderFailureReason = '';
+        if (!this.isPaymentFailure) {
+          this.showOrderFailureMessage = false;
+          this.orderFailureReason = '';
+        }
       }, 10000);
       this.timeouts.add(timeout);
-    } finally {
+
+      // Only clear loading on error, not on successful redirect
       this.checkoutLoading = false;
     }
+
+    // Note: checkoutLoading stays true for payment redirects to show spinner during navigation
   }
 
   protected override render(): TemplateResult {
@@ -1740,8 +1820,8 @@ export class CartWidget extends ShoprocketElement {
       </div>
       
       <!-- Cart Panel - SEPARATE from toggle button -->
-      <div class="sr-cart-panel sr-cart-panel-${this.widgetStyle} sr-cart-panel-${this.position} ${this.isOpen ? 'open' : 'closed'}">
-        <div class="sr-cart-header ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-header` : ''}">
+      <div class="sr-cart-panel sr-cart-panel-${this.effectiveWidgetStyle} sr-cart-panel-${this.position} ${this.isOpen ? 'open' : 'closed'}">
+        <div class="sr-cart-header ${this.effectiveWidgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-header` : ''}">
           ${this.isCheckingOut ? html`
             <button 
               class="sr-cart-back-arrow" 
@@ -1760,16 +1840,17 @@ export class CartWidget extends ShoprocketElement {
             </svg>
           </button>
         </div>
-        <div class="sr-cart-body ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-items` : ''}">
-          ${this.isCheckingOut && !this.showOrderSuccessMessage && !this.showOrderFailureMessage ? 
+        <div class="sr-cart-body ${this.effectiveWidgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-items` : ''}">
+          ${this.isCheckingOut && !this.showOrderSuccessMessage && !this.showOrderFailureMessage && !this.showOrderNotFound ?
             this.renderCheckoutFlow() :
             this.paymentPending ? this.renderPaymentPending() :
-            this.showOrderSuccessMessage ? this.renderOrderSuccess() : 
+            this.showOrderSuccessMessage ? this.renderOrderSuccess() :
             this.showOrderFailureMessage ? this.renderOrderFailure() :
+            this.showOrderNotFound ? this.renderOrderNotFound() :
             this.renderCartItems()}
         </div>
-        ${!this.showOrderSuccessMessage && !this.showOrderFailureMessage && this.cart?.items?.length ? html`
-          <div class="sr-cart-footer ${this.widgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-footer` : ''}">
+        ${!this.showOrderSuccessMessage && !this.showOrderFailureMessage && !this.showOrderNotFound && this.cart?.items?.length ? html`
+          <div class="sr-cart-footer ${this.effectiveWidgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-footer` : ''}">
             ${this.isCheckingOut ? this.renderCheckoutFooter() : this.renderCartFooter()}
           </div>
         ` : ''}
@@ -1844,10 +1925,28 @@ export class CartWidget extends ShoprocketElement {
     this.showOrderSuccessMessage = false;
     this.orderDetails = null;
     this.shouldResetOnNextOpen = false; // Don't double-reset
+
+    // Note: Cart token already regenerated when success was detected
+    // closeCart() will handle payment return URL cleanup
+
     this.closeCart();
-    
-    // Reload cart to get fresh state for next purchase
+
+    // Reload cart to get fresh state with new token
     this.loadCart();
+  }
+
+  /**
+   * Clean up payment return/cancelled URLs
+   * Removes payment-return and payment-cancelled fragments and any gateway query params
+   * Uses replaceState to avoid page reload
+   */
+  private cleanupPaymentReturnUrl(): void {
+    const hash = window.location.hash;
+    if (hash.includes('#!/payment-return') || hash.includes('#!/payment-cancelled')) {
+      // Clean to base URL: remove all query params and hash
+      const baseUrl = (window.location.href.split('?')[0] || '').split('#')[0] || window.location.origin;
+      window.history.replaceState(null, '', baseUrl);
+    }
   }
   
   private renderPaymentPending(): TemplateResult {
@@ -1879,17 +1978,85 @@ export class CartWidget extends ShoprocketElement {
       formatPrice: (amount) => this.formatPrice(amount),
       handleContinueShopping: () => this.handleContinueShopping(),
       handleCheckOrderStatus: () => { /* TODO: implement */ },
-      handleRetryPayment: () => {
+      handleRetryPayment: async () => {
         this.showOrderFailureMessage = false;
+        this.isPaymentFailure = false;
         this.orderFailureReason = '';
         this.checkoutStep = 'review';
+
+        // Clear stored order ID when retrying
+        sessionStorage.removeItem('shoprocket_order_id');
+        this.currentOrderId = undefined;
+
+        // Ensure checkout wizard is loaded before showing review step
+        await this.ensureModule('checkoutWizard');
+        this.requestUpdate();
       },
-      handleBackToCart: () => this.exitCheckout(),
+      handleBackToCart: () => {
+        // Clear stored order ID when going back to cart
+        sessionStorage.removeItem('shoprocket_order_id');
+        this.currentOrderId = undefined;
+
+        // Clean up payment return URL
+        this.cleanupPaymentReturnUrl();
+
+        this.exitCheckout();
+      },
       getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
       handleImageError: (e) => this.handleImageError(e)
     };
 
     return this.cartModules.orderResult.renderOrderFailure(this.orderFailureReason, context);
+  }
+
+  private renderOrderNotFound(): TemplateResult {
+    if (!this.cartModules.orderResult) {
+      this.ensureModule('orderResult').then(() => this.requestUpdate());
+      return loadingSpinner('lg');
+    }
+
+    const context: OrderResultContext = {
+      formatPrice: (amount) => this.formatPrice(amount),
+      handleContinueShopping: () => {
+        this.showOrderNotFound = false;
+
+        // Clean up payment return URL and trigger HashRouter update
+        const baseUrl = (window.location.href.split('?')[0] || '').split('#')[0] || window.location.origin;
+        window.history.replaceState(null, '', baseUrl);
+
+        // Manually trigger hashchange to sync HashRouter (since replaceState doesn't trigger it)
+        this.hashRouter['updateStateFromHash']();
+
+        // Track cart closed (state will be synced via HashRouter)
+        this.track(EVENTS.CART_CLOSED, this.cart);
+
+        // Reload cart for fresh state
+        this.loadCart();
+      },
+      handleCheckOrderStatus: () => { /* Not applicable */ },
+      handleRetryPayment: () => { /* Not applicable */ },
+      handleBackToCart: () => {
+        this.showOrderNotFound = false;
+
+        // Clean up payment return URL and trigger HashRouter update
+        const baseUrl = (window.location.href.split('?')[0] || '').split('#')[0] || window.location.origin;
+        window.history.replaceState(null, '', baseUrl);
+
+        // Manually trigger hashchange to sync HashRouter
+        this.hashRouter['updateStateFromHash']();
+
+        // Exit checkout
+        this.isCheckingOut = false;
+        this.checkoutStep = 'customer';
+
+        // Track cart closed (state will be synced via HashRouter)
+        this.track(EVENTS.CART_CLOSED, this.cart);
+      },
+      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
+      handleImageError: (e) => this.handleImageError(e)
+    };
+
+    return this.cartModules.orderResult.renderOrderNotFound(context);
   }
 
   private renderCheckoutFlow(): TemplateResult {

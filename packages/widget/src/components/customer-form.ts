@@ -217,7 +217,12 @@ export class CustomerForm extends BaseComponent {
 
   protected override render(): TemplateResult {
     return html`
-      <form class="sr-customer-form space-y-3" @submit="${(e: Event) => e.preventDefault()}">
+      <form class="sr-customer-form space-y-4" @submit="${(e: Event) => e.preventDefault()}">
+        <!-- Intro text -->
+        <p class="sr-form-intro-text">
+          Enter your email to continue.<br> If you have an account, we'll log you in automatically.
+        </p>
+
         ${this.showGuestOption ? html`
           <!-- Guest/Account Toggle -->
           <div class="sr-guest-toggle">
@@ -231,7 +236,7 @@ export class CustomerForm extends BaseComponent {
                 >
                 <span class="sr-guest-option-text">Guest Checkout</span>
               </label>
-              
+
               <label class="sr-guest-option ${!this.isGuest ? 'sr-guest-active' : ''}">
                 <input
                   type="radio"
@@ -244,8 +249,8 @@ export class CustomerForm extends BaseComponent {
             </div>
           </div>
         ` : ''}
-        
-        <div class="sr-customer-form-fields space-y-3">
+
+        <div class="sr-customer-form-fields space-y-4">
           <!-- Email Field -->
           <div class="sr-field-group-with-icon ${this.isFieldValid('email') ? 'sr-field-valid' : ''}">
             <input
@@ -274,7 +279,7 @@ export class CustomerForm extends BaseComponent {
 
           ${this.showNameFields ? html`
             <!-- Name Fields Row -->
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-2 gap-4">
               <!-- First Name -->
               <div class="sr-field-group-with-icon ${this.isFieldValid('first_name') ? 'sr-field-valid' : ''}">
                 <input
