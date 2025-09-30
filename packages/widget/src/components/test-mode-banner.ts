@@ -3,7 +3,7 @@ import { state } from 'lit/decorators.js';
 import { BaseComponent } from '../core/base-component';
 
 export class TestModeBanner extends BaseComponent {
-  @state() private isMinimized = false;
+  @state() private isMinimized = true;
   
   override createRenderRoot() {
     // Use Shadow DOM with our styles
