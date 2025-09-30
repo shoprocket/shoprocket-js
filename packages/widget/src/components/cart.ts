@@ -1,8 +1,5 @@
 import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { repeat } from 'lit/directives/repeat.js';
-// import { provide } from '@lit/context'; // Phase 2: for SDK context
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Cart, ApiResponse, Money } from '../types/api';
 import { loadingSpinner } from './loading-spinner';
@@ -13,7 +10,6 @@ import { cartState } from '../core/cart-state';
 import { internalState } from '../core/internal-state';
 import { CookieManager } from '../utils/cookie-manager';
 import { validateForm, hasErrors } from '../core/validation';
-// import { sdkContext } from '../core/sdk-context'; // Phase 2: for SDK context
 
 // Lazy import checkout components only when needed
 import type { CustomerData, CustomerFormErrors } from './customer-form';
@@ -22,17 +18,17 @@ import type { AddressData, AddressFormErrors } from './address-form';
 // Import SVG as string - Vite will inline it at build time
 import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
 
-// Import extracted render modules (Phase 2: these will replace existing render methods)
-// import { renderCartItems, type CartItemsContext } from './cart/cart-items';
-// import { renderCartFooter, type CartFooterContext } from './cart/cart-footer';
-// import { renderTriggerContent, renderNotification, type CartTriggerContext } from './cart/cart-trigger';
-// import {
-//   renderOrderSuccess,
-//   renderPaymentPending,
-//   renderOrderFailure,
-//   type OrderResultContext
-// } from './cart/order-result';
-// import type { OrderDetails } from './cart/cart-types';
+// Import extracted render modules
+import { renderCartItems, type CartItemsContext } from './cart/cart-items';
+import { renderCartFooter, type CartFooterContext } from './cart/cart-footer';
+import { renderTriggerContent, renderNotification, type CartTriggerContext } from './cart/cart-trigger';
+import {
+  renderOrderSuccess,
+  renderPaymentPending,
+  renderOrderFailure,
+  type OrderResultContext
+} from './cart/order-result';
+import type { OrderDetails } from './cart/cart-types';
 
 /**
  * Cart Widget Component - Shopping cart with slide-out panel
@@ -1693,228 +1689,50 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private renderCartItems(): TemplateResult {
-    if (!this.cart?.items?.length || this.showEmptyState) {
-      return html`
-        <div class="sr-cart-empty">
-          <svg class="sr-cart-empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-          </svg>
-          <p class="sr-cart-empty-text">Your cart is empty</p>
-          <button 
-            class="sr-cart-empty-button"
-            @click="${() => this.closeCart()}"
-          >
-            Continue shopping
-          </button>
-        </div>
-      `;
-    }
+    const context: CartItemsContext = {
+      cart: this.cart,
+      showEmptyState: this.showEmptyState,
+      removingItems: this.removingItems,
+      priceChangedItems: this.priceChangedItems,
+      closeCart: () => this.closeCart(),
+      navigateToProduct: (item) => this.navigateToProduct(item),
+      updateQuantity: (itemId, quantity) => this.updateQuantity(itemId, quantity),
+      removeItem: (itemId) => this.removeItem(itemId),
+      formatPrice: (amount) => this.formatPrice(amount),
+      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
+      handleImageError: (e) => this.handleImageError(e)
+    };
 
-    return html`
-      ${repeat(
-        this.cart.items,
-        (item: any) => item.id,
-        (item: any) => html`
-        <div class="sr-cart-item-container ${this.removingItems.has(item.id) ? 'removing' : ''}">
-          <div class="sr-cart-item">
-          <!-- Product Image -->
-          <div class="sr-cart-item-image"
-               @click="${() => this.navigateToProduct(item)}">
-            <img 
-              src="${this.getMediaUrl((item as any).image || item.media?.[0], 'w=128,h=128,fit=cover')}" 
-              alt="${item.product_name}"
-              @load="${(e: Event) => {
-                const img = e.target as HTMLImageElement;
-                img.classList.add('loaded');
-              }}"
-              @error="${(e: Event) => this.handleImageError(e)}"
-            >
-          </div>
-          
-          <!-- Product Details -->
-          <div class="sr-cart-item-content">
-            <div class="sr-cart-item-header">
-              <div class="sr-cart-item-info">
-                <h4 class="sr-cart-item-title"
-                    @click="${() => this.navigateToProduct(item)}">${item.product_name}</h4>
-                ${item.variant_name ? html`
-                  <div class="sr-cart-item-variant">${item.variant_name}</div>
-                ` : ''}
-              </div>
-            </div>
-            
-            <div class="sr-cart-item-footer">
-              <div class="sr-cart-item-price">
-                <span class="sr-cart-item-subtotal ${this.priceChangedItems.has(item.id) ? 'price-changed' : ''}">
-                  ${this.formatPrice(
-                    item.subtotal !== undefined 
-                      ? item.subtotal 
-                      : (item.price?.amount || 0) * (item.quantity || 0)
-                  )}
-                </span>
-              </div>
-              
-              <!-- Quantity Controls with Remove Button -->
-              <div class="sr-cart-item-quantity">
-                <!-- Remove Button -->
-                <button 
-                  class="sr-cart-item-remove"
-                  @click="${() => this.removeItem(item.id)}"
-                  aria-label="Remove item"
-                  title="Remove item"
-                >
-                  <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                  </svg>
-                </button>
-                <div class="sr-cart-quantity">
-                <button 
-                  class="sr-cart-quantity-button"
-                  @click="${() => this.updateQuantity(item.id, item.quantity - 1)}"
-                  ?disabled="${item.quantity === 1}"
-                  aria-label="Decrease quantity"
-                >
-                  −
-                </button>
-                <span class="sr-cart-quantity-value">${item.quantity}</span>
-                <sr-tooltip 
-                  text="${item.inventory_policy === 'deny' && item.inventory_count !== undefined && item.quantity >= item.inventory_count ? `Maximum quantity (${item.inventory_count}) in cart` : ''}" 
-                  position="top"
-                >
-                  <button 
-                    class="sr-cart-quantity-button"
-                    @click="${() => this.updateQuantity(item.id, item.quantity + 1)}"
-                    ?disabled="${item.inventory_policy === 'deny' && item.inventory_count !== undefined && item.quantity >= item.inventory_count}"
-                    aria-label="Increase quantity"
-                  >
-                    +
-                  </button>
-                </sr-tooltip>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      `
-      )}
-    `;
+    return renderCartItems(context);
   }
 
   private renderCartFooter(): TemplateResult {
-    return html`
-      <div class="sr-cart-subtotal">
-        <span class="sr-cart-subtotal-label">Subtotal</span>
-        <span class="sr-cart-subtotal-amount">
-          <span class="sr-cart-total-price ${this.priceChangedItems.size > 0 ? 'price-changed' : ''}">${this.formatPrice(this.cart?.totals?.total)}</span>
-        </span>
-      </div>
-      <button 
-        class="sr-cart-checkout-button"
-        @click="${this.startCheckout}"
-        ?disabled="${!this.cart?.items?.length || this.chunkLoading}"
-      >
-        ${this.chunkLoading ? loadingSpinner('sm') : 'Checkout'}
-      </button>
-      <p class="sr-cart-powered-by">
-        Taxes and shipping calculated at checkout
-      </p>
-    `;
+    const context: CartFooterContext = {
+      cart: this.cart,
+      priceChangedItems: this.priceChangedItems,
+      chunkLoading: this.chunkLoading,
+      formatPrice: (amount) => this.formatPrice(amount),
+      startCheckout: () => this.startCheckout()
+    };
+
+    return renderCartFooter(context);
   }
   
   private renderOrderSuccess(): TemplateResult {
-    // Extract data from API response structure
     const orderData = this.orderDetails?.data || this.orderDetails;
     const customerEmail = orderData?.customer?.email || this.customerData.email;
-    
-    return html`
-      <div class="sr-order-success" style="text-align: center; padding: 2rem 1rem;">
-        <!-- Success icon with filled green background -->
-        <div style="width: 80px; height: 80px; background: rgba(34, 197, 94, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
-          <svg style="width: 40px; height: 40px; color: var(--color-success, #22c55e);" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-          </svg>
-        </div>
-        
-        <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.5rem;">Order Confirmed!</h2>
-        <p style="color: var(--color-text-muted); margin: 0 0 1.5rem;">Thank you for your purchase</p>
-        
-        <!-- Email confirmation notice -->
-        ${customerEmail ? html`
-          <div style="background: var(--color-surface-accent, #f9fafb); border-radius: 0.5rem; padding: 1rem; margin: 0 0 1.5rem;">
-            <p style="font-size: 0.875rem; color: var(--color-text); margin: 0 0 0.5rem;">
-              📧 A confirmation email has been sent to:
-            </p>
-            <p style="font-size: 0.875rem; color: var(--color-text); font-weight: 500; margin: 0;">
-              ${customerEmail}
-            </p>
-          </div>
-        ` : ''}
-        
-        <!-- Order details -->
-        ${orderData ? html`
-          <div style="text-align: left; background: white; border: 1px solid var(--color-border, #e5e7eb); border-radius: 0.5rem; padding: 1rem; margin: 0 0 1.5rem;">
-            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.75rem;">Order Summary</h3>
-            
-            ${orderData.order_number ? html`
-              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
-                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Order Number</span>
-                <span style="font-size: 0.75rem; font-family: monospace; color: var(--color-text);">${orderData.order_number}</span>
-              </div>
-            ` : ''}
-            
-            ${orderData.items ? html`
-              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
-                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Items</span>
-                <span style="font-size: 0.75rem; font-weight: 500; color: var(--color-text);">${orderData.items.length}</span>
-              </div>
-            ` : ''}
-            
-            ${orderData.subtotal ? html`
-              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
-                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Subtotal</span>
-                <span style="font-size: 0.75rem; color: var(--color-text);">${this.formatPrice(orderData.subtotal)}</span>
-              </div>
-            ` : ''}
-            
-            ${orderData.shipping_cost && orderData.shipping_cost.amount > 0 ? html`
-              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
-                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Shipping</span>
-                <span style="font-size: 0.75rem; color: var(--color-text);">${this.formatPrice(orderData.shipping_cost)}</span>
-              </div>
-            ` : ''}
-            
-            ${orderData.tax_amount && orderData.tax_amount.amount > 0 ? html`
-              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
-                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Tax</span>
-                <span style="font-size: 0.75rem; color: var(--color-text);">${this.formatPrice(orderData.tax_amount)}</span>
-              </div>
-            ` : ''}
-            
-            ${orderData.discount_amount && orderData.discount_amount.amount > 0 ? html`
-              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-border, #f3f4f6);">
-                <span style="font-size: 0.75rem; color: var(--color-text-muted);">Discount</span>
-                <span style="font-size: 0.75rem; color: var(--color-success, #22c55e);">-${this.formatPrice(orderData.discount_amount)}</span>
-              </div>
-            ` : ''}
-            
-            ${orderData.total ? html`
-              <div style="display: flex; justify-content: space-between; padding: 0.75rem 0 0;">
-                <span style="font-size: 0.875rem; font-weight: 600; color: var(--color-text);">Total Paid</span>
-                <span style="font-size: 0.875rem; font-weight: 600; color: var(--color-primary);">${this.formatPrice(orderData.total)}</span>
-              </div>
-            ` : ''}
-          </div>
-        ` : ''}
-        
-        <button 
-          class="sr-btn sr-btn-primary"
-          @click="${() => this.handleContinueShopping()}"
-          style="width: 100%; max-width: 200px;"
-        >
-          Continue Shopping
-        </button>
-      </div>
-    `;
+
+    const context: OrderResultContext = {
+      formatPrice: (amount) => this.formatPrice(amount),
+      handleContinueShopping: () => this.handleContinueShopping(),
+      handleCheckOrderStatus: () => { /* TODO: implement */ },
+      handleRetryPayment: () => { /* TODO: implement */ },
+      handleBackToCart: () => this.exitCheckout(),
+      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
+      handleImageError: (e) => this.handleImageError(e)
+    };
+
+    return renderOrderSuccess(this.orderDetails as OrderDetails, customerEmail, context);
   }
   
   private handleContinueShopping(): void {
@@ -1928,79 +1746,35 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private renderPaymentPending(): TemplateResult {
-    const showTimeout = false; // Payment polling removed
-    
-    return html`
-      <div class="sr-payment-pending" style="text-align: center; padding: 3rem 1rem; min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-        ${this.paymentTimeout ? html`
-          <!-- Timeout state -->
-          <svg style="width: 64px; height: 64px; color: var(--color-warning, #f59e0b); margin: 0 auto 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.5rem;">Payment Taking Longer Than Expected</h2>
-          <p style="color: var(--color-text-muted); margin: 0 0 1.5rem; max-width: 400px;">
-            Your payment is still being processed. This can sometimes take a few minutes.
-          </p>
-          <p style="color: var(--color-text-muted); margin: 0 0 1.5rem; font-size: 0.875rem;">
-            Please contact support if you need assistance.
-          </p>
-          <button 
-            class="sr-btn sr-btn-primary"
-            @click="${() => {
-              this.paymentTimeout = false;
-              this.paymentPending = false;
-              // Payment polling removed - using order API approach
-              this.closeCart();
-            }}"
-            style="width: 100%; max-width: 200px;"
-          >
-            Close
-          </button>
-        ` : html`
-          <!-- Processing state -->
-          <div class="sr-spinner-large" style="width: 48px; height: 48px; margin: 0 auto 1.5rem;">
-            <span class="sr-spinner" style="width: 48px; height: 48px; border-width: 4px;"></span>
-          </div>
-          <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.5rem;">Processing Payment...</h2>
-          <p style="color: var(--color-text-muted); margin: 0 0 1rem;">
-            Please wait while we confirm your payment
-          </p>
-          <p style="color: var(--color-text-muted); margin: 0; font-size: 0.875rem;">
-            This may take a few moments. Do not close this window.
-          </p>
-          
-          ${showTimeout ? html`
-            <p style="color: var(--color-warning, #f59e0b); margin: 1.5rem 0 0; font-size: 0.875rem;">
-              Taking longer than expected? Please contact support if this continues.
-            </p>
-          ` : ''}
-        `}
-      </div>
-    `;
+    const context: OrderResultContext = {
+      formatPrice: (amount) => this.formatPrice(amount),
+      handleContinueShopping: () => this.handleContinueShopping(),
+      handleCheckOrderStatus: () => { /* TODO: implement */ },
+      handleRetryPayment: () => { /* TODO: implement */ },
+      handleBackToCart: () => this.exitCheckout(),
+      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
+      handleImageError: (e) => this.handleImageError(e)
+    };
+
+    return renderPaymentPending(this.paymentTimeout, context);
   }
   
   private renderOrderFailure(): TemplateResult {
-    return html`
-      <div class="sr-order-failure" style="text-align: center; padding: 3rem 1rem;">
-        <svg style="width: 64px; height: 64px; color: var(--color-danger, #ef4444); margin: 0 auto 1.5rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--color-text); margin: 0 0 0.5rem;">Order Failed</h2>
-        <p style="color: var(--color-text-muted); margin: 0 0 1rem;">${this.orderFailureReason}</p>
-        <button 
-          class="sr-btn sr-btn-primary"
-          @click="${() => {
-            this.showOrderFailureMessage = false;
-            this.orderFailureReason = '';
-            // Go back to review step to try again
-            this.checkoutStep = 'review';
-          }}"
-          style="width: 100%; max-width: 200px;"
-        >
-          Try Again
-        </button>
-      </div>
-    `;
+    const context: OrderResultContext = {
+      formatPrice: (amount) => this.formatPrice(amount),
+      handleContinueShopping: () => this.handleContinueShopping(),
+      handleCheckOrderStatus: () => { /* TODO: implement */ },
+      handleRetryPayment: () => {
+        this.showOrderFailureMessage = false;
+        this.orderFailureReason = '';
+        this.checkoutStep = 'review';
+      },
+      handleBackToCart: () => this.exitCheckout(),
+      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
+      handleImageError: (e) => this.handleImageError(e)
+    };
+
+    return renderOrderFailure(this.orderFailureReason, context);
   }
 
   private renderCheckoutFlow(): TemplateResult {
@@ -2763,28 +2537,7 @@ export class CartWidget extends ShoprocketElement {
 
 
   private renderTriggerContent(itemCount: number): TemplateResult {
-    const isMiddle = this.position.includes('middle');
-    
-    if (isMiddle) {
-      return html`
-        <div class="sr-cart-empty-container">
-          ${itemCount > 0 ? html`
-            <span class="sr-cart-badge-count">${itemCount}</span>
-          ` : ''}
-          <span class="sr-cart-icon" aria-hidden="true">${unsafeHTML(shoppingBasketIcon)}</span>
-        </div>
-      `;
-    }
-    
-    // Bottom positions - standard layout
-    return html`
-      <span class="sr-cart-icon" aria-hidden="true">${unsafeHTML(shoppingBasketIcon)}</span>
-      ${itemCount > 0 ? html`
-        <span class="sr-cart-badge">
-          ${itemCount > 99 ? '99+' : itemCount}
-        </span>
-      ` : ''}
-    `;
+    return renderTriggerContent(itemCount, this.position, shoppingBasketIcon);
   }
   
   private handleFloatingError = (event: CustomEvent): void => {
@@ -2830,90 +2583,17 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private renderNotification(): TemplateResult {
-    // Error takes priority over success
-    if (this.floatingErrorMessage) {
-      // Use middle position for vertical centering with cart toggle
-      const verticalPosition = this.position.includes('top') ? 'top' : 'middle';
-      const horizontalPosition = this.position.includes('left') ? 'left' : 'right';
-      const notificationClasses = `sr-notification-${verticalPosition}-${horizontalPosition}`;
-      
-      let animationClass = '';
-      if (this.errorNotificationSliding === 'in') {
-        animationClass = 'sr-notification-slide-in';
-      } else if (this.errorNotificationSliding === 'out') {
-        animationClass = 'sr-notification-slide-out';
-      }
-      
-      return html`
-        <div class="sr-add-notification sr-notification-error ${notificationClasses} ${animationClass}">
-          <!-- Triangle arrow -->
-          ${this.renderNotificationArrow()}
-          <div class="sr-add-notification-content">
-            <svg class="sr-notification-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <div class="sr-add-notification-details">
-              <p class="sr-add-notification-title">${this.floatingErrorMessage}</p>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    
-    if (this.recentlyAddedProduct) {
-      const product = this.recentlyAddedProduct;
-      // Use same position as cart toggle
-      const notificationClasses = `sr-notification-${this.position}`;
-      
-      let animationClass = '';
-      if (this.notificationSliding === 'in') {
-        animationClass = 'sr-notification-slide-in';
-      } else if (this.notificationSliding === 'out') {
-        animationClass = 'sr-notification-slide-out';
-      }
-      
-      return html`
-        <div class="sr-add-notification ${notificationClasses} ${animationClass}">
-          <!-- Triangle arrow -->
-          ${this.renderNotificationArrow()}
-          <div class="sr-add-notification-content">
-            ${product.media ? html`
-              <div class="sr-add-notification-image">
-                <img 
-                  src="${this.getMediaUrl(product.media, 'w=40,h=40,fit=cover')}" 
-                  alt="${product.name}"
-                  class="sr-add-notification-img"
-                  @error="${(e: Event) => this.handleImageError(e)}"
-                >
-              </div>
-            ` : ''}
-            <div class="sr-add-notification-details">
-              <p class="sr-add-notification-title">${product.name}</p>
-              <div class="sr-add-notification-info">
-                <span class="sr-add-notification-price">${this.formatPrice(product.price)}</span>
-                ${product.variantText ? html`
-                  <span class="sr-add-notification-variant">• ${product.variantText}</span>
-                ` : ''}
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    
-    return html``;
-  }
-  
+    const context: CartTriggerContext = {
+      position: this.position,
+      recentlyAddedProduct: this.recentlyAddedProduct,
+      notificationSliding: this.notificationSliding,
+      floatingErrorMessage: this.floatingErrorMessage,
+      errorNotificationSliding: this.errorNotificationSliding,
+      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
+      formatPrice: (amount) => this.formatPrice(amount),
+      handleImageError: (e) => this.handleImageError(e)
+    };
 
-  private renderNotificationArrow(): TemplateResult {
-    const isLeft = this.position.includes('left');
-    const arrowClasses = `sr-notification-arrow sr-notification-arrow-${isLeft ? 'left' : 'right'}`;
-    
-    return html`
-      <div class="${arrowClasses}">
-        <div class="sr-arrow-inner">
-        </div>
-      </div>
-    `;
+    return renderNotification(context);
   }
 }
