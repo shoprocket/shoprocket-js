@@ -88,9 +88,6 @@ export class AddressForm extends BaseComponent {
 
 
   @state()
-  private loadingStatesList = false;
-
-  @state()
   private currentCountryCode: string | undefined;
 
   @state()
@@ -225,7 +222,6 @@ export class AddressForm extends BaseComponent {
     }
     
     // Load from API
-    this.loadingStatesList = true;
     try {
       const response = await this.sdk.location.getStates(countryCode);
       const states = response?.data?.states || [];
@@ -237,8 +233,6 @@ export class AddressForm extends BaseComponent {
       console.warn('Failed to load states for', countryCode, error);
       this.states = [];
       this.stateFieldType = 'text';
-    } finally {
-      this.loadingStatesList = false;
       this.requestUpdate();
     }
   }
@@ -526,11 +520,6 @@ export class AddressForm extends BaseComponent {
     // Only disable if no country selected (not when loading - this allows autofill)
     const isDisabled = this.disabled || !this.address.country;
     
-    // Keep label consistent, let the disabled state speak for itself
-    const labelText = this.loadingStatesList 
-      ? 'State/Province (Loading...)'
-      : 'State/Province';
-    
     return html`
       <select
         id="state"
@@ -558,7 +547,7 @@ export class AddressForm extends BaseComponent {
         `)}
       </select>
       <label class="sr-field-label" for="state">
-        ${labelText}
+        State/Province
       </label>
     `;
   }
