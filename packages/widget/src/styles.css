@@ -2063,12 +2063,12 @@
 
 /* Adjust input padding when icon is present */
 .sr-field-input-with-icon {
-  padding-left: 2.75rem;
+  padding-left: 3rem !important;
 }
 
 /* Adjust label padding when icon is present */
 .sr-field-group-with-icon .sr-field-label {
-  left: 2.75rem;
+  left: 3rem;
 }
 
 /* Success checkmark icon (right side) */
