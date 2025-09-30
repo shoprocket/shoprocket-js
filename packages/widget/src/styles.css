@@ -132,6 +132,7 @@
   --color-text-muted: #6b7280;
   --color-border: #e5e7eb;
   --color-hover: #f3f4f6;
+  --color-input-bg: #f8fafc;
   --color-info: var(--color-blue-500);
   --color-success: var(--color-green-600);
   --color-warning: var(--color-yellow-400);
@@ -2095,7 +2096,7 @@
 .sr-field-select {
   @apply w-full px-3 pt-5 pb-1.5 border;
   font-size: var(--text-sm);
-  background: var(--color-surface);
+  background: var(--color-input-bg);
   color: var(--color-text);
   border-radius: var(--sr-button-radius);
   border-color: var(--color-border);
