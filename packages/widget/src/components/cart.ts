@@ -23,6 +23,7 @@ import type { CartItemsContext } from './cart/cart-items';
 import type { CartFooterContext } from './cart/cart-footer';
 import type { CartTriggerContext } from './cart/cart-trigger';
 import type { OrderResultContext } from './cart/order-result';
+import type { CheckoutWizardContext } from './cart/checkout-wizard';
 import type { OrderDetails } from './cart/cart-types';
 
 /**
@@ -76,6 +77,7 @@ export class CartWidget extends ShoprocketElement {
     cartFooter?: typeof import('./cart/cart-footer');
     cartTrigger?: typeof import('./cart/cart-trigger');
     orderResult?: typeof import('./cart/order-result');
+    checkoutWizard?: typeof import('./cart/checkout-wizard');
   } = {};
 
   private modulesPrefetched = false;
@@ -414,6 +416,9 @@ export class CartWidget extends ShoprocketElement {
       case 'orderResult':
         this.cartModules.orderResult = await import('./cart/order-result');
         return this.cartModules.orderResult as any;
+      case 'checkoutWizard':
+        this.cartModules.checkoutWizard = await import('./cart/checkout-wizard');
+        return this.cartModules.checkoutWizard as any;
       default:
         throw new Error(`Unknown module: ${module}`);
     }
@@ -727,7 +732,8 @@ export class CartWidget extends ShoprocketElement {
       // Fire and forget - don't await
       Promise.all([
         import('./customer-form'),
-        import('./address-form')
+        import('./address-form'),
+        import('./cart/checkout-wizard')
       ]).then(() => {
         // Components are now cached for instant loading
       }).catch(() => {
@@ -940,19 +946,23 @@ export class CartWidget extends ShoprocketElement {
   private async startCheckout(): Promise<void> {
     // Show loading state while chunks load
     this.chunkLoading = true;
-    
+
     try {
       // Lazy load checkout components and data in parallel
-      await Promise.all([
+      const [_customerForm, _addressForm, checkoutWizard] = await Promise.all([
         import('./customer-form'),
         import('./address-form'),
+        import('./cart/checkout-wizard'),
         // Always try to load checkout data when starting checkout
         this.loadCheckoutData()
       ]);
-      
+
+      // Populate the module cache
+      this.cartModules.checkoutWizard = checkoutWizard;
+
       this.isCheckingOut = true;
       this.checkoutStep = 'customer';
-      
+
       // Track checkout started with enhanced data
       this.track(EVENTS.BEGIN_CHECKOUT, {
         cart: this.cart,
@@ -960,7 +970,7 @@ export class CartWidget extends ShoprocketElement {
         cart_value: this.cart?.totals?.total?.amount,
         currency: this.cart?.currency
       });
-      
+
       // Track viewing first step with specific event
       this.track(EVENTS.CHECKOUT_CONTACT_VIEWED, {
         step_name: 'contact_information',
@@ -1883,569 +1893,127 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private renderCheckoutFlow(): TemplateResult {
-    // Show loading spinner while chunks are loading
-    if (this.chunkLoading) {
-      return html`
-        <div class="sr-checkout-loading" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;">
-          ${loadingSpinner('lg')}
-          <p style="margin-top: 1rem; color: var(--color-text-muted);">Loading checkout...</p>
-        </div>
-      `;
-    }
-    
-    // Only render the current active step for better performance
-    switch (this.checkoutStep) {
-      case 'customer':
-        return html`
-          <div class="sr-checkout-step">
-            ${this.renderCustomerContent()}
-          </div>
-        `;
-      
-      case 'shipping':
-        return html`
-          <div class="sr-checkout-step">
-            ${this.renderShippingContent()}
-          </div>
-        `;
-      
-      case 'billing':
-        // Skip billing if same as shipping
-        if (this.sameAsBilling) {
-          // This shouldn't happen, but handle gracefully
-          this.checkoutStep = 'payment';
-          return html`
-            <div class="sr-checkout-step">
-              ${this.renderPaymentContent()}
-            </div>
-          `;
-        }
-        return html`
-          <div class="sr-checkout-step">
-            ${this.renderBillingContent()}
-          </div>
-        `;
-      
-      case 'payment':
-        return html`
-          <div class="sr-checkout-step">
-            ${this.renderPaymentContent()}
-          </div>
-        `;
-      
-      case 'review':
-        return html`
-          <div class="sr-checkout-step">
-            ${this.renderReviewContent()}
-          </div>
-        `;
-      
-      default:
-        // Fallback to customer step if unknown
-        return html`
-          <div class="sr-checkout-step">
-            ${this.renderCustomerContent()}
-          </div>
-        `;
-    }
-  }
-
-  private renderCustomerContent(): TemplateResult {
-    // If OTP form is showing, only render the OTP section
-    if (this.loginLinkSent) {
-      return html`
-        <div class="sr-checkout-step">
-          <!-- OTP verification form -->
-          <div class="sr-otp-section">
-            <div class="sr-otp-header">
-              <h4 class="sr-otp-title">Enter verification code</h4>
-              <p class="sr-otp-subtitle">We sent a 6-digit code to ${this.customerData.email}</p>
-            </div>
-            
-            ${this.resendingOtp ? html`
-              <!-- Show loading state while resending -->
-              <div class="sr-otp-resending" style="text-align: center; padding: 2rem 0;">
-                <span class="sr-spinner"></span>
-                <p style="margin-top: 1rem; color: var(--color-text-muted); font-size: 0.875rem;">
-                  Sending new code...
-                </p>
-              </div>
-            ` : html`
-              <!-- Show OTP input fields when not resending -->
-              <div class="sr-otp-inputs">
-                ${Array.from({length: 6}, (_, i) => html`
-                  <input
-                    type="text"
-                    inputmode="numeric"
-                    maxlength="1"
-                    class="sr-otp-input ${this.otpError ? 'sr-field-error' : ''}"
-                    .value="${this.otpCode[i] || ''}"
-                    @input="${(e: Event) => this.handleOtpInput(e, i)}"
-                    @keydown="${(e: KeyboardEvent) => this.handleOtpKeydown(e, i)}"
-                    @paste="${(e: ClipboardEvent) => this.handleOtpPaste(e)}"
-                    data-otp-index="${i}"
-                  />
-                `)}
-              </div>
-              
-              ${this.otpError ? html`
-                <div class="sr-field-error-message">${this.otpError}</div>
-              ` : ''}
-              
-              ${this.verifyingOtp ? html`
-                <div class="sr-otp-verifying">
-                  <span class="sr-spinner"></span> Verifying...
-                </div>
-              ` : ''}
-            `}
-            
-            <div class="sr-otp-resend">
-              <p>Didn't receive code? 
-                <button 
-                  class="sr-btn-link" 
-                  @click="${this.handleResendOtp}"
-                  ?disabled="${this.resendingOtp}"
-                >
-                  ${this.resendingOtp ? 'Sending...' : 'Resend'}
-                </button>
-              </p>
-            </div>
-            
-            <!-- Proceed as guest option -->
-            <div class="sr-otp-guest-option">
-              <button class="sr-btn-link" @click="${() => { 
-                this.loginLinkSent = false; 
-                this.otpCode = ''; 
-                this.otpError = '';
-                this.customerCheckResult = undefined; 
-              }}">
-                Continue as guest instead
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
+    if (!this.cartModules.checkoutWizard) {
+      return html`${loadingSpinner('lg')}`;
     }
 
-    // Otherwise show the normal customer form flow
-    return html`
-      <shoprocket-customer-form
-          .customer="${this.customerData}"
-          .errors="${this.customerErrors}"
-          .required="${true}"
-          .show-guest-option="${true}"
-          .is-guest="${this.isGuest}"
-          @customer-change="${this.handleCustomerChange}"
-          @customer-check="${this.handleCustomerCheck}"
-          @guest-toggle="${(e: CustomEvent) => { this.isGuest = e.detail.isGuest; }}"
-        ></shoprocket-customer-form>
-      
-      ${this.checkingCustomer && this.customerData.email ? html`
-        <div class="sr-checking-customer">
-          <span class="sr-spinner"></span>
-          <span class="sr-checking-text">Checking email...</span>
-        </div>
-      ` : this.customerCheckResult && this.customerCheckResult.exists ? html`
-        <div class="sr-auth-section">
-          ${(() => {
-            if (this.customerCheckResult.exists && !this.customerCheckResult.has_password) {
-              // Customer exists but no password (guest checkout previously)
-              return html`
-                  <!-- Guest customer (no account) -->
-                  ${!this.loginLinkSent ? html`
-                    <div class="sr-returning-notice">
-                      <svg class="sr-notice-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      <div class="sr-notice-text">
-                        <p>Welcome back!</p>
-                        <button 
-                          class="sr-btn-link"
-                          ?disabled="${this.sendingLoginLink}"
-                          @click="${this.handleSendLoginLink}"
-                        >
-                          ${this.sendingLoginLink ? html`
-                            <span class="sr-spinner"></span> Sending...
-                          ` : 'Load my saved details'}
-                        </button>
-                      </div>
-                    </div>
-                  ` : ''}
-                `;
-              
-            } else if (this.customerCheckResult.exists && this.customerCheckResult.has_password) {
-              // Customer exists with password (registered account)
-              return html`
-                  <!-- Registered customer -->
-                  <div class="sr-auth-notice">
-                    <svg class="sr-auth-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                    </svg>
-                    <div class="sr-auth-content">
-                      <p class="sr-auth-title">Welcome back!</p>
-                      <p class="sr-auth-subtitle">You have an account with this email address.</p>
-                    </div>
-                  </div>
+    const context: CheckoutWizardContext = {
+      cart: this.cart,
+      checkoutStep: this.checkoutStep,
+      chunkLoading: this.chunkLoading,
+      checkoutLoading: this.checkoutLoading,
+      customerData: this.customerData,
+      customerErrors: this.customerErrors,
+      isGuest: this.isGuest,
+      checkingCustomer: this.checkingCustomer,
+      customerCheckResult: this.customerCheckResult,
+      showPasswordField: this.showPasswordField,
+      customerPassword: this.customerPassword,
+      sendingLoginLink: this.sendingLoginLink,
+      loginLinkSent: this.loginLinkSent,
+      otpCode: this.otpCode,
+      verifyingOtp: this.verifyingOtp,
+      otpError: this.otpError,
+      resendingOtp: this.resendingOtp,
+      shippingAddress: this.shippingAddress,
+      shippingErrors: this.shippingErrors,
+      billingAddress: this.billingAddress,
+      billingErrors: this.billingErrors,
+      sameAsBilling: this.sameAsBilling,
+      sdk: this.sdk,
+      handleBackButton: () => this.handleBackButton(),
+      handleCustomerChange: (e) => this.handleCustomerChange(e),
+      handleCustomerCheck: (e) => this.handleCustomerCheck(e),
+      handleGuestToggle: (e: CustomEvent) => { this.isGuest = e.detail.isGuest; },
+      handleSendLoginLink: () => this.handleSendLoginLink(),
+      handleOtpInput: (e, i) => this.handleOtpInput(e, i),
+      handleOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
+      handleOtpPaste: (e) => this.handleOtpPaste(e),
+      handleResendOtp: () => this.handleResendOtp(),
+      handleShippingAddressChange: (e) => this.handleShippingAddressChange(e),
+      handleSameAsBillingChange: (e: CustomEvent) => {
+        const checked = e.detail.checked;
+        cartState.setSameAsBilling(checked);
+        this.track(EVENTS.CHECKOUT_SAME_BILLING_TOGGLED, {
+          step: 'shipping',
+          same_as_shipping: checked
+        });
+      },
+      handleBillingAddressChange: (e) => this.handleBillingAddressChange(e),
+      handleStepNext: () => this.handleStepNext(),
+      handleCheckoutComplete: () => this.handleCheckoutComplete(),
+      setCheckoutStep: (step) => { this.checkoutStep = step; },
+      exitCheckout: () => this.exitCheckout(),
+      formatPrice: (amount) => this.formatPrice(amount),
+      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
+      handleImageError: (e) => this.handleImageError(e),
+      getCheckoutStepTitle: () => this.getCheckoutStepTitle(),
+      track: (event, data) => this.track(event, data),
+    };
 
-                  ${this.showPasswordField ? html`
-                    <!-- Password authentication -->
-                    <div class="sr-field-group">
-                      <input
-                        type="password"
-                        id="password"
-                        class="sr-field-input peer ${this.customerPassword ? 'has-value' : ''}"
-                        .value="${this.customerPassword}"
-                        placeholder=" "
-                        autocomplete="current-password"
-                        @input="${(e: Event) => { this.customerPassword = (e.target as HTMLInputElement).value; }}"
-                      >
-                      <label class="sr-field-label" for="password">Password</label>
-                    </div>
-                    
-                    <button 
-                      class="sr-btn sr-btn-primary" 
-                      ?disabled="${!this.customerPassword}"
-                      @click="${() => { /* TODO: Handle password login */ }}"
-                    >
-                      Sign In
-                    </button>
-                    
-                    <div class="sr-auth-divider">
-                      <span>or</span>
-                    </div>
-                  ` : ''}
-
-                  <!-- OTP option -->
-                  <button 
-                    class="sr-btn ${this.showPasswordField ? 'sr-btn-secondary' : 'sr-btn-primary'}"
-                    ?disabled="${this.sendingLoginLink}"
-                    @click="${this.handleSendLoginLink}"
-                  >
-                    ${this.sendingLoginLink ? html`
-                      <span class="sr-spinner"></span> Sending...
-                    ` : this.showPasswordField ? 'Use email verification instead' : html`
-                      <svg class="sr-btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                      </svg>
-                      Send Verification Code
-                    `}
-                  </button>
-
-                  <!-- Guest checkout is implicit - they just continue with the main button -->
-                `;
-            }
-            
-            // Shouldn't reach here but return empty for safety
-            return '';
-          })()}
-        </div>
-      ` : ''}
-    `;
-  }
-
-  private renderShippingContent(): TemplateResult {
-    return html`
-      <shoprocket-address-form
-        title=""
-        type="shipping"
-        .sdk="${this.sdk}"
-        .address="${this.shippingAddress}"
-        .errors="${this.shippingErrors}"
-        .required="${true}"
-        .show-name="${false}"
-        .show-phone="${false}"
-        .showSameAsBilling="${true}"
-        .sameAsBilling="${this.sameAsBilling}"
-        @address-change="${this.handleShippingAddressChange}"
-                @same-as-billing-change="${(e: CustomEvent) => {
-          const checked = e.detail.checked;
-          cartState.setSameAsBilling(checked);
-          
-          // Track billing same as shipping toggle
-          this.track(EVENTS.CHECKOUT_SAME_BILLING_TOGGLED, {
-            step: 'shipping',
-            same_as_shipping: checked
-          });
-        }}"
-      ></shoprocket-address-form>
-    `;
-  }
-
-  private renderBillingContent(): TemplateResult {
-    return html`
-      <shoprocket-address-form
-          title=""
-          type="billing"
-          .sdk="${this.sdk}"
-          .address="${this.billingAddress}"
-          .errors="${this.billingErrors}"
-          .required="${true}"
-          .show-name="${false}"
-          @address-change="${this.handleBillingAddressChange}"
-                  ></shoprocket-address-form>
-    `;
-  }
-
-  private renderPaymentContent(): TemplateResult {
-    return html`
-      <div class="sr-payment-placeholder">
-          <p>Payment integration coming soon...</p>
-          <p>For now, this will proceed with a test order.</p>
-        </div>
-    `;
-  }
-
-  private renderReviewContent(): TemplateResult {
-    return html`
-      <div class="sr-review-container">
-        <!-- Order Summary Card -->
-        <div class="sr-review-card">
-          <div class="sr-review-card-header">
-            <div class="sr-review-card-title">
-              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
-              </svg>
-              <h4>Order Summary</h4>
-            </div>
-            <button class="sr-review-edit-btn" @click="${() => this.exitCheckout()}">
-              Edit
-            </button>
-          </div>
-          
-          <div class="sr-review-card-content">
-            <div class="sr-order-items-review">
-              ${this.cart?.items?.map(item => html`
-                <div class="sr-order-item-review">
-                  <div class="sr-order-item-details">
-                    <div class="sr-order-item-image-container">
-                      <img 
-                        src="${this.getMediaUrl((item as any).image || item.media?.[0], 'w=64,h=64,fit=cover')}" 
-                        alt="${item.product_name}" 
-                        class="sr-order-item-image"
-                        @load="${(e: Event) => {
-                          const img = e.target as HTMLImageElement;
-                          img.classList.add('loaded');
-                        }}"
-                        @error="${(e: Event) => this.handleImageError(e)}"
-                      >
-                    </div>
-                    <div class="sr-order-item-info">
-                      <span class="sr-order-item-name">${item.product_name}</span>
-                      ${item.variant_name ? html`
-                        <span class="sr-order-item-variant">${item.variant_name}</span>
-                      ` : ''}
-                      <span class="sr-order-item-quantity">Qty: ${item.quantity}</span>
-                    </div>
-                  </div>
-                  <span class="sr-order-item-price">${this.formatPrice(item.price)}</span>
-                </div>
-              `)}
-            </div>
-            
-            <div class="sr-order-totals-review">
-              <div class="sr-order-total-line">
-                <span>Subtotal</span>
-                <span>${this.formatPrice(this.cart?.totals?.subtotal)}</span>
-              </div>
-              ${this.cart?.totals?.discount && this.cart.totals.discount.amount > 0 ? html`
-                <div class="sr-order-total-line sr-discount-line">
-                  <span>Discount</span>
-                  <span class="sr-discount-amount">-${this.formatPrice(this.cart.totals.discount)}</span>
-                </div>
-              ` : ''}
-              ${this.cart?.totals?.tax ? html`
-                <div class="sr-order-total-line">
-                  <span>Tax</span>
-                  <span>${this.formatPrice(this.cart.totals.tax)}</span>
-                </div>
-              ` : ''}
-              ${this.cart?.totals?.shipping ? html`
-                <div class="sr-order-total-line">
-                  <span>Shipping</span>
-                  <span>${this.formatPrice(this.cart.totals.shipping)}</span>
-                </div>
-              ` : ''}
-              <div class="sr-order-total-final">
-                <span>Total</span>
-                <span class="sr-order-total-amount">${this.formatPrice(this.cart?.totals?.total)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Contact Information Card -->
-        <div class="sr-review-card">
-          <div class="sr-review-card-header">
-            <div class="sr-review-card-title">
-              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              <h4>Contact Information</h4>
-            </div>
-            <button class="sr-review-edit-btn" @click="${() => this.checkoutStep = 'customer'}">
-              Edit
-            </button>
-          </div>
-          
-          <div class="sr-review-card-content">
-            <p class="sr-review-value">${this.customerData.email}</p>
-            ${this.customerData.phone ? html`
-              <p class="sr-review-value">${this.customerData.phone}</p>
-            ` : ''}
-          </div>
-        </div>
-
-        <!-- Shipping Address Card -->
-        <div class="sr-review-card">
-          <div class="sr-review-card-header">
-            <div class="sr-review-card-title">
-              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                <line x1="12" y1="22.08" x2="12" y2="12"></line>
-              </svg>
-              <h4>Shipping Address</h4>
-            </div>
-            <button class="sr-review-edit-btn" @click="${() => this.checkoutStep = 'shipping'}">
-              Edit
-            </button>
-          </div>
-          
-          <div class="sr-review-card-content">
-            <div class="sr-review-address">
-              ${this.shippingAddress.name ? html`<p>${this.shippingAddress.name}</p>` : ''}
-              ${this.shippingAddress.company ? html`<p>${this.shippingAddress.company}</p>` : ''}
-              <p>${this.shippingAddress.line1}</p>
-              ${this.shippingAddress.line2 ? html`<p>${this.shippingAddress.line2}</p>` : ''}
-              <p>${this.shippingAddress.city}, ${this.shippingAddress.state} ${this.shippingAddress.postal_code}</p>
-              <p>${this.shippingAddress.country}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Billing Address Card -->
-        <div class="sr-review-card">
-          <div class="sr-review-card-header">
-            <div class="sr-review-card-title">
-              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-              </svg>
-              <h4>Billing Address</h4>
-            </div>
-            ${!this.sameAsBilling ? html`
-              <button class="sr-review-edit-btn" @click="${() => this.checkoutStep = 'billing'}">
-                Edit
-              </button>
-            ` : ''}
-          </div>
-          
-          <div class="sr-review-card-content">
-            ${this.sameAsBilling ? html`
-              <div class="sr-review-same-address">
-                <svg class="sr-check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span>Same as shipping address</span>
-              </div>
-            ` : html`
-              <div class="sr-review-address">
-                ${this.billingAddress.name ? html`<p>${this.billingAddress.name}</p>` : ''}
-                ${this.billingAddress.company ? html`<p>${this.billingAddress.company}</p>` : ''}
-                <p>${this.billingAddress.line1}</p>
-                ${this.billingAddress.line2 ? html`<p>${this.billingAddress.line2}</p>` : ''}
-                <p>${this.billingAddress.city}, ${this.billingAddress.state} ${this.billingAddress.postal_code}</p>
-                <p>${this.billingAddress.country}</p>
-              </div>
-            `}
-          </div>
-        </div>
-
-        <!-- Payment Method Card (placeholder for now) -->
-        <div class="sr-review-card">
-          <div class="sr-review-card-header">
-            <div class="sr-review-card-title">
-              <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                <line x1="1" y1="10" x2="23" y2="10"></line>
-              </svg>
-              <h4>Payment Method</h4>
-            </div>
-            <button class="sr-review-edit-btn" @click="${() => this.checkoutStep = 'payment'}">
-              Edit
-            </button>
-          </div>
-          
-          <div class="sr-review-card-content">
-            <p class="sr-review-payment-placeholder">Payment will be processed securely</p>
-          </div>
-        </div>
-
-        <!-- Security Notice -->
-        <div class="sr-review-security">
-          <svg class="sr-security-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0110 0v4"></path>
-          </svg>
-          <span>Your information is secure and encrypted</span>
-        </div>
-      </div>
-    `;
+    return this.cartModules.checkoutWizard.renderCheckoutFlow(context);
   }
 
   private renderCheckoutFooter(): TemplateResult {
-    const canProceed = true; // Let HTML5 validation handle this
+    if (!this.cartModules.checkoutWizard) {
+      return html``;
+    }
 
-    // Show cart summary during checkout (except review step which shows full breakdown in main content)
-    const subtotal = this.cart?.totals?.subtotal || { amount: 0, currency: 'USD', formatted: '$0.00' };
-    
-    return html`
-      ${this.checkoutStep !== 'review' ? html`
-        <div class="sr-cart-subtotal">
-          <span class="sr-cart-subtotal-label">Subtotal</span>
-          <span class="sr-cart-subtotal-amount">
-            <span class="sr-cart-total-price">${this.formatPrice(subtotal)}</span>
-          </span>
-        </div>
-      ` : ''}
-      
-      ${this.checkoutStep === 'review' ? html`
-        <button 
-          class="sr-cart-checkout-button"
-          @click="${this.handleCheckoutComplete}"
-          ?disabled="${this.checkoutLoading || !canProceed}"
-        >
-          ${this.checkoutLoading ? loadingSpinner('sm') : 'Complete Order'}
-        </button>
-      ` : html`
-        <button 
-          class="sr-cart-checkout-button sr-checkout-next-button"
-          @click="${this.handleStepNext}"
-          ?disabled="${this.checkoutLoading || this.chunkLoading || !canProceed}"
-        >
-          ${this.checkoutLoading || this.chunkLoading ? loadingSpinner('sm') : 'Continue'}
-        </button>
-      `}
-      
-      <p class="sr-cart-powered-by">
-        ${this.checkoutStep === 'review' ? html`
-          By completing your order, you agree to our terms
-        ` : html`
-          <svg class="sr-secure-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M6 0.75L1.5 2.625V5.625C1.5 8.4375 3.4875 11.0625 6 11.625C8.5125 11.0625 10.5 8.4375 10.5 5.625V2.625L6 0.75ZM9.375 5.625C9.375 7.9125 7.8 9.9375 6 10.4625C4.2 9.9375 2.625 7.9125 2.625 5.625V3.3L6 1.875L9.375 3.3V5.625ZM4.6875 6L4.125 6.5625L5.25 7.6875L7.875 5.0625L7.3125 4.5L5.25 6.5625L4.6875 6Z" fill="#10B981"/>
-          </svg>
-          Secure checkout powered by
-          <a href="https://shoprocket.io?utm_source=widget&utm_medium=cart&utm_campaign=powered_by"
-             target="_blank"
-             rel="noopener noreferrer"
-             class="sr-cart-powered-by-link">
-            <b>Shoprocket</b>
-          </a>
-        `}
-      </p>
-    `;
+    const context: CheckoutWizardContext = {
+      cart: this.cart,
+      checkoutStep: this.checkoutStep,
+      chunkLoading: this.chunkLoading,
+      checkoutLoading: this.checkoutLoading,
+      customerData: this.customerData,
+      customerErrors: this.customerErrors,
+      isGuest: this.isGuest,
+      checkingCustomer: this.checkingCustomer,
+      customerCheckResult: this.customerCheckResult,
+      showPasswordField: this.showPasswordField,
+      customerPassword: this.customerPassword,
+      sendingLoginLink: this.sendingLoginLink,
+      loginLinkSent: this.loginLinkSent,
+      otpCode: this.otpCode,
+      verifyingOtp: this.verifyingOtp,
+      otpError: this.otpError,
+      resendingOtp: this.resendingOtp,
+      shippingAddress: this.shippingAddress,
+      shippingErrors: this.shippingErrors,
+      billingAddress: this.billingAddress,
+      billingErrors: this.billingErrors,
+      sameAsBilling: this.sameAsBilling,
+      sdk: this.sdk,
+      handleBackButton: () => this.handleBackButton(),
+      handleCustomerChange: (e) => this.handleCustomerChange(e),
+      handleCustomerCheck: (e) => this.handleCustomerCheck(e),
+      handleGuestToggle: (e: CustomEvent) => { this.isGuest = e.detail.isGuest; },
+      handleSendLoginLink: () => this.handleSendLoginLink(),
+      handleOtpInput: (e, i) => this.handleOtpInput(e, i),
+      handleOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
+      handleOtpPaste: (e) => this.handleOtpPaste(e),
+      handleResendOtp: () => this.handleResendOtp(),
+      handleShippingAddressChange: (e) => this.handleShippingAddressChange(e),
+      handleSameAsBillingChange: (e: CustomEvent) => {
+        const checked = e.detail.checked;
+        cartState.setSameAsBilling(checked);
+        this.track(EVENTS.CHECKOUT_SAME_BILLING_TOGGLED, {
+          step: 'shipping',
+          same_as_shipping: checked
+        });
+      },
+      handleBillingAddressChange: (e) => this.handleBillingAddressChange(e),
+      handleStepNext: () => this.handleStepNext(),
+      handleCheckoutComplete: () => this.handleCheckoutComplete(),
+      setCheckoutStep: (step) => { this.checkoutStep = step; },
+      exitCheckout: () => this.exitCheckout(),
+      formatPrice: (amount) => this.formatPrice(amount),
+      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
+      handleImageError: (e) => this.handleImageError(e),
+      getCheckoutStepTitle: () => this.getCheckoutStepTitle(),
+      track: (event, data) => this.track(event, data),
+    };
+
+    return this.cartModules.checkoutWizard.renderCheckoutFooter(context);
   }
 
   // Track the last requested quantity for each item
