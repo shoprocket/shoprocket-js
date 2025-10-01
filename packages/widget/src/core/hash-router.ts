@@ -101,9 +101,13 @@ export class HashRouter extends EventTarget {
     
     // Split by & to get all parts
     const paramParts = ourPart.split('&');
-    
+
     // Check if first part is a product slug (doesn't contain =)
-    if (paramParts[0] && !paramParts[0].includes('=')) {
+    // Ignore special payment return segments
+    if (paramParts[0] &&
+        !paramParts[0].includes('=') &&
+        !paramParts[0].startsWith('payment-return') &&
+        !paramParts[0].startsWith('payment-cancelled')) {
       productSlug = paramParts[0];
       paramParts.shift(); // Remove product slug from parts
     }

@@ -14,12 +14,18 @@ export interface CartItem {
   };
 }
 
+export interface MoneyValue {
+  amount: number;
+  currency: string;
+  formatted: string;
+}
+
 export interface CartTotals {
-  subtotal: number;
-  tax: number;
-  shipping: number;
-  discount: number;
-  total: number;
+  subtotal: MoneyValue;
+  tax: MoneyValue;
+  shipping: MoneyValue;
+  discount: MoneyValue;
+  total: MoneyValue;
 }
 
 export interface Cart {
