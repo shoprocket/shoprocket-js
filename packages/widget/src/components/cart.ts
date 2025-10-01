@@ -250,8 +250,46 @@ export class CartWidget extends ShoprocketElement {
   private customerCheckTimeout?: NodeJS.Timeout;
   
   // Order ID for post-checkout order API access
-  private currentOrderId?: string;
   private lastCheckedEmail?: string;
+
+  /**
+   * Reset component to clean initial state
+   * Centralized method to avoid state management inconsistencies
+   */
+  private resetToInitialState(): void {
+    // Loading states
+    this.checkoutLoading = false;
+    this.chunkLoading = false;
+    this.checkingCustomer = false;
+    this.sendingLoginLink = false;
+    this.verifyingOtp = false;
+    this.resendingOtp = false;
+    this.paymentPending = false;
+
+    // Checkout state
+    this.isCheckingOut = false;
+    this.checkoutStep = 'customer';
+
+    // Order result states
+    this.showOrderSuccessMessage = false;
+    this.showOrderFailureMessage = false;
+    this.showOrderNotFound = false;
+    this.isPaymentFailure = false;
+    this.orderFailureReason = '';
+    this.orderDetails = null;
+
+    // Auth states
+    this.loginLinkSent = false;
+    this.showPasswordField = false;
+    this.customerPassword = '';
+    this.otpCode = '';
+    this.otpError = '';
+
+    // Error states
+    this.customerErrors = {};
+    this.shippingErrors = {};
+    this.billingErrors = {};
+  }
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -291,7 +329,11 @@ export class CartWidget extends ShoprocketElement {
     // Set up HashRouter event handling (already initialized above)
     this.handleHashStateChange = this.handleHashStateChange.bind(this);
     this.hashRouter.addEventListener('state-change', this.handleHashStateChange);
-    
+
+    // Handle browser back/forward cache (bfcache) restoration
+    this.handlePageShow = this.handlePageShow.bind(this);
+    window.addEventListener('pageshow', this.handlePageShow);
+
     // Handle cart control events
     this.handleOpenCart = this.handleOpenCart.bind(this);
     this.handleCloseCart = this.handleCloseCart.bind(this);
@@ -304,9 +346,12 @@ export class CartWidget extends ShoprocketElement {
     
     // Store data should already be cached by widget manager
     // If not available yet, wait a bit or skip (formatters will use defaults)
-    
-    // Load cart first
-    await this.loadCart();
+
+    // Load cart first (unless we're showing order success/not found)
+    // For failures, we DO want to load cart (backend will return the order if < 10 mins)
+    if (!this.showOrderSuccessMessage && !this.showOrderNotFound) {
+      await this.loadCart();
+    }
     
     // Set initial cart state from hash
     const initialState = this.hashRouter.getCurrentState();
@@ -343,6 +388,7 @@ export class CartWidget extends ShoprocketElement {
     window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_ERROR, this.handleFloatingError as EventListener);
     this.hashRouter.removeEventListener('state-change', this.handleHashStateChange);
+    window.removeEventListener('pageshow', this.handlePageShow);
     window.removeEventListener('open-cart', this.handleOpenCart as EventListener);
     window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
     window.removeEventListener('toggle-cart', this.handleToggleCart as EventListener);
@@ -657,7 +703,7 @@ export class CartWidget extends ShoprocketElement {
     const customEvent = event as CustomEvent<HashState>;
     const wasOpen = this.isOpen;
     this.isOpen = customEvent.detail.cartOpen;
-    
+
     // Lock/unlock body scroll when cart opens/closes
     if (this.isOpen && !wasOpen) {
       // Cart is opening - lock scroll
@@ -666,18 +712,47 @@ export class CartWidget extends ShoprocketElement {
       // Cart is closing - restore scroll
       document.body.style.overflow = '';
     }
+
+    // Check for payment return (handles normal hash navigation)
+    this.checkPaymentReturn();
+  }
+
+  private handlePageShow = (event: PageTransitionEvent): void => {
+    // Handle browser back/forward cache (bfcache) restoration
+    // This fires when user clicks browser back button and page is restored from cache
+    if (event.persisted) {
+      console.log('Page restored from bfcache, URL:', window.location.hash);
+
+      // When page is restored from bfcache, we're back on the checkout page
+      // Need to clear any loading states that were active when we navigated away
+      this.resetToInitialState();
+
+      // Reload cart to get current state
+      this.loadCart();
+
+      // Check for payment return (in case URL does have payment return hash)
+      this.checkPaymentReturn();
+    }
   }
 
 
-  private async loadCart(): Promise<void> {
+  /**
+   * Load cart from API
+   *
+   * Updates both cartState (for public API) and returns cart directly.
+   * Returns the cart immediately rather than waiting for subscription to update this.cart,
+   * which is important for synchronous flows like payment return handling.
+   */
+  private async loadCart(): Promise<Cart | null> {
+    let loadedCart: Cart | null = null;
     await this.withLoading('cart', async () => {
       try {
         const response = await this.sdk.cart.get();
-        
+
         // Handle both wrapped and unwrapped responses
         if (response && typeof response === 'object') {
           const cart = 'data' in response ? (response as ApiResponse<Cart>).data : (response as Cart);
-          
+
           // Ensure all items have subtotals calculated (if needed)
           if (cart?.items) {
             cart.items.forEach((item: any) => {
@@ -686,9 +761,10 @@ export class CartWidget extends ShoprocketElement {
               }
             });
           }
-          
+
           // Update cart state - this will trigger subscription and update UI
           cartState.setCart(cart);
+          loadedCart = cart;
           
           // Don't auto-set visitor_country as default - this causes unnecessary API calls on page load
           // The user can select their country when they get to checkout
@@ -717,6 +793,7 @@ export class CartWidget extends ShoprocketElement {
         this.showError('Failed to load cart data');
       }
     });
+    return loadedCart;
   }
 
   private async loadCheckoutData(forceReload = false): Promise<void> {
@@ -767,169 +844,86 @@ export class CartWidget extends ShoprocketElement {
     }
   }
   
+  /**
+   * Handle payment return from gateway
+   * Single entry point for all payment return scenarios (redirect, browser back, etc.)
+   */
   private async checkPaymentReturn(): Promise<void> {
     const hash = window.location.hash;
     const isPaymentReturn = hash.startsWith('#!/payment-return');
     const isPaymentCancelled = hash.startsWith('#!/payment-cancelled');
-    
-    if (isPaymentReturn) {
-      console.log('Payment return detected, looking for order ID...');
-      
-      // Extract order ID from hash fragment (format: #!/payment-return&order_id=123)
-      let orderId = null;
-      if (hash.includes('&order_id=')) {
-        const hashParams = new URLSearchParams(hash.split('&').slice(1).join('&'));
-        orderId = hashParams.get('order_id');
-        console.log('Found order ID in URL:', orderId);
-      } else {
-        // Fallback to stored order ID
-        orderId = this.findOrderId();
-        console.log('Found order ID in storage:', orderId);
-      }
-      
-      if (orderId) {
-        console.log('Loading order details via order API for:', orderId);
-        try {
-          // Use order API to get order details
-          // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
-          const orderData = await this.sdk.cart.getOrder(orderId);
-          console.log('Order data loaded:', orderData);
 
-          // Check order status to determine if payment succeeded or failed
-          const status = orderData?.status || orderData?.payment_status;
+    if (!isPaymentReturn && !isPaymentCancelled) {
+      return; // Not a payment return, nothing to do
+    }
 
-          if (status === 'paid' || status === 'completed' || status === 'processing') {
-            // Payment successful - show success message
-            this.showOrderSuccessMessage = true;
-            this.orderDetails = orderData;
-            console.log('Payment successful, showing order confirmation:', orderId);
+    console.log('Payment return detected, resetting state and loading fresh data...');
 
-            // Clear stored order ID only for successful payments
-            sessionStorage.removeItem('shoprocket_order_id');
-            this.currentOrderId = undefined;
+    // Step 1: Reset all component state to clean slate
+    this.resetToInitialState();
 
-            // Regenerate cart token immediately on success (order is complete)
-            const newToken = CookieManager.regenerateCartToken();
-            internalState.setCartToken(newToken);
-            if (this.sdk) {
-              this.sdk.setCartToken(newToken);
-            }
-          } else if (status === 'failed' || status === 'declined' || status === 'cancelled') {
-            // Payment failed - return to checkout review step
-            this.showOrderFailureMessage = true;
-            this.isPaymentFailure = true; // Mark as payment failure (won't auto-hide)
-            this.orderFailureReason = orderData?.error_message || 'Payment was declined. Please try again or use a different payment method.';
-            console.log('Payment failed with status:', status);
+    // Step 2: Load fresh cart data from API
+    const cart = await this.loadCart();
 
-            // Reload cart to restore items and data
-            await this.loadCart();
+    console.log('Cart loaded:', cart);
+    console.log('Cart type:', (cart as any)?.type);
+    console.log('Has order field:', !!(cart as any)?.order);
 
-            // Keep user in checkout mode at review step
-            this.isCheckingOut = true;
-            this.checkoutStep = 'review';
+    // Step 3: Determine what to show based on API response
+    if (cart && (cart as any).type === 'order' && (cart as any).order) {
+      const order = (cart as any).order;
+      const status = order.payment_status;
 
-            // Keep order ID in storage for failed payments
-            // This allows refresh to show failure state again
-            // It will be cleared when user successfully retries or goes back to cart
-          } else {
-            // Unknown status - show warning
-            console.warn('Unknown order status:', status);
-            this.showOrderFailureMessage = true;
-            this.orderFailureReason = 'Unable to verify payment status. Please check your email for confirmation.';
-            await this.loadCart();
+      console.log('Order status:', status);
 
-            // Don't clear order ID for unknown status either
-          }
-          
-        } catch (error) {
-          console.error('Failed to load order via API:', error);
-          
-          // Fallback: try cart API (in case order is still in cart state)
-          console.log('Fallback: trying cart API...');
-          await this.loadCart();
-          
-          if (this.cart && (this.cart as any).order_status) {
-            console.log('Found order in cart, showing success');
-            this.showOrderSuccessMessage = true;
-            this.orderDetails = this.cart;
-          } else {
-            // Order API failed and cart doesn't have order info
-            // Show a message that order was likely successful but we can't load details
-            console.log('Could not load order details, showing confirmation with limited info');
-            this.showOrderSuccessMessage = true;
-            this.orderDetails = { 
-              id: orderId, 
-              status: 'processing',
-              message: 'Your order has been received. You should receive a confirmation email shortly.'
-            };
-            
-            // Clear stored order ID even though we couldn't load full details
-            sessionStorage.removeItem('shoprocket_order_id');
-            this.currentOrderId = undefined;
+      if (status === 'paid' || status === 'completed' || status === 'processing') {
+        // SUCCESS: Payment completed
+        this.showOrderSuccessMessage = true;
+        this.orderDetails = cart;
+        console.log('Payment successful, showing order confirmation');
 
-            // Show error notification
-            this.showError('Order details are currently unavailable. Please check your email for confirmation.', 10000);
-          }
+        // Clear stored order ID
+        sessionStorage.removeItem('shoprocket_order_id');
+
+        // Regenerate cart token (order is complete, start fresh cart)
+        const newToken = CookieManager.regenerateCartToken();
+        internalState.setCartToken(newToken);
+        if (this.sdk) {
+          this.sdk.setCartToken(newToken);
         }
+      } else if (status === 'failed' || status === 'cancelled' || status === 'pending') {
+        // FAILURE: Payment failed/cancelled - allow retry
+        this.showOrderFailureMessage = true;
+        this.isPaymentFailure = true;
+        this.orderFailureReason = isPaymentCancelled
+          ? 'Payment was cancelled. Your items are still in your cart.'
+          : 'Payment was declined. Please try again or use a different payment method.';
+        this.orderDetails = cart;
+
+        // Return to checkout review step to allow retry
+        this.isCheckingOut = true;
+        this.checkoutStep = 'review';
+
+        console.log('Payment failed with status:', status);
       } else {
-        console.log('No order ID found in payment return URL');
-
-        // Load cart to show current state
-        await this.loadCart();
-
-        // Show order not found view
-        this.showOrderNotFound = true;
+        // UNKNOWN: Status we don't recognize
+        console.warn('Unknown order status:', status);
+        this.showOrderFailureMessage = true;
+        this.orderFailureReason = 'Unable to verify payment status. Please check your email for confirmation.';
+        this.orderDetails = cart;
       }
-      
-      // Open cart to show the confirmation
-      this.hashRouter.openCart();
-      
-      // Don't clean up URL immediately - leave it for user to see
-      // The hash will naturally be cleaned when user navigates or closes cart
-      
-    } else if (isPaymentCancelled) {
-      console.log('Payment cancelled - reopening cart');
+    } else {
+      // NOT FOUND: No order found or expired
+      console.log('No recent order found (may have expired or cart is empty)');
+      this.showOrderNotFound = true;
+    }
 
-      // Load cart to show current state
-      await this.loadCart();
-
-      // Show error notification
-      this.showError('Payment was cancelled. Your items are still in your cart.', 5000);
-      
-      // Open cart so user can try again
-      this.hashRouter.openCart();
-      
-      // Don't clean up URL immediately - leave it for user to see
-      // The hash will naturally be cleaned when user navigates or closes cart
-    }
-  }
-  
-  private findOrderId(): string | null {
-    // Try multiple sources for the order ID
-    
-    // 1. Check if we stored it during checkout
-    if (this.currentOrderId) {
-      return this.currentOrderId;
-    }
-    
-    // 2. Check session storage
-    const sessionOrderId = sessionStorage.getItem('shoprocket_order_id');
-    if (sessionOrderId) {
-      return sessionOrderId;
-    }
-    
-    // 3. Check if it's in the URL (some gateways might pass it back)
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlOrderId = urlParams.get('order_id') || urlParams.get('order');
-    if (urlOrderId) {
-      return urlOrderId;
-    }
-    
-    return null;
+    // Step 4: Clean up payment URL and open cart
+    this.cleanupPaymentReturnUrl();
+    this.hashRouter.openCart();
   }
   
   private storeOrderId(orderId: string): void {
-    this.currentOrderId = orderId;
     // Store in session storage as backup
     sessionStorage.setItem('shoprocket_order_id', orderId);
   }
@@ -987,7 +981,6 @@ export class CartWidget extends ShoprocketElement {
       this.showOrderSuccessMessage = false;
       this.orderDetails = null;
       sessionStorage.removeItem('shoprocket_order_id');
-      this.currentOrderId = undefined;
     }
 
     if (this.showOrderFailureMessage) {
@@ -995,7 +988,6 @@ export class CartWidget extends ShoprocketElement {
       this.isPaymentFailure = false;
       this.orderFailureReason = '';
       sessionStorage.removeItem('shoprocket_order_id');
-      this.currentOrderId = undefined;
     }
 
     if (this.showOrderNotFound) {
@@ -1774,7 +1766,13 @@ export class CartWidget extends ShoprocketElement {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
+      // Check if order expired (not found error)
+      const isExpiredOrder = errorMessage.includes('not found') || errorMessage.includes('expired');
+      if (isExpiredOrder) {
+        errorMessage = 'Order expired. Please start a new order or contact support if you need assistance.';
+      }
+
       // Show error in cart view, not as floating notification
       this.showOrderFailureMessage = true;
       this.isPaymentFailure = false; // API errors can auto-hide
@@ -1943,9 +1941,12 @@ export class CartWidget extends ShoprocketElement {
   private cleanupPaymentReturnUrl(): void {
     const hash = window.location.hash;
     if (hash.includes('#!/payment-return') || hash.includes('#!/payment-cancelled')) {
-      // Clean to base URL: remove all query params and hash
+      // Clean to cart hash: remove payment params but keep cart route
       const baseUrl = (window.location.href.split('?')[0] || '').split('#')[0] || window.location.origin;
-      window.history.replaceState(null, '', baseUrl);
+      window.history.replaceState(null, '', `${baseUrl}#!/~/cart`);
+
+      // Manually trigger hashchange to sync HashRouter (since replaceState doesn't trigger it)
+      this.hashRouter['updateStateFromHash']();
     }
   }
   
@@ -1986,7 +1987,6 @@ export class CartWidget extends ShoprocketElement {
 
         // Clear stored order ID when retrying
         sessionStorage.removeItem('shoprocket_order_id');
-        this.currentOrderId = undefined;
 
         // Ensure checkout wizard is loaded before showing review step
         await this.ensureModule('checkoutWizard');
@@ -1995,7 +1995,12 @@ export class CartWidget extends ShoprocketElement {
       handleBackToCart: () => {
         // Clear stored order ID when going back to cart
         sessionStorage.removeItem('shoprocket_order_id');
-        this.currentOrderId = undefined;
+
+        // Clear failure state
+        this.showOrderFailureMessage = false;
+        this.isPaymentFailure = false;
+        this.orderFailureReason = '';
+        this.orderDetails = null;
 
         // Clean up payment return URL
         this.cleanupPaymentReturnUrl();
