@@ -1610,11 +1610,26 @@
 }
 
 .sr-spinner {
-  @apply animate-spin inline-block rounded-full;
+  @apply animate-spin inline-block rounded-full border-solid;
+  border-right-color: transparent;
+  opacity: 0.25;
+}
+
+.sr-spinner-sm {
+  @apply w-4 h-4 border-2;
+}
+
+.sr-spinner-md {
+  @apply w-6 h-6;
+  border-width: 3px;
+}
+
+.sr-spinner-lg {
+  @apply w-8 h-8 border-4;
 }
 
 .sr-loading-overlay {
-  @apply flex flex-col items-center justify-center gap-4 py-8;
+  @apply flex flex-col items-center justify-center gap-4 py-8 h-full;
 }
 
 .sr-loading-message {
@@ -2765,11 +2780,7 @@
   @apply w-4 h-4;
 }
 
-.sr-spinner {
-  @apply inline-block w-4 h-4 border-2 border-t-transparent rounded-full animate-spin;
-  border-color: var(--color-primary, #3B82F6);
-  border-top-color: transparent;
-}
+/* Spinner styles consolidated at line 1612 */
 
 
 .sr-success-icon {
@@ -3128,3 +3139,4 @@
 .sr-not-found-actions {
   @apply flex gap-4 flex-wrap justify-center;
 }
+

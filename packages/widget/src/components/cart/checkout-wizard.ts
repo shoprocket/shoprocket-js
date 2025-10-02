@@ -3,7 +3,7 @@
  * Handles multi-step checkout flow: customer → shipping → billing → payment → review
  */
 import { html, type TemplateResult } from 'lit';
-import { loadingSpinner } from '../loading-spinner';
+import { loadingSpinner, loadingOverlay } from '../loading-spinner';
 import type { CheckoutStep, CustomerCheckResult } from './cart-types';
 import type { CustomerData, CustomerFormErrors } from '../customer-form';
 import type { AddressData, AddressFormErrors } from '../address-form';
@@ -72,14 +72,10 @@ export interface CheckoutWizardContext {
 }
 
 export function renderCheckoutFlow(context: CheckoutWizardContext): TemplateResult {
-  // Show loading spinner while chunks are loading
+  // Show loading overlay only while chunks are loading
+  // checkoutLoading is handled by button spinner (don't hide whole form during payment redirect)
   if (context.chunkLoading) {
-    return html`
-      <div class="sr-checkout-loading" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;">
-        ${loadingSpinner('lg')}
-        <p style="margin-top: 1rem; color: var(--color-text-muted);">Loading checkout...</p>
-      </div>
-    `;
+    return loadingOverlay();
   }
 
   // Only render the current active step for better performance

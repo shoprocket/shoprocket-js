@@ -2,6 +2,7 @@ import { html, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product } from '../types/api';
+import { loadingOverlay } from './loading-spinner';
 
 /**
  * Product View Component - Standalone widget for embedding a single product
@@ -139,11 +140,7 @@ export class ProductView extends ShoprocketElement {
     
     // Show loading state
     if (this.isLoading('product') && !this.product) {
-      return html`
-        <div class="sr-loading-container">
-          <div class="sr-loading-spinner"></div>
-        </div>
-      `;
+      return loadingOverlay();
     }
     
     // Show empty state if no product
