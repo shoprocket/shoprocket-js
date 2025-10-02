@@ -6,7 +6,7 @@
 import { html, type TemplateResult } from 'lit';
 import type { Money } from '../../types/api';
 import type { OrderDetails } from './cart-types';
-import { loadingSpinner } from '../loading-spinner';
+import { loadingOverlay } from '../loading-spinner';
 
 export interface OrderResultContext {
   formatPrice: (money: Money | undefined) => string;
@@ -165,7 +165,7 @@ export function renderPaymentPending(
           </button>
         </div>
       ` : html`
-        ${loadingSpinner('lg')}
+        ${loadingOverlay()}
         <h2 class="sr-pending-title">Processing Payment</h2>
         <p class="sr-pending-message">
           Please wait while we process your payment...

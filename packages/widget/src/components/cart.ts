@@ -2,7 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Cart, ApiResponse, Money } from '../types/api';
-import { loadingSpinner } from './loading-spinner';
+import { loadingOverlay } from './loading-spinner';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import './tooltip';
@@ -144,7 +144,10 @@ export class CartWidget extends ShoprocketElement {
 
   // Track if checkout data has been loaded
   private checkoutDataLoaded = false;
-  
+
+  // Track if checkout chunks have been prefetched (to avoid duplicate prefetches)
+  private checkoutChunksPrefetched = false;
+
   // Timeout tracking for cleanup
   private timeouts = new Set<NodeJS.Timeout>();
   
@@ -269,6 +272,7 @@ export class CartWidget extends ShoprocketElement {
     // Checkout state
     this.isCheckingOut = false;
     this.checkoutStep = 'customer';
+    this.checkoutChunksPrefetched = false; // Allow re-prefetch on next cart open
 
     // Order result states
     this.showOrderSuccessMessage = false;
@@ -308,7 +312,13 @@ export class CartWidget extends ShoprocketElement {
       this.shippingAddress = state.shippingAddress as AddressData;
       this.billingAddress = state.billingAddress as AddressData;
       this.sameAsBilling = state.sameAsBilling;
-      
+
+      // Prefetch checkout data/components when cart has items (improves checkout start performance)
+      if (this.cart?.items?.length && this.isOpen) {
+        this.preloadCheckoutData();
+        this.preloadCheckoutComponents();
+      }
+
       // Request UI update
       this.requestUpdate();
     });
@@ -820,17 +830,21 @@ export class CartWidget extends ShoprocketElement {
   }
   
   private preloadCheckoutComponents(): void {
-    // Preload checkout components if we have items and not already loading
-    if (this.cart?.items?.length && !this.isCheckingOut && !this.chunkLoading) {
+    // Preload checkout components if we have items and haven't prefetched yet
+    if (this.cart?.items?.length && !this.checkoutChunksPrefetched) {
+      this.checkoutChunksPrefetched = true;
+
       // Fire and forget - don't await
       Promise.all([
         import('./customer-form'),
         import('./address-form'),
         import('./cart/checkout-wizard')
       ]).then(() => {
-        // Components are now cached for instant loading
-      }).catch(() => {
-        // Ignore errors - it's just a preload optimization
+        console.log('[Cart] Checkout components prefetched');
+      }).catch((error) => {
+        // Reset flag on error so it can retry
+        this.checkoutChunksPrefetched = false;
+        console.warn('[Cart] Failed to prefetch checkout components:', error);
       });
     }
   }
@@ -862,14 +876,35 @@ export class CartWidget extends ShoprocketElement {
     // Step 1: Reset all component state to clean slate
     this.resetToInitialState();
 
-    // Step 2: Load fresh cart data from API
+    // Step 2: Open cart immediately with loading state (after reset so it doesn't get cleared)
+    this.isOpen = true;
+    this.checkoutLoading = true;
+    this.hashRouter.openCart();
+
+    // Step 3: Load fresh cart data from API
     const cart = await this.loadCart();
 
     console.log('Cart loaded:', cart);
     console.log('Cart type:', (cart as any)?.type);
     console.log('Has order field:', !!(cart as any)?.order);
 
-    // Step 3: Determine what to show based on API response
+    // Step 3: Handle payment cancelled separately from payment failure
+    if (isPaymentCancelled) {
+      // USER CANCELLED: They clicked "Cancel and Return to Merchant" on gateway page
+      // Just show normal cart - no error message needed (user intentionally cancelled)
+      console.log('User cancelled checkout, returning to cart');
+
+      // Exit checkout mode, show normal cart
+      this.isCheckingOut = false;
+      this.checkoutLoading = false;
+
+      // Clear stored order ID
+      sessionStorage.removeItem('shoprocket_order_id');
+
+      return; // Stop here - show cart view
+    }
+
+    // Step 4: Determine what to show based on API response (for payment-return URLs)
     if (cart && (cart as any).type === 'order' && (cart as any).order) {
       const order = (cart as any).order;
       const status = order.payment_status;
@@ -892,17 +927,24 @@ export class CartWidget extends ShoprocketElement {
           this.sdk.setCartToken(newToken);
         }
       } else if (status === 'failed' || status === 'cancelled' || status === 'pending') {
-        // FAILURE: Payment failed/cancelled - allow retry
+        // FAILURE: Payment failed/declined by gateway - allow retry
         this.showOrderFailureMessage = true;
         this.isPaymentFailure = true;
-        this.orderFailureReason = isPaymentCancelled
-          ? 'Payment was cancelled. Your items are still in your cart.'
-          : 'Payment was declined. Please try again or use a different payment method.';
+        this.orderFailureReason = 'Payment was declined. Please try again or use a different payment method.';
         this.orderDetails = cart;
 
         // Return to checkout review step to allow retry
         this.isCheckingOut = true;
         this.checkoutStep = 'review';
+
+        // Preload checkout components so Edit buttons work
+        await Promise.all([
+          import('./customer-form'),
+          import('./address-form'),
+          import('./cart/checkout-wizard'),
+          // Reload checkout data to restore addresses and other checkout info
+          this.loadCheckoutData(true)
+        ]);
 
         console.log('Payment failed with status:', status);
       } else {
@@ -918,9 +960,11 @@ export class CartWidget extends ShoprocketElement {
       this.showOrderNotFound = true;
     }
 
-    // Step 4: Clean up payment URL and open cart
+    // Step 4: Turn off loading state
+    this.checkoutLoading = false;
+
+    // Step 5: Clean up payment URL
     this.cleanupPaymentReturnUrl();
-    this.hashRouter.openCart();
   }
   
   private storeOrderId(orderId: string): void {
@@ -1839,7 +1883,8 @@ export class CartWidget extends ShoprocketElement {
           </button>
         </div>
         <div class="sr-cart-body ${this.effectiveWidgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-items` : ''}">
-          ${this.isCheckingOut && !this.showOrderSuccessMessage && !this.showOrderFailureMessage && !this.showOrderNotFound ?
+          ${this.checkoutLoading && !this.isCheckingOut ? loadingOverlay() :
+          this.isCheckingOut && !this.showOrderSuccessMessage && !this.showOrderFailureMessage && !this.showOrderNotFound ?
             this.renderCheckoutFlow() :
             this.paymentPending ? this.renderPaymentPending() :
             this.showOrderSuccessMessage ? this.renderOrderSuccess() :
@@ -1860,7 +1905,7 @@ export class CartWidget extends ShoprocketElement {
     // If modules not loaded yet, show loading spinner (rare - only if user is very fast)
     if (!this.cartModules.cartItems) {
       this.ensureModule('cartItems').then(() => this.requestUpdate());
-      return loadingSpinner('md');
+      return loadingOverlay();
     }
 
     const context: CartItemsContext = {
@@ -1900,7 +1945,7 @@ export class CartWidget extends ShoprocketElement {
   private renderOrderSuccess(): TemplateResult {
     if (!this.cartModules.orderResult) {
       this.ensureModule('orderResult').then(() => this.requestUpdate());
-      return loadingSpinner('lg');
+      return loadingOverlay();
     }
 
     const orderData = this.orderDetails?.data || this.orderDetails;
@@ -1953,7 +1998,7 @@ export class CartWidget extends ShoprocketElement {
   private renderPaymentPending(): TemplateResult {
     if (!this.cartModules.orderResult) {
       this.ensureModule('orderResult').then(() => this.requestUpdate());
-      return loadingSpinner('lg');
+      return loadingOverlay();
     }
 
     const context: OrderResultContext = {
@@ -1972,7 +2017,7 @@ export class CartWidget extends ShoprocketElement {
   private renderOrderFailure(): TemplateResult {
     if (!this.cartModules.orderResult) {
       this.ensureModule('orderResult').then(() => this.requestUpdate());
-      return loadingSpinner('lg');
+      return loadingOverlay();
     }
 
     const context: OrderResultContext = {
@@ -2017,7 +2062,7 @@ export class CartWidget extends ShoprocketElement {
   private renderOrderNotFound(): TemplateResult {
     if (!this.cartModules.orderResult) {
       this.ensureModule('orderResult').then(() => this.requestUpdate());
-      return loadingSpinner('lg');
+      return loadingOverlay();
     }
 
     const context: OrderResultContext = {
@@ -2066,7 +2111,7 @@ export class CartWidget extends ShoprocketElement {
 
   private renderCheckoutFlow(): TemplateResult {
     if (!this.cartModules.checkoutWizard) {
-      return html`${loadingSpinner('lg')}`;
+      return loadingOverlay();
     }
 
     const context: CheckoutWizardContext = {
