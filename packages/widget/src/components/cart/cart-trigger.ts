@@ -4,6 +4,7 @@
  */
 import { html, type TemplateResult } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { keyed } from 'lit/directives/keyed.js';
 
 export interface CartTriggerContext {
   position: string;
@@ -22,9 +23,9 @@ export function renderTriggerContent(itemCount: number, position: string, shoppi
   if (isMiddle) {
     return html`
       <div class="sr-cart-empty-container">
-        ${itemCount > 0 ? html`
-          <span class="sr-cart-badge-count">${itemCount}</span>
-        ` : ''}
+        ${itemCount > 0 ? keyed(itemCount, html`
+          <span class="sr-cart-badge-count sr-badge-number">${itemCount}</span>
+        `) : ''}
         <span class="sr-cart-icon" aria-hidden="true">${unsafeHTML(shoppingBasketIcon)}</span>
       </div>
     `;
@@ -35,7 +36,7 @@ export function renderTriggerContent(itemCount: number, position: string, shoppi
     <span class="sr-cart-icon" aria-hidden="true">${unsafeHTML(shoppingBasketIcon)}</span>
     ${itemCount > 0 ? html`
       <span class="sr-cart-badge">
-        ${itemCount > 99 ? '99+' : itemCount}
+        ${keyed(itemCount, html`<span class="sr-badge-number">${itemCount > 99 ? '99+' : itemCount}</span>`)}
       </span>
     ` : ''}
   `;

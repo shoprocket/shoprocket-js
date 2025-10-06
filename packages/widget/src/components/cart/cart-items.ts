@@ -4,13 +4,13 @@
  */
 import { html, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
+import { keyed } from 'lit/directives/keyed.js';
 import type { Cart } from '../../types/api';
 
 export interface CartItemsContext {
   cart: Cart | null;
   showEmptyState: boolean;
   removingItems: Set<string>;
-  priceChangedItems: Set<string>;
   closeCart: () => void;
   navigateToProduct: (item: any) => void;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
@@ -73,13 +73,15 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
 
           <div class="sr-cart-item-footer">
             <div class="sr-cart-item-price">
-              <span class="sr-cart-item-subtotal ${context.priceChangedItems.has(item.id) ? 'price-changed' : ''}">
-                ${context.formatPrice(
-                  item.subtotal !== undefined
-                    ? item.subtotal
-                    : (item.price?.amount || 0) * (item.quantity || 0)
-                )}
-              </span>
+              ${keyed((item.subtotal?.amount ?? (item.price?.amount || 0) * (item.quantity || 0)), html`
+                <span class="sr-cart-item-subtotal price-changed">
+                  ${context.formatPrice(
+                    item.subtotal !== undefined
+                      ? item.subtotal
+                      : (item.price?.amount || 0) * (item.quantity || 0)
+                  )}
+                </span>
+              `)}
             </div>
 
             <!-- Quantity Controls with Remove Button -->

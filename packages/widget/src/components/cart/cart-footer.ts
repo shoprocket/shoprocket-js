@@ -3,12 +3,12 @@
  * Handles subtotal display and checkout button
  */
 import { html, type TemplateResult } from 'lit';
+import { keyed } from 'lit/directives/keyed.js';
 import { loadingSpinner } from '../loading-spinner';
 import type { Cart } from '../../types/api';
 
 export interface CartFooterContext {
   cart: Cart | null;
-  priceChangedItems: Set<string>;
   chunkLoading: boolean;
   formatPrice: (amount: any) => string;
   startCheckout: () => Promise<void>;
@@ -19,7 +19,9 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
     <div class="sr-cart-subtotal">
       <span class="sr-cart-subtotal-label">Subtotal</span>
       <span class="sr-cart-subtotal-amount">
-        <span class="sr-cart-total-price ${context.priceChangedItems.size > 0 ? 'price-changed' : ''}">${context.formatPrice(context.cart?.totals?.total)}</span>
+        ${keyed(context.cart?.totals?.total?.amount, html`
+          <span class="sr-cart-total-price price-changed">${context.formatPrice(context.cart?.totals?.total)}</span>
+        `)}
       </span>
     </div>
     <button

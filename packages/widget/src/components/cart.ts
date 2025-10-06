@@ -156,10 +156,7 @@ export class CartWidget extends ShoprocketElement {
   
   // Cart state subscription
   private unsubscribeCartState?: () => void;
-  
-  @state()
-  private priceChangedItems: Set<string> = new Set();
-  
+
   @state()
   private removingItems: Set<string> = new Set();
   
@@ -1912,7 +1909,6 @@ export class CartWidget extends ShoprocketElement {
       cart: this.cart,
       showEmptyState: this.showEmptyState,
       removingItems: this.removingItems,
-      priceChangedItems: this.priceChangedItems,
       closeCart: () => this.closeCart(),
       navigateToProduct: (item) => this.navigateToProduct(item),
       updateQuantity: (itemId, quantity) => this.updateQuantity(itemId, quantity),
@@ -1933,7 +1929,6 @@ export class CartWidget extends ShoprocketElement {
 
     const context: CartFooterContext = {
       cart: this.cart,
-      priceChangedItems: this.priceChangedItems,
       chunkLoading: this.chunkLoading,
       formatPrice: (amount) => this.formatPrice(amount),
       startCheckout: () => this.startCheckout()
@@ -2311,25 +2306,10 @@ export class CartWidget extends ShoprocketElement {
     
     // Optimistic update - immediately update UI
     item.quantity = quantity;
-    
+
     // Update totals
     this.updateCartTotals();
-    
-    // Trigger animations immediately
-    this.priceChangedItems.add(itemId);
-    this.priceChangedItems.add('cart-total');
     this.requestUpdate();
-    
-    // Remove animation after it completes
-    const timeout = setTimeout(() => {
-      this.priceChangedItems.delete(itemId);
-      this.priceChangedItems.delete('cart-total');
-      this.requestUpdate();
-      this.timeouts.delete(timeout);
-    }, 600);
-    this.timeouts.add(timeout);
-    
-    // Cart state subscriptions handle updates
     
     // Track quantity change
     const eventType = quantity > originalQuantity ? EVENTS.ADD_TO_CART : EVENTS.REMOVE_FROM_CART;
@@ -2390,20 +2370,10 @@ export class CartWidget extends ShoprocketElement {
     
       // Update totals
       this.updateCartTotals();
-      
-      // Trigger animation for cart total
-      this.priceChangedItems.add('cart-total');
+
       this.removingItems.delete(itemId);
       this.requestUpdate();
-      
-      // Remove animation after it completes (independent of API)
-      const animTimeout = setTimeout(() => {
-        this.priceChangedItems.delete('cart-total');
-        this.requestUpdate();
-        this.timeouts.delete(animTimeout);
-      }, 600);
-      this.timeouts.add(animTimeout);
-      
+
       // Fire and forget - don't await or handle response
       this.sdk.cart.removeItem(itemId).catch(error => {
         console.error('Failed to remove item:', error);
