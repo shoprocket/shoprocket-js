@@ -117,22 +117,15 @@ window.Shoprocket = shoprocket;
  */
 
 /**
- * Get public key from script URL or data attribute
+ * Get public key from data attribute set by loader
  */
 function getPublicKey(): string | null {
-  // First try the currentScript URL (works for IIFE)
-  if (scriptUrl) {
-    const url = new URL(scriptUrl);
-    const pk = url.searchParams.get('pk');
-    if (pk) return pk;
-  }
-  
-  // For ES modules, get pk from the data attribute set by loader
+  // Loader sets data-pk on the bundle script tag (both ESM and IIFE)
   const bundleScript = document.querySelector('script[data-shoprocket-bundle="true"]');
   if (bundleScript) {
     return bundleScript.getAttribute('data-pk');
   }
-  
+
   return null;
 }
 
