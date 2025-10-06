@@ -23,12 +23,30 @@
     console.error('Shoprocket: Unable to determine script source');
     return;
   }
-  
+
   var scriptUrl = currentScript.src;
-  var publicKey = scriptUrl.match(/[?&]pk=([^&]+)/);
-  
-  if (!publicKey || !publicKey[1]) {
-    console.error('Shoprocket: No public key (pk) parameter found');
+  var publicKey = currentScript.getAttribute('data-pk');
+
+  // V2 Bridge: Auto-detect legacy V2 embed format
+  if (!publicKey) {
+    var v2Element = document.querySelector('.sr-element[data-embed]');
+    if (v2Element) {
+      var v2ConfigScript = v2Element.querySelector('script[type="application/json"]');
+      if (v2ConfigScript) {
+        try {
+          var v2Config = JSON.parse(v2ConfigScript.textContent);
+          publicKey = v2Config.publishable_key;
+          // TODO: Full V2 bridge - map v2Config.options/styles to V3 data attributes
+          console.info('Shoprocket: V2 embed format detected - using legacy config');
+        } catch (e) {
+          console.error('Shoprocket: Failed to parse V2 config', e);
+        }
+      }
+    }
+  }
+
+  if (!publicKey) {
+    console.error('Shoprocket: No public key found. Add data-pk attribute to script tag.');
     delete window.__ShoprocketInit;
     return;
   }
@@ -80,7 +98,7 @@
   }
 
   bundleScript.setAttribute('data-shoprocket-bundle', 'true');
-  bundleScript.setAttribute('data-pk', publicKey[1]); // Pass the public key
+  bundleScript.setAttribute('data-pk', publicKey); // Pass the public key
   
   // Handle load success
   bundleScript.onload = function() {
