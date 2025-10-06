@@ -31,9 +31,9 @@ export default defineConfig({
         format: 'es',
         entryFileNames: 'main.shoprocket.js',
         chunkFileNames: '[name]-[hash].shoprocket.js',
-        // Manual chunking for analytics
+        // Manual chunking for analytics - only chunk these, everything else in main
         manualChunks(id) {
-          // Force trackers into separate chunks
+          // Force trackers into separate chunks (lazy-loaded)
           if (id.includes('analytics/trackers/google-analytics')) {
             return 'tracker-ga';
           }
@@ -43,6 +43,9 @@ export default defineConfig({
           if (id.includes('analytics/trackers/google-ads')) {
             return 'tracker-gads';
           }
+
+          // Everything else stays in main bundle to prevent singleton duplication
+          // Lazy-loaded components will still be chunked automatically via dynamic imports
         }
       }
     },

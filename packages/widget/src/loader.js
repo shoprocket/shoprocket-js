@@ -57,9 +57,28 @@
     bundleScript.setAttribute('data-bundle-type', 'iife');
   }
   
-  // Append version parameter for cache busting
-  var versionParam = bundleUrl.indexOf('?') > -1 ? '&v=__SHOPROCKET_VERSION__' : '?v=__SHOPROCKET_VERSION__';
-  bundleScript.src = bundleUrl + versionParam;
+  // For ES modules, use import map to ensure all chunks use same versioned URL
+  if (useModules) {
+    var versionParam = bundleUrl.indexOf('?') > -1 ? '&v=__SHOPROCKET_VERSION__' : '?v=__SHOPROCKET_VERSION__';
+    var versionedUrl = bundleUrl + versionParam;
+
+    // Create import map to alias main.shoprocket.js to versioned URL
+    var importMap = document.createElement('script');
+    importMap.type = 'importmap';
+    importMap.textContent = JSON.stringify({
+      imports: {
+        './main.shoprocket.js': versionedUrl
+      }
+    });
+    document.head.appendChild(importMap);
+
+    bundleScript.src = versionedUrl;
+  } else {
+    // IIFE doesn't need import map
+    var versionParam = bundleUrl.indexOf('?') > -1 ? '&v=__SHOPROCKET_VERSION__' : '?v=__SHOPROCKET_VERSION__';
+    bundleScript.src = bundleUrl + versionParam;
+  }
+
   bundleScript.setAttribute('data-shoprocket-bundle', 'true');
   bundleScript.setAttribute('data-pk', publicKey[1]); // Pass the public key
   

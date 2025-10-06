@@ -107,16 +107,18 @@ class CartStateManager {
    * Update cart from API response
    */
   setCart(cart: Cart | null): void {
-    if (this.isEqual(this.state.cart, cart)) return;
-    
+    if (this.isEqual(this.state.cart, cart)) {
+      return;
+    }
+
     this.state.cart = cart;
-    
+
     // Update internal state for public API
     internalState.setCart(cart);
-    
+
     // Cart no longer contains checkout data in new API
     // Checkout data must be loaded separately via loadCheckoutData()
-    
+
     this.notifyListeners();
   }
 

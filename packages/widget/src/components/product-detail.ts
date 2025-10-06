@@ -40,6 +40,7 @@ export class ProductDetail extends ShoprocketElement {
   
   private handleCartUpdate = async (): Promise<void> => {
     await this.checkIfInCart();
+    this.requestUpdate(); // Re-render to update stock-based button states
   }
   
   private handleProductAdded = (event: CustomEvent): void => {

@@ -34,7 +34,10 @@ export default defineConfig({
         name: 'Shoprocket',
         // Inline all CSS into JS
         assetFileNames: '[name][extname]',
-        compact: true
+        compact: true,
+        // Prevent code splitting to avoid module duplication
+        manualChunks: undefined,
+        inlineDynamicImports: true
       },
       // External dependencies we could load separately if needed
       external: [],

@@ -11,21 +11,21 @@
  * @returns Object with allInCart flag and quantity in cart
  */
 export function isAllStockInCart(
-  productId: string, 
-  variantId?: string, 
+  productId: string,
+  variantId?: string,
   totalInventory?: number | null
 ): { allInCart: boolean; quantityInCart: number } {
   const cart = (window as any).Shoprocket?.cart?.get?.();
-  
+
   if (!cart || totalInventory === undefined || totalInventory === null) {
     return { allInCart: false, quantityInCart: 0 };
   }
-  
-  const cartItem = cart.items?.find((item: any) => 
-    item.product_id === productId && 
+
+  const cartItem = cart.items?.find((item: any) =>
+    item.product_id === productId &&
     item.variant_id === variantId
   );
-  
+
   const quantityInCart = cartItem?.quantity || 0;
   return {
     allInCart: quantityInCart >= totalInventory,
