@@ -151,72 +151,31 @@
   /* Border radius - ONE value for consistency across all elements */
   --sr-radius: 0.3125rem; /* 5px - change this once to update all corners */
 
-  /* Shadows - users can customize shadow intensity */
-  --sr-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  /* Shadow - ONE value for consistency, users can customize via CSS */
   --sr-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --sr-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --sr-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
   /* Grid columns */
   --cols: 4;
   --cols-md: 3;
   --cols-sm: 2;
 
-  /* Typography */
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-
   /* Component-specific */
   --cart-size: 64px;
   --cart-size-sm: 48px;
   --cart-panel-width: 400px;
 
-  /* Component-level variables for granular control */
-  /* These map to theme variables but can be overridden independently */
-
-  /* Product Card */
-  --sr-card-bg: var(--color-surface);
-  --sr-card-text: var(--color-text);
-  --sr-card-shadow: var(--sr-shadow);
-  --sr-card-radius: var(--sr-radius);
+  /* Component-specific variables (actual values, not passthroughs) */
   --sr-card-padding: 0;
-
-  /* Product Grid */
-  --sr-product-grid-bg: var(--color-surface);
   --sr-product-grid-padding: 1rem;
-
-  /* Product Image */
-  --sr-product-image-bg: var(--color-hover);
   --sr-product-image-radius: 0; /* Top corners handled by card */
   --sr-product-image-aspect-ratio: 3/4; /* Default aspect ratio, can be overridden */
-
-  /* Product Info */
-  --sr-product-title-color: var(--color-text);
   --sr-product-title-size: 0.875rem; /* text-sm */
-  --sr-product-price-color: var(--color-text);
   --sr-product-price-size: 0.875rem;
   --sr-product-section-gap: 0.5rem;
-
-  /* Buttons */
   --sr-button-padding-x: 1rem;
   --sr-button-padding-y: 0.5rem;
-  --sr-button-radius: var(--sr-radius);
   --sr-button-font-size: 0.875rem;
-
-  /* Primary Button */
-  --sr-button-primary-bg: var(--color-primary);
-  --sr-button-primary-bg-hover: var(--color-primary);
-  --sr-button-primary-text: var(--color-on-primary);
   --sr-button-primary-opacity-hover: 0.9;
-
-  /* Success Button State */
-  --sr-button-success-bg: var(--color-success);
-  --sr-button-success-bg-hover: var(--color-success);
-  --sr-button-success-text: var(--color-on-success);
 }
 
 @layer components {
@@ -232,7 +191,7 @@
   /* Product grid responsive columns */
   .sr-product-grid {
     @apply grid gap-4;
-    background: var(--sr-product-grid-bg);
+    background: var(--color-surface);
     padding: var(--sr-product-grid-padding);
     border-radius: var(--sr-radius);
     grid-template-columns: repeat(var(--cols-sm, 2), minmax(0, 1fr));
@@ -277,14 +236,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      90deg,
-      rgb(229, 231, 235) 25%,
-      rgb(243, 244, 246) 50%,
-      rgb(229, 231, 235) 75%
-    );
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite;
     border-radius: var(--sr-radius);
     z-index: 1;
   }
@@ -328,20 +280,13 @@
     color: transparent !important;
     min-height: 2.5rem;
   }
-  
+
   [data-loading] .sr-button:disabled::before,
   [data-loading] button[disabled]::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      90deg,
-      rgb(229, 231, 235) 25%,
-      rgb(243, 244, 246) 50%,
-      rgb(229, 231, 235) 75%
-    );
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite;
     border-radius: inherit;
     z-index: 1;
   }
@@ -349,29 +294,15 @@
   /* Image container skeleton - always show when loading */
   [data-loading] .sr-product-image-container {
     position: relative;
-    background: linear-gradient(
-      90deg,
-      rgb(229, 231, 235) 25%,
-      rgb(243, 244, 246) 50%,
-      rgb(229, 231, 235) 75%
-    );
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite;
     overflow: hidden;
   }
-  
+
   /* Media container skeleton */
   [data-loading] .sr-media-container {
     position: relative;
     min-height: 400px;
-    background: linear-gradient(
-      90deg,
-      rgb(229, 231, 235) 25%,
-      rgb(243, 244, 246) 50%,
-      rgb(229, 231, 235) 75%
-    );
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite;
     overflow: hidden;
   }
 
@@ -392,10 +323,10 @@
   /* Product Card */
   .sr-product-card {
     @apply flex flex-col h-full cursor-pointer text-left;
-    background: var(--sr-card-bg);
-    color: var(--sr-card-text);
-    /* box-shadow: var(--sr-card-shadow); */
-    /* border-radius: var(--sr-card-radius); */
+    background: var(--color-surface);
+    color: var(--color-text);
+    /* box-shadow: var(--sr-shadow); */
+    /* border-radius: var(--sr-radius); */
   }
 
   /* Product Image Container */
@@ -449,7 +380,7 @@
   /* Product Title */
   .sr-product-title {
     @apply font-medium leading-tight transition-colors cursor-pointer;
-    color: var(--sr-product-title-color);
+    color: var(--color-text);
     font-size: var(--sr-product-title-size);
     margin-bottom: 0.5rem;
   }
@@ -461,7 +392,7 @@
   /* Product Price */
   .sr-product-price {
     @apply font-semibold;
-    color: var(--sr-product-price-color);
+    color: var(--color-text);
     font-size: var(--sr-product-price-size);
   }
 
@@ -479,7 +410,7 @@
   .sr-button {
     @apply font-medium transition-all transform cursor-pointer w-full h-11;
     padding: var(--sr-button-padding-y) var(--sr-button-padding-x);
-    border-radius: var(--sr-button-radius);
+    border-radius: var(--sr-radius);
     font-size: var(--sr-button-font-size);
   }
 
@@ -494,8 +425,8 @@
 
   /* Primary Button */
   .sr-button-primary {
-    background: var(--sr-button-primary-bg);
-    color: var(--sr-button-primary-text);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -512,8 +443,8 @@
 
   /* Success Button State */
   .sr-button-success {
-    background: var(--sr-button-success-bg);
-    color: var(--sr-button-success-text);
+    background: var(--color-success);
+    color: var(--color-on-success);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -606,7 +537,7 @@
   }
 
   .sr-cart-toggle-button:hover {
-    @apply shadow-xl;
+    @apply shadow;
   }
 
   .sr-cart-toggle-button.hidden {
@@ -740,7 +671,7 @@
   }
   
   .sr-cart-back-arrow {
-    @apply text-lg leading-none p-1 -ms-2 w-8 h-8 rounded hover:bg-gray-100 transition-colors cursor-pointer;
+    @apply text-lg leading-none p-1 -ms-2 w-8 h-8 rounded hover:bg-[var(--color-hover)] transition-colors cursor-pointer;
     background: transparent;
     border: none;
     color: var(--color-text);
@@ -886,12 +817,7 @@
   .sr-cart-item-image {
     @apply w-16 h-16 flex-shrink-0 overflow-hidden cursor-pointer relative;
     border-radius: var(--sr-radius);
-    background: linear-gradient(
-      90deg,
-      rgb(229, 231, 235) 25%,
-      rgb(236, 236, 236) 50%,
-      rgb(229, 231, 235) 75%
-    );
+    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.5s ease-in-out infinite;
   }
@@ -1445,10 +1371,10 @@
 }
 
 .sr-notification-content {
-  @apply rounded-lg p-4 shadow-lg flex items-start gap-3;
+  @apply rounded-lg p-4 shadow flex items-start gap-3;
   border-radius: var(--sr-radius);
   padding: var(--spacing);
-  box-shadow: var(--sr-shadow-lg);
+  box-shadow: var(--sr-shadow);
 }
 
 .sr-notification-error .sr-notification-content {
@@ -1486,17 +1412,6 @@
 
 .sr-notification-message p {
   @apply text-sm font-medium m-0;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
 /* Error and Success Message Styles */
@@ -1543,12 +1458,7 @@
 
 .sr-media-loading {
   @apply absolute inset-0;
-  background: linear-gradient(
-    90deg,
-    rgb(229, 231, 235) 25%,
-    rgb(243, 244, 246) 50%,
-    rgb(229, 231, 235) 75%
-  );
+  background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
@@ -1578,7 +1488,7 @@
 }
 
 .sr-zoom-lens {
-  @apply absolute w-32 h-32 border-2 border-white rounded-full pointer-events-none shadow-lg;
+  @apply absolute w-32 h-32 border-2 border-white rounded-full pointer-events-none shadow;
   left: var(--lens-x);
   top: var(--lens-y);
   transform: translate(-50%, -50%);
@@ -2142,14 +2052,14 @@
 
 /* Default position - centered in input */
 .peer ~ .sr-field-label {
-  font-size: var(--text-sm);
+  @apply text-sm;
   top: 0.875rem;
 }
 
 /* Shrunk position - when input has placeholder shown (empty) AND not focused */
 .peer:placeholder-shown:not(:focus) ~ .sr-field-label,
 .peer.sr-field-select:not(.has-value):not(:focus) ~ .sr-field-label {
-  font-size: var(--text-sm);
+  @apply text-sm;
   top: 0.875rem;
 }
 
@@ -2158,7 +2068,7 @@
 .peer:not(:placeholder-shown) ~ .sr-field-label,
 .peer.sr-field-select:focus ~ .sr-field-label,
 .peer.sr-field-select.has-value ~ .sr-field-label {
-  font-size: var(--text-xs);
+  @apply text-xs;
   top: 0.25rem;
   color: var(--color-text-muted);
 }
@@ -2176,10 +2086,10 @@
 .sr-field-input,
 .sr-field-select {
   @apply w-full px-3 pt-5 pb-1.5 border;
-  font-size: var(--text-sm);
+  @apply text-sm;
   background: var(--color-input-bg);
   color: var(--color-text);
-  border-radius: var(--sr-button-radius);
+  border-radius: var(--sr-radius);
   border-color: var(--color-border);
   min-height: 2.75rem;
   /* iOS zoom prevention via touch-action is in :host reset */
@@ -2237,14 +2147,14 @@
 
 /* When select has no value selected, treat it like placeholder-shown */
 .sr-field-select:not(.has-value):not(:focus) ~ .sr-field-label {
-  font-size: var(--text-sm);
+  @apply text-sm;
   top: 0.875rem;
 }
 
 /* Error Messages */
 .sr-field-error-message {
   @apply mt-1;
-  font-size: var(--text-xs);
+  @apply text-xs;
   color: var(--color-error, #ef4444);
   line-height: 1.4;
 }
@@ -2252,7 +2162,7 @@
 /* Helper Text */
 .sr-field-helper-text {
   @apply mt-1.5 -mb-1;
-  font-size: var(--text-xs);
+  @apply text-xs;
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -2276,10 +2186,6 @@
 
 .sr-customer-form-title {
   @apply text-lg font-semibold text-[var(--color-text)] mb-4;
-}
-
-.sr-customer-form-fields {
-  /* Spacing handled by .sr-field-group mb-4 */
 }
 
 .sr-form-intro-text {
@@ -2328,7 +2234,7 @@
 /* Field Help Text */
 .sr-field-help {
   @apply mt-0.5;
-  font-size: var(--text-xs);
+  @apply text-xs;
   color: var(--color-text-muted);
   line-height: 1.3;
 }
@@ -2363,10 +2269,6 @@
  * CHECKOUT FLOW STYLES
  * ========================================== */
 
-.sr-checkout-step {
-  /* @apply space-y-6 p-6; */
-}
-
 .sr-checkout-step-header {
   @apply flex justify-between items-center pb-3 mb-3 border-b;
   border-color: var(--color-border);
@@ -2397,12 +2299,12 @@
 }
 
 .sr-checkout-button-secondary {
-  @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
-  @apply focus:ring-gray-500;
+  @apply bg-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-hover)];
+  @apply focus:ring-[var(--color-primary)];
 }
 
 .sr-checkout-button:disabled {
-  @apply opacity-50 cursor-not-allowed hover:bg-[var(--color-primary)] hover:bg-gray-200;
+  @apply opacity-50 cursor-not-allowed hover:bg-[var(--color-primary)] hover:bg-[var(--color-border)];
 }
 
 /* Same as Shipping Checkbox */
@@ -2411,7 +2313,7 @@
 }
 
 .sr-checkbox-label input[type="checkbox"] {
-  @apply size-5 rounded border-gray-300 
+  @apply size-5 rounded border-[var(--color-border)] 
          bg-[var(--color-surface)] transition-all duration-150
          hover:border-[var(--color-primary)] cursor-pointer
          focus:outline-none focus:ring-0;
@@ -2429,11 +2331,11 @@
 
 /* Payment Placeholder */
 .sr-payment-placeholder {
-  @apply text-center py-8 px-4 bg-gray-50 rounded-md border-2 border-dashed border-gray-300;
+  @apply text-center py-8 px-4 bg-[var(--color-surface-hover)] rounded-md border-2 border-dashed border-[var(--color-border)];
 }
 
 .sr-payment-placeholder p {
-  @apply text-gray-600 m-0 mb-2;
+  @apply text-[var(--color-text-muted)] m-0 mb-2;
 }
 
 .sr-payment-placeholder p:last-child {
@@ -2501,12 +2403,7 @@
 
 .sr-order-item-image-container {
   @apply w-10 h-10 rounded relative overflow-hidden;
-  background: linear-gradient(
-    90deg,
-    rgb(229, 231, 235) 25%,
-    rgb(236, 236, 236) 50%,
-    rgb(229, 231, 235) 75%
-  );
+  background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
@@ -2535,11 +2432,11 @@
 }
 
 .sr-order-item-variant {
-  @apply block text-xs text-gray-500 leading-tight;
+  @apply block text-xs text-[var(--color-text-muted)] leading-tight;
 }
 
 .sr-order-item-quantity {
-  @apply block text-xs text-gray-500;
+  @apply block text-xs text-[var(--color-text-muted)];
 }
 
 .sr-order-item-price {
@@ -2593,7 +2490,7 @@
 }
 
 .sr-review-label {
-  @apply text-xs text-gray-500;
+  @apply text-xs text-[var(--color-text-muted)];
 }
 
 .sr-review-value {
@@ -2623,7 +2520,7 @@
 
 /* Payment Placeholder */
 .sr-review-payment-placeholder {
-  @apply text-xs text-gray-500 m-0;
+  @apply text-xs text-[var(--color-text-muted)] m-0;
 }
 
 /* Test Mode Banner */
@@ -2671,7 +2568,7 @@
   @apply px-3 py-1.5 text-xs font-medium rounded-full shadow-md cursor-pointer;
   background: var(--color-primary);
   color: var(--color-on-primary);
-  @apply hover:shadow-lg transition-shadow;
+  @apply hover:shadow transition-shadow;
 }
 
 /* Security Notice */
@@ -2686,7 +2583,7 @@
 
 /* Keep old styles for backward compatibility */
 .sr-order-summary {
-  @apply bg-gray-50 rounded-md p-4 mb-6;
+  @apply bg-[var(--color-surface-hover)] rounded-md p-4 mb-6;
 }
 
 .sr-order-summary h4 {
@@ -2714,7 +2611,7 @@
 }
 
 .sr-summary-section p {
-  @apply text-sm text-gray-600 m-0;
+  @apply text-sm text-[var(--color-text-muted)] m-0;
 }
 
 .sr-summary-address {
@@ -2722,7 +2619,7 @@
 }
 
 .sr-summary-address p {
-  @apply text-sm text-gray-600 m-0;
+  @apply text-sm text-[var(--color-text-muted)] m-0;
 }
 
 /* Authentication Section Styles */
@@ -2796,7 +2693,7 @@
 
 .sr-returning-notice {
   @apply flex items-start gap-3 p-3 mb-4;
-  border-radius: var(--sr-button-radius);
+  border-radius: var(--sr-radius);
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border);
 }
@@ -2811,11 +2708,11 @@
 }
 
 .sr-notice-text p {
-  @apply font-medium text-gray-900 m-0;
+  @apply font-medium text-[var(--color-text)] m-0;
 }
 
 .sr-notice-subtitle {
-  @apply text-sm text-gray-700 font-normal;
+  @apply text-sm text-[var(--color-text)] font-normal;
 }
 
 /* Link-style button */
@@ -2854,7 +2751,7 @@
 }
 
 .sr-otp-subtitle {
-  @apply text-sm text-gray-600 m-0;
+  @apply text-sm text-[var(--color-text-muted)] m-0;
 }
 
 .sr-otp-inputs {
@@ -2863,7 +2760,7 @@
 
 .sr-otp-input {
   @apply w-12 h-14 text-center text-xl font-semibold rounded-lg border-2 
-         border-gray-300 focus:border-[var(--color-primary)] focus:outline-none
+         border-[var(--color-border)] focus:border-[var(--color-primary)] focus:outline-none
          transition-colors;
   -webkit-appearance: none;
   -moz-appearance: textfield;
@@ -2876,7 +2773,7 @@
 }
 
 .sr-otp-verifying {
-  @apply text-sm text-gray-600 flex items-center justify-center gap-2;
+  @apply text-sm text-[var(--color-text-muted)] flex items-center justify-center gap-2;
 }
 
 .sr-otp-resend {
@@ -2884,10 +2781,10 @@
 }
 
 .sr-otp-resend p {
-  @apply text-sm text-gray-600 m-0;
+  @apply text-sm text-[var(--color-text-muted)] m-0;
 }
 .sr-otp-guest-option {
-  @apply text-center mt-6 pt-4 border-t border-gray-200;
+  @apply text-center mt-6 pt-4 border-t border-[var(--color-border)];
 }
 
 .sr-notice-text p {
@@ -3186,7 +3083,7 @@ shoprocket-product-modal {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: var(--sr-shadow-xl, 0 10px 40px rgba(0, 0, 0, 0.2));
+  box-shadow: var(--sr-shadow, 0 10px 40px rgba(0, 0, 0, 0.2));
   animation: sr-modal-slideUp 0.3s ease-out;
   z-index: 1;
 }
