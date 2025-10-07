@@ -51,7 +51,7 @@ export class BuyButton extends ShoprocketElement {
 
   private successTimeout?: number;
   private hashRouter!: HashRouter;
-  private unsubscribeHash?: () => void;
+  private hashChangeHandler = () => this.handleHashChange();
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -64,10 +64,8 @@ export class BuyButton extends ShoprocketElement {
     // Initialize hash router
     this.hashRouter = HashRouter.getInstance();
 
-    // Subscribe to hash changes
-    this.unsubscribeHash = this.hashRouter.subscribe(() => {
-      this.handleHashChange();
-    });
+    // Listen for hash changes
+    this.hashRouter.addEventListener('state-change', this.hashChangeHandler);
 
     // Listen to cart events for reactivity
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
@@ -88,10 +86,8 @@ export class BuyButton extends ShoprocketElement {
       clearTimeout(this.successTimeout);
     }
 
-    // Unsubscribe from hash changes
-    if (this.unsubscribeHash) {
-      this.unsubscribeHash();
-    }
+    // Remove hash change listener
+    this.hashRouter.removeEventListener('state-change', this.hashChangeHandler);
 
     // Remove cart event listeners
     window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
