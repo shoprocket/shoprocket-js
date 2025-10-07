@@ -12,13 +12,9 @@
 // CSS is imported via shared-styles.ts with ?inline for Shadow DOM injection
 // import './styles.css'; // Removed - we don't need a separate CSS file
 
-// Import the widget manager and components
+// Import core only - components will be lazy-loaded
 import { WidgetManager } from './core/widget-manager';
 import { ShoprocketElement } from './core/base-component';
-import { ProductCatalog } from './components/product-catalog';
-import { ProductDetail } from './components/product-detail';
-import { ProductView } from './components/product-view';
-import { CartWidget } from './components/cart';
 import { Tooltip } from './components/tooltip';
 import { TestModeBanner } from './components/test-mode-banner';
 import { initializeConfig, getConfig } from './core/config';
@@ -130,27 +126,53 @@ function getPublicKey(): string | null {
 }
 
 
-// Register components globally for the widget manager - MUST happen before autoInit
-window.__shoprocketComponents = {
-  'catalog': ProductCatalog,
-  'product': ProductDetail,
-  'product-view': ProductView,
-  'cart': CartWidget
+// Component loader registry - maps widget type to lazy loader function
+const componentLoaders: Record<string, () => Promise<typeof ShoprocketElement>> = {
+  'catalog': async () => {
+    const { ProductCatalog } = await import('./components/product-catalog');
+    return ProductCatalog;
+  },
+  'product': async () => {
+    const { ProductDetail } = await import('./components/product-detail');
+    return ProductDetail;
+  },
+  'product-view': async () => {
+    const { ProductView } = await import('./components/product-view');
+    return ProductView;
+  },
+  'buy-button': async () => {
+    const { BuyButton } = await import('./components/buy-button');
+    return BuyButton;
+  },
+  'cart': async () => {
+    const { CartWidget } = await import('./components/cart');
+    return CartWidget;
+  }
 };
 
-// Register all custom elements upfront with guards to prevent duplicate registration
-if (!customElements.get('shoprocket-catalog')) {
-  customElements.define('shoprocket-catalog', ProductCatalog);
-}
-if (!customElements.get('shoprocket-product')) {
-  customElements.define('shoprocket-product', ProductDetail);
-}
-if (!customElements.get('shoprocket-product-view')) {
-  customElements.define('shoprocket-product-view', ProductView);
-}
-if (!customElements.get('shoprocket-cart')) {
-  customElements.define('shoprocket-cart', CartWidget);
-}
+// Register lazy-loaded components
+window.__shoprocketComponents = new Proxy({} as Record<string, typeof ShoprocketElement>, {
+  get(target, prop: string) {
+    // If component already loaded, return it
+    if (target[prop]) {
+      return target[prop];
+    }
+
+    // Otherwise trigger lazy load (will be awaited by widget manager)
+    const loader = componentLoaders[prop];
+    if (loader) {
+      // Return a promise that resolves to the component
+      return loader().then(Component => {
+        target[prop] = Component;
+        return Component;
+      });
+    }
+
+    return undefined;
+  }
+});
+
+// Register small utility components immediately
 if (!customElements.get('sr-tooltip')) {
   customElements.define('sr-tooltip', Tooltip);
 }

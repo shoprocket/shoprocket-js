@@ -14,7 +14,7 @@ export default defineConfig({
       template: 'treemap' // treemap, sunburst, network
     })
   ],
-  publicDir: 'public',
+  publicDir: 'public', // Copy test HTML files to dist/
   define: {
     // Preserve dev mode detection for localhost/test environments
     'import.meta.env.DEV': 'true',

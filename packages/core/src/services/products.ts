@@ -46,7 +46,7 @@ export interface ProductListParams {
   page?: number;
   per_page?: number;
   sort?: string;
-  category?: string;
+  category?: string | string[];
   search?: string;
   min_price?: number;
   max_price?: number;
@@ -60,18 +60,31 @@ export class ProductsService {
     meta?: any;
   }> {
     const queryParams = new URLSearchParams();
-    
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
-          queryParams.append(key, value.toString());
+          if (key === 'category') {
+            // Handle new filter[category] format
+            if (Array.isArray(value)) {
+              // Multiple: filter[category][]=val1&filter[category][]=val2
+              value.forEach(cat => {
+                queryParams.append('filter[category][]', cat);
+              });
+            } else {
+              // Single: filter[category]=val
+              queryParams.append('filter[category]', value.toString());
+            }
+          } else {
+            queryParams.append(key, value.toString());
+          }
         }
       });
     }
 
     const endpoint = `/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await this.api.get<any>(endpoint);
-    
+
     return {
       data: response.data || [],
       meta: response.meta

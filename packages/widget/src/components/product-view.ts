@@ -104,16 +104,22 @@ export class ProductView extends ShoprocketElement {
       this.showError('Widget not initialized. Please check your configuration.');
       return;
     }
-    
+
+    // Lazy load ProductDetail component if not already registered
+    if (!customElements.get('shoprocket-product')) {
+      const { ProductDetail } = await import('./product-detail');
+      customElements.define('shoprocket-product', ProductDetail);
+    }
+
     await this.withLoading('product', async () => {
       try {
         // Load basic product data to pass to detail component
         const productData = await this.sdk!.products.get(identifier);
         this.product = productData;
-        
+
         // Track view
         this.track(EVENTS.VIEW_ITEM, this.product);
-        
+
         this.clearError();
       } catch (err: any) {
         console.error('Failed to load product:', err);
