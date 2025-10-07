@@ -288,8 +288,8 @@ export class WidgetManager {
    * Auto-render floating cart button
    */
   private autoRenderCart(): void {
-    // Check if cart is already mounted manually
-    const existingCart = document.querySelector('shoprocket-cart');
+    // Check if cart is already mounted manually (either as custom element or data attribute)
+    const existingCart = document.querySelector('shoprocket-cart, [data-shoprocket="cart"]');
     if (existingCart) {
       // Cart already exists, don't auto-render
       return;
@@ -361,25 +361,34 @@ export class WidgetManager {
   /**
    * Mount a widget on an element
    */
-  mount(element: Element, widgetType: string, options: Record<string, any> = {}): void {
+  async mount(element: Element, widgetType: string, options: Record<string, any> = {}): Promise<void> {
     if (!this.initialized || !this.sdk) {
       throw new Error('Shoprocket: Not initialized. Call init() first.');
     }
 
-    // Import the main component classes dynamically
-    // For now, we'll need to register them globally
+    // Get component class (may be async from lazy loading)
     const componentMap = (window as any).__shoprocketComponents || {};
-    const ComponentClass = componentMap[widgetType];
+    let ComponentClass = componentMap[widgetType];
+
+    // Handle lazy-loaded components (Proxy returns Promise)
+    if (ComponentClass instanceof Promise) {
+      ComponentClass = await ComponentClass;
+    }
 
     if (!ComponentClass) {
       console.error(`Shoprocket: Unknown widget type: ${widgetType}`);
       return;
     }
 
-    // Create component instance using document.createElement
+    // Register custom element if not already registered
     const tagName = `shoprocket-${widgetType}`;
+    if (!customElements.get(tagName)) {
+      customElements.define(tagName, ComponentClass);
+    }
+
+    // Create component instance using document.createElement
     const component = document.createElement(tagName) as BaseComponent;
-    
+
     // Set properties
     // Map 'style' to 'widgetStyle' to avoid conflict with HTMLElement.style
     const mappedOptions: Record<string, any> = { ...options };
@@ -387,14 +396,16 @@ export class WidgetManager {
       mappedOptions['widgetStyle'] = mappedOptions['style'];
       delete mappedOptions['style'];
     }
-    // For web components, we need to set attributes, not properties
-    // Convert camelCase back to kebab-case for attributes
+    // For web components, we need to set attributes with data- prefix preserved
+    // Convert camelCase back to kebab-case and add data- prefix
     Object.entries(mappedOptions).forEach(([key, value]) => {
       // Convert camelCase to kebab-case
-      const attrName = key.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
+      const kebabKey = key.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
+      // Add data- prefix back (components expect data-* attributes)
+      const attrName = `data-${kebabKey}`;
       component.setAttribute(attrName, value);
     });
-    
+
     // Set SDK as a property
     if ('sdk' in component && component instanceof HTMLElement) {
       (component as BaseComponent).sdk = this.sdk;
@@ -410,7 +421,7 @@ export class WidgetManager {
         component.className = element.className;
       }
     }
-    
+
     // Replace the element with our component
     element.replaceWith(component);
     this.mountedWidgets.set(component, component);

@@ -36,7 +36,16 @@
         try {
           var v2Config = JSON.parse(v2ConfigScript.textContent);
           publicKey = v2Config.publishable_key;
+
           // TODO: Full V2 bridge - map v2Config.options/styles to V3 data attributes
+          // V2 to V3 embed type mapping
+          var embedType = v2Element.getAttribute('data-embed');
+          var v2ToV3Map = {
+            'buy-button': 'buy-button',
+            'product': 'product-view',
+            'basket': 'cart'
+          };
+
           console.info('Shoprocket: V2 embed format detected - using legacy config');
         } catch (e) {
           console.error('Shoprocket: Failed to parse V2 config', e);

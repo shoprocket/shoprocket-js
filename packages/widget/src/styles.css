@@ -148,18 +148,14 @@
   /* We only define custom spacing for non-Tailwind use cases */
   --spacing: 0.25rem; /* Base unit: 4px - matches Tailwind default */
 
-  /* Border radius */
-  --radius: 4px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 12px;
-  --radius-button: 6px;
+  /* Border radius - ONE value for consistency across all elements */
+  --sr-radius: 0.3125rem; /* 5px - change this once to update all corners */
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  /* Shadows - users can customize shadow intensity */
+  --sr-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --sr-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --sr-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --sr-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
   /* Grid columns */
   --cols: 4;
@@ -185,8 +181,8 @@
   /* Product Card */
   --sr-card-bg: var(--color-surface);
   --sr-card-text: var(--color-text);
-  --sr-card-shadow: var(--shadow-md);
-  --sr-card-radius: var(--radius);
+  --sr-card-shadow: var(--sr-shadow);
+  --sr-card-radius: var(--sr-radius);
   --sr-card-padding: 0;
 
   /* Product Grid */
@@ -208,7 +204,7 @@
   /* Buttons */
   --sr-button-padding-x: 1rem;
   --sr-button-padding-y: 0.5rem;
-  --sr-button-radius: var(--radius-button);
+  --sr-button-radius: var(--sr-radius);
   --sr-button-font-size: 0.875rem;
 
   /* Primary Button */
@@ -238,7 +234,7 @@
     @apply grid gap-4;
     background: var(--sr-product-grid-bg);
     padding: var(--sr-product-grid-padding);
-    border-radius: var(--radius-sm);
+    border-radius: var(--sr-radius);
     grid-template-columns: repeat(var(--cols-sm, 2), minmax(0, 1fr));
   }
 
@@ -289,7 +285,7 @@
     );
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.5s ease-in-out infinite;
-    border-radius: var(--radius-xs, 0.25rem);
+    border-radius: var(--sr-radius);
     z-index: 1;
   }
 
@@ -594,7 +590,7 @@
     @apply border-none flex items-center justify-center cursor-pointer relative transition-all duration-200 transform hover:scale-105;
     background: var(--color-surface);
     color: var(--color-on-surface);
-    border-radius: var(--radius);
+    border-radius: var(--sr-radius);
     width: var(--cart-size);
     height: var(--cart-size);
     box-shadow: var(--shadow);
@@ -803,7 +799,7 @@
     @apply py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 
            transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 
            disabled:cursor-not-allowed disabled:transform-none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--sr-radius);
     user-select: none;
     -webkit-user-select: none;
   }
@@ -846,7 +842,7 @@
     @apply border-none py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99];
     background: var(--color-primary);
     color: var(--color-on-primary);
-    border-radius: var(--radius-sm);
+    border-radius: var(--sr-radius);
     user-select: none;
     -webkit-user-select: none;
   }
@@ -889,7 +885,7 @@
 
   .sr-cart-item-image {
     @apply w-16 h-16 flex-shrink-0 overflow-hidden cursor-pointer relative;
-    border-radius: var(--radius);
+    border-radius: var(--sr-radius);
     background: linear-gradient(
       90deg,
       rgb(229, 231, 235) 25%,
@@ -1069,7 +1065,7 @@
   .sr-product-detail {
     background: var(--color-surface);
     padding: var(--sr-product-grid-padding);
-    border-radius: var(--radius-sm);
+    border-radius: var(--sr-radius);
   }
 
   /* Product Navigation */
@@ -1144,7 +1140,7 @@
   .sr-product-detail-thumbnail {
     @apply relative aspect-square overflow-hidden cursor-pointer transition-all;
     border: 2px solid transparent;
-    border-radius: var(--radius-lg, 0.5rem);
+    border-radius: var(--sr-radius);
   }
 
   .sr-product-detail-thumbnail:hover {
@@ -1450,9 +1446,9 @@
 
 .sr-notification-content {
   @apply rounded-lg p-4 shadow-lg flex items-start gap-3;
-  border-radius: var(--radius-sm);
+  border-radius: var(--sr-radius);
   padding: var(--spacing);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--sr-shadow-lg);
 }
 
 .sr-notification-error .sr-notification-content {
@@ -1527,7 +1523,7 @@
 
 /* Only apply border-radius when media container is the outermost element */
 .sr-media-container.sr-product-detail-image-main {
-  border-radius: var(--radius-lg, 0.5rem);
+  border-radius: var(--sr-radius);
 }
 
 /* For containers inside bordered elements, no border-radius needed - parent's overflow:hidden handles it */
@@ -1595,7 +1591,7 @@
 
 .sr-product-thumbnail {
   @apply relative aspect-square overflow-hidden cursor-pointer border-2 border-transparent;
-  border-radius: var(--radius-sm, 0.25rem);
+  border-radius: var(--sr-radius);
   background-color: var(--color-surface-secondary, var(--color-gray-50));
 }
 
@@ -1806,7 +1802,7 @@
 .sr-cart-item-subtotal,
 .sr-cart-total-price {
   @apply inline-block px-1 -mx-1;
-  border-radius: var(--radius);
+  border-radius: var(--sr-radius);
 }
 
 .sr-cart-item-subtotal.price-changed,
@@ -1822,7 +1818,7 @@
 .sr-add-notification {
   @apply absolute px-3 py-3 min-w-[260px] max-w-[320px];
   background: var(--color-surface);
-  border-radius: var(--radius);
+  border-radius: var(--sr-radius);
   box-shadow: var(--shadow);
   z-index: -1;
 }
@@ -1845,7 +1841,7 @@
 
 .sr-add-notification-image {
   @apply w-10 h-10 flex-shrink-0 overflow-hidden;
-  border-radius: var(--radius);
+  border-radius: var(--sr-radius);
   background: var(--color-hover);
 }
 
@@ -3148,5 +3144,123 @@
 
 .sr-not-found-actions {
   @apply flex gap-4 flex-wrap justify-center;
+}
+
+/* ==========================================
+   Product Modal Styles
+   ========================================== */
+
+shoprocket-product-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sr-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  overflow-y: auto;
+  padding: 1rem;
+  animation: sr-modal-fadeIn 0.2s ease-out;
+}
+
+.sr-modal-content {
+  position: relative;
+  background: var(--sr-modal-background, var(--color-surface, white));
+  border-radius: var(--sr-modal-border-radius, var(--sr-radius));
+  max-width: min(90vw, 1200px);
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--sr-shadow-xl, 0 10px 40px rgba(0, 0, 0, 0.2));
+  animation: sr-modal-slideUp 0.3s ease-out;
+  z-index: 1;
+}
+
+.sr-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--sr-modal-close-background, rgba(0, 0, 0, 0.1));
+  color: var(--sr-modal-close-color, var(--color-on-surface, #333));
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: background 0.2s;
+}
+
+.sr-modal-close:hover {
+  background: var(--sr-modal-close-hover-background, rgba(0, 0, 0, 0.2));
+}
+
+shoprocket-product-modal.closing .sr-modal-overlay {
+  animation: sr-modal-fadeOut 0.2s ease-in;
+}
+
+shoprocket-product-modal.closing .sr-modal-content {
+  animation: sr-modal-slideDown 0.2s ease-in;
+}
+
+@keyframes sr-modal-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sr-modal-fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes sr-modal-slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sr-modal-slideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .sr-modal-content {
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
 }
 

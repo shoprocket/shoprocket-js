@@ -117,10 +117,10 @@ export class ProductCatalog extends ShoprocketElement {
   @property({ type: String, attribute: 'store-id' })
   storeId?: string;
 
-  @property({ type: String })
+  @property({ type: String, attribute: 'data-category' })
   category?: string;
 
-  @property({ type: Number })
+  @property({ type: Number, attribute: 'data-limit' })
   limit?: number;
   
   @property({ type: Boolean, attribute: 'data-routable' })
@@ -695,13 +695,19 @@ export class ProductCatalog extends ShoprocketElement {
 
   private async showProductDetail(product: Product): Promise<void> {
     const productSlug = product.slug || product.id;
-    
+
     this.currentProductSlug = productSlug;
-    
+
+    // Lazy load ProductDetail component if not already registered
+    if (!customElements.get('shoprocket-product')) {
+      const { ProductDetail } = await import('./product-detail');
+      customElements.define('shoprocket-product', ProductDetail);
+    }
+
     // Calculate which page this product is on
     const pageSize = this.limit || 12;
     const targetPage = Math.floor(this.currentProductIndex / pageSize) + 1;
-    
+
     if (this.isPrimary) {
       // Primary instance updates URL - this will trigger updateViewFromState -> showProductBySlug -> loadFullProduct
       this.hashRouter.navigateToProduct(productSlug, false, { page: targetPage });
@@ -711,7 +717,7 @@ export class ProductCatalog extends ShoprocketElement {
       this.savedScrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
       await this.loadFullProduct(productSlug);
     }
-    
+
     // Ensure adjacent products are loaded
     this.ensureProductLoaded(this.currentProductIndex);
   }
@@ -719,7 +725,13 @@ export class ProductCatalog extends ShoprocketElement {
   private async showProductBySlug(productSlug: string): Promise<void> {
     // Save current scroll position
     this.savedScrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-    
+
+    // Lazy load ProductDetail component if not already registered
+    if (!customElements.get('shoprocket-product')) {
+      const { ProductDetail } = await import('./product-detail');
+      customElements.define('shoprocket-product', ProductDetail);
+    }
+
     // Only update if not already set (to avoid triggering re-renders)
     if (this.currentProductSlug !== productSlug) {
       this.currentProductSlug = productSlug;
@@ -727,24 +739,24 @@ export class ProductCatalog extends ShoprocketElement {
     if (this.currentView !== 'product') {
       this.currentView = 'product';
     }
-    
+
     // Try to find the product in our loaded products
     let targetIndex = this.findProductIndex(productSlug);
-    
+
     // Check if we already have the full product details
     const existingProduct = targetIndex !== -1 ? this.allProducts.get(targetIndex) : undefined;
     const hasFullDetails = existingProduct && existingProduct.description !== undefined;
-    
+
     // Only load full product if we don't have it or it's missing details
     if (!hasFullDetails) {
       await this.loadFullProduct(productSlug);
-      
+
       // If it wasn't in our list before, find its index now
       if (targetIndex === -1) {
         targetIndex = this.findProductIndex(productSlug);
       }
     }
-    
+
     // If we still don't have an index, the product might be on a different page
     // In this case, we've already loaded the full product details, so just show it
     if (targetIndex !== -1) {

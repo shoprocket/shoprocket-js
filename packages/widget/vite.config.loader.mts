@@ -17,6 +17,7 @@ const replacePlugin = () => {
 export default defineConfig({
   plugins: [replacePlugin()],
   build: {
+    emptyOutDir: true, // Clean dist/ before build (first in sequence)
     lib: {
       entry: resolve(__dirname, 'src/loader.js'),
       formats: ['iife'],

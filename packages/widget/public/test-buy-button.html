@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buy Button Test - Shoprocket</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+
+    .test-section {
+      background: white;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+
+    h2 {
+      color: #666;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #eee;
+    }
+
+    p {
+      color: #666;
+      margin-bottom: 1rem;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .button-demo {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .button-demo label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #444;
+    }
+
+    /* Shoprocket widget styles are in styles.css - these are just test page styles */
+  </style>
+</head>
+<body>
+  <h1>Buy Button Component Tests</h1>
+  <p>Testing all buy button variations and behaviors</p>
+
+  <!-- Test 1: Simple Products (No Variants) -->
+  <div class="test-section">
+    <h2>1. Simple Products (No Variants)</h2>
+    <p>Should add directly to cart without opening modal</p>
+    <div class="button-grid">
+      <div class="button-demo">
+        <label>Aromatic Hair Spray</label>
+        <div data-shoprocket="buy-button" data-product="aromatic-hair-spray"></div>
+      </div>
+
+      <div class="button-demo">
+        <label>Hair Cleanser (with price)</label>
+        <div data-shoprocket="buy-button"
+             data-product="organic-lemon-sandalwood-hair-cleanser"
+             data-show-price="true"></div>
+      </div>
+
+      <div class="button-demo">
+        <label>Hand Lotion (name + price)</label>
+        <div data-shoprocket="buy-button"
+             data-product="papaya-quandong-hand-lotion"
+             data-show-name="true"
+             data-show-price="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test 2: Products with Variants -->
+  <div class="test-section">
+    <h2>2. Products with Variants</h2>
+    <p>Should open modal for variant selection</p>
+    <div class="button-grid">
+      <div class="button-demo">
+        <label>Renewal Serum (has variants)</label>
+        <div data-shoprocket="buy-button" data-product="anti-aging-renewal-serum"></div>
+      </div>
+
+      <div class="button-demo">
+        <label>Beautifying Oil (with price)</label>
+        <div data-shoprocket="buy-button"
+             data-product="beautifying-oil-face"
+             data-show-price="true"></div>
+      </div>
+
+      <div class="button-demo">
+        <label>Liquid Gold (name + price)</label>
+        <div data-shoprocket="buy-button"
+             data-product="argan-liquid-gold-soft-oil-test"
+             data-show-name="true"
+             data-show-price="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test 3: Mixed Products -->
+  <div class="test-section">
+    <h2>3. Mixed Products</h2>
+    <p>Testing variety of products together</p>
+    <div class="button-grid">
+      <div class="button-demo">
+        <label>Hand/Body Wash</label>
+        <div data-shoprocket="buy-button" data-product="rose-tasmanian-lavender-handbody-wash"></div>
+      </div>
+      <div class="button-demo">
+        <label>Body Butter</label>
+        <div data-shoprocket="buy-button" data-product="whipped-shea-body-butter"></div>
+      </div>
+      <div class="button-demo">
+        <label>Flavor C Serum</label>
+        <div data-shoprocket="buy-button" data-product="anti-aging-flavor-c-serum"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test 4: V2 Legacy Format -->
+  <div class="test-section">
+    <h2>4. V2 Legacy Format Detection</h2>
+    <p>Should auto-detect V2 format and convert to V3</p>
+    <div class="sr-element" data-embed="buy-button">
+      <script type="application/json">
+        {
+          "publishable_key": "pk_hAWEyUyNBfhvO62wCxMRY",
+          "product_id": "organic-lemon-sandalwood-hair-cleanser"
+        }
+      </script>
+    </div>
+  </div>
+
+  <!-- Test 5: Multiple Buttons (Performance) -->
+  <div class="test-section">
+    <h2>5. Multiple Buttons (Performance Test)</h2>
+    <p>Testing preload strategy with many buttons on one page</p>
+    <div class="button-grid">
+      <div class="button-demo">
+        <label>Button 1</label>
+        <div data-shoprocket="buy-button" data-product="organic-lemon-sandalwood-hair-cleanser"></div>
+      </div>
+      <div class="button-demo">
+        <label>Button 2</label>
+        <div data-shoprocket="buy-button" data-product="organic-lemon-sandalwood-hair-cleanser"></div>
+      </div>
+      <div class="button-demo">
+        <label>Button 3</label>
+        <div data-shoprocket="buy-button" data-product="organic-lemon-sandalwood-hair-cleanser"></div>
+      </div>
+      <div class="button-demo">
+        <label>Button 4</label>
+        <div data-shoprocket="buy-button" data-product="organic-lemon-sandalwood-hair-cleanser"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Shoprocket Widget -->
+  <script src="shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>
+
+  <!-- Event listeners for testing -->
+  <script>
+    // Log all Shoprocket events
+    window.addEventListener('shoprocket:product:added', (e) => {
+      console.log('Product added:', e.detail);
+    });
+
+    window.addEventListener('shoprocket:cart:updated', (e) => {
+      console.log('Cart updated:', e.detail);
+    });
+
+    window.addEventListener('error', (e) => {
+      console.error('Component error:', e.detail);
+    });
+  </script>
+</body>
+</html>

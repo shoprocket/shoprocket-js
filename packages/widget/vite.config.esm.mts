@@ -14,7 +14,7 @@ export default defineConfig({
       template: 'treemap'
     })
   ],
-  publicDir: 'public',
+  publicDir: 'public', // Copy test HTML files to dist/
   define: {
     'import.meta.env.DEV': 'true',
     'import.meta.env.PROD': 'false',
