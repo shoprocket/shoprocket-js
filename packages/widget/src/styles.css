@@ -431,13 +431,11 @@
 
   @media (hover: hover) and (pointer: fine) {
     .sr-button-primary:hover:not(:disabled) {
-      background: var(--sr-button-primary-bg-hover);
       opacity: var(--sr-button-primary-opacity-hover);
     }
   }
 
   .sr-button-primary:active:not(:disabled) {
-    background: var(--sr-button-primary-bg-hover);
     opacity: var(--sr-button-primary-opacity-hover);
   }
 
