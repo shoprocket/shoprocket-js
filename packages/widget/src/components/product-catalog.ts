@@ -700,8 +700,15 @@ export class ProductCatalog extends ShoprocketElement {
 
     // Lazy load ProductDetail component if not already registered
     if (!customElements.get('shoprocket-product')) {
-      const { ProductDetail } = await import('./product-detail');
-      customElements.define('shoprocket-product', ProductDetail);
+      try {
+        const { ProductDetail } = await import('./product-detail');
+        customElements.define('shoprocket-product', ProductDetail);
+      } catch (err) {
+        // Element may have been defined by another component in a race condition
+        if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+          throw err;
+        }
+      }
     }
 
     // Calculate which page this product is on
@@ -728,8 +735,15 @@ export class ProductCatalog extends ShoprocketElement {
 
     // Lazy load ProductDetail component if not already registered
     if (!customElements.get('shoprocket-product')) {
-      const { ProductDetail } = await import('./product-detail');
-      customElements.define('shoprocket-product', ProductDetail);
+      try {
+        const { ProductDetail } = await import('./product-detail');
+        customElements.define('shoprocket-product', ProductDetail);
+      } catch (err) {
+        // Element may have been defined by another component in a race condition
+        if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+          throw err;
+        }
+      }
     }
 
     // Only update if not already set (to avoid triggering re-renders)

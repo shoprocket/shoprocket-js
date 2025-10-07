@@ -1,5 +1,5 @@
 import { html, type TemplateResult, type PropertyValues } from 'lit';
-import { property, state } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product } from '../types/api';
 import { loadingOverlay } from './loading-spinner';
@@ -60,41 +60,65 @@ export class ProductView extends ShoprocketElement {
   
   @property({ type: String, attribute: 'product-slug' })
   productSlug?: string;
-  
-  @state()
-  private product?: Product;
-  
+
+  @property({ type: Object })
+  product?: Product;
+
+  override async connectedCallback(): Promise<void> {
+    super.connectedCallback();
+
+    // Always ensure product-detail is registered, regardless of how we get the product
+    if (!customElements.get('shoprocket-product')) {
+      try {
+        const { ProductDetail } = await import('./product-detail');
+        customElements.define('shoprocket-product', ProductDetail);
+      } catch (err) {
+        // Element may have been defined by another component in a race condition
+        if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+          throw err;
+        }
+      }
+    }
+  }
+
   protected override async firstUpdated(_changedProperties: PropertyValues): Promise<void> {
     super.firstUpdated(_changedProperties);
-    
-    
-    // Load product if we have an identifier and SDK is available
-    const identifier = this.productId || this.productSlug;
-    if (identifier && this.sdk) {
-      await this.loadProduct(identifier);
-    } else if (identifier && !this.sdk) {
-      // SDK not yet available, it will be set by widget manager
-      // and we'll load in the updated() lifecycle
-    }
+
+    // Don't load here - wait for updated() to check if product prop was passed
+    // Properties are set after firstUpdated
   }
   
   protected override async updated(changedProperties: Map<string, any>): Promise<void> {
     super.updated(changedProperties);
-    
-    // Check if SDK just became available
-    if (changedProperties.has('sdk') && this.sdk && !this.product) {
-      const identifier = this.productId || this.productSlug;
-      if (identifier) {
-        await this.loadProduct(identifier);
-      }
+
+    // If product prop was provided, don't load from ID/slug
+    if (this.product) {
+      return;
     }
-    
-    // Reload product if identifier changes
-    if ((changedProperties.has('productId') || changedProperties.has('productSlug')) && this.sdk) {
-      const identifier = this.productId || this.productSlug;
-      if (identifier) {
+
+    // Need to load product from ID/slug
+    const identifier = this.productId || this.productSlug;
+    if (!identifier) {
+      return; // No way to load product
+    }
+
+    // Load if SDK just became available
+    if (changedProperties.has('sdk') && this.sdk) {
+      await this.loadProduct(identifier);
+      return;
+    }
+
+    // Load if identifier changed
+    if (changedProperties.has('productId') || changedProperties.has('productSlug')) {
+      if (this.sdk) {
         await this.loadProduct(identifier);
       }
+      return;
+    }
+
+    // Initial load: if we have identifier and SDK but no product yet
+    if (identifier && this.sdk && !this.product) {
+      await this.loadProduct(identifier);
     }
   }
   
@@ -103,12 +127,6 @@ export class ProductView extends ShoprocketElement {
       console.error('SDK not available');
       this.showError('Widget not initialized. Please check your configuration.');
       return;
-    }
-
-    // Lazy load ProductDetail component if not already registered
-    if (!customElements.get('shoprocket-product')) {
-      const { ProductDetail } = await import('./product-detail');
-      customElements.define('shoprocket-product', ProductDetail);
     }
 
     await this.withLoading('product', async () => {
@@ -133,7 +151,6 @@ export class ProductView extends ShoprocketElement {
   }
   
   protected override render(): TemplateResult {
-    
     // Show error state
     if (this.errorMessage) {
       return html`
@@ -143,13 +160,13 @@ export class ProductView extends ShoprocketElement {
         </div>
       `;
     }
-    
-    // Show loading state
+
+    // Show loading state ONLY if we're loading AND don't have product data yet
     if (this.isLoading('product') && !this.product) {
       return loadingOverlay();
     }
-    
-    // Show empty state if no product
+
+    // Show empty state if no product AND no way to load one
     if (!this.product && !this.productId && !this.productSlug) {
       return html`
         <div class="sr-empty-state">
@@ -159,20 +176,17 @@ export class ProductView extends ShoprocketElement {
         </div>
       `;
     }
-    
-    // Render the product detail component (which uses Light DOM)
+
+    // Always render product-detail if we have data OR are loading
+    // The product-detail component handles its own empty/loading states
     return html`
       <div class="sr-product-view-container">
-        ${this.product || this.productId || this.productSlug ? html`
-          <shoprocket-product
-            .sdk="${this.sdk}"
-            .product="${this.product}"
-            product-id="${this.productId || ''}"
-            product-slug="${this.productSlug || ''}"
-            data-widget-type="product-view"
-            data-hide="navigation"
-          ></shoprocket-product>
-        ` : ''}
+        <shoprocket-product
+          .sdk="${this.sdk}"
+          .product="${this.product}"
+          data-widget-type="product-view"
+          data-hide="navigation"
+        ></shoprocket-product>
       </div>
     `;
   }

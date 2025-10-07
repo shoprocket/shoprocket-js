@@ -1,4 +1,4 @@
-import { html, css } from 'lit';
+import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Product } from '../types/api';
@@ -44,8 +44,15 @@ export class ProductModal extends ShoprocketElement {
 
     // Lazy load product-view component
     if (!customElements.get('shoprocket-product-view')) {
-      const { ProductView } = await import('./product-view');
-      customElements.define('shoprocket-product-view', ProductView);
+      try {
+        const { ProductView } = await import('./product-view');
+        customElements.define('shoprocket-product-view', ProductView);
+      } catch (err) {
+        // Element may have been defined by another component in a race condition
+        if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+          throw err;
+        }
+      }
     }
   }
 

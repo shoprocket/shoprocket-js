@@ -48,10 +48,12 @@ export class BuyButton extends ShoprocketElement {
   @state() private success = false;
   @state() private showingModal = false;
   @state() private modalProduct?: Product;
+  @state() private keepOverlay = false;
 
   private successTimeout?: number;
   private hashRouter!: HashRouter;
   private hashChangeHandler = () => this.handleHashChange();
+  private isCartOpening = false;
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -71,6 +73,10 @@ export class BuyButton extends ShoprocketElement {
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.addEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
+
+    // Listen for cart open event to close modal
+    this.handleCartOpen = this.handleCartOpen.bind(this);
+    window.addEventListener(WIDGET_EVENTS.OPEN_CART, this.handleCartOpen as EventListener);
 
     // Always preload product for best UX
     await this.loadProduct();
@@ -92,12 +98,39 @@ export class BuyButton extends ShoprocketElement {
     // Remove cart event listeners
     window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
+    window.removeEventListener(WIDGET_EVENTS.OPEN_CART, this.handleCartOpen as EventListener);
   }
 
   private handleCartUpdate = (): void => {
     // Trigger re-render when cart updates
     // The button will check cart state during render
     this.requestUpdate();
+  }
+
+  private handleCartOpen = (): void => {
+    // Close modal when cart opens to prevent overlapping
+    if (this.showingModal) {
+      // Set flag to prevent hash change from closing modal immediately
+      this.isCartOpening = true;
+
+      // Clear product from URL
+      const state = this.hashRouter.getCurrentState();
+      if (state.view === 'product') {
+        this.hashRouter.navigateToList(false);
+      }
+
+      // Hide modal content immediately but keep overlay briefly
+      this.showingModal = false;
+      this.modalProduct = undefined;
+      this.keepOverlay = true;
+
+      // Remove overlay after transition completes
+      setTimeout(() => {
+        this.keepOverlay = false;
+        document.body.style.overflow = '';
+        this.isCartOpening = false;
+      }, 220);
+    }
   }
 
   private async loadProduct(): Promise<void> {
@@ -166,7 +199,7 @@ export class BuyButton extends ShoprocketElement {
   private handleHashChange(): void {
     if (!this.productData) return;
 
-    const state = this.hashRouter.getState();
+    const state = this.hashRouter.getCurrentState();
     const productSlug = this.productData.slug || this.productData.id;
 
     // Check if URL is showing this button's product
@@ -175,8 +208,9 @@ export class BuyButton extends ShoprocketElement {
     if (shouldShowModal && !this.showingModal) {
       // Open modal without updating URL (already updated)
       this.openProductModalSilent();
-    } else if (!shouldShowModal && this.showingModal) {
+    } else if (!shouldShowModal && this.showingModal && !this.isCartOpening) {
       // Close modal without navigating (already navigated away)
+      // Unless cart is opening - in that case handleCartOpen will close it with delay
       this.closeModalSilent();
     }
   }
@@ -198,8 +232,15 @@ export class BuyButton extends ShoprocketElement {
 
     // Ensure product-view is registered
     if (!customElements.get('shoprocket-product-view')) {
-      const { ProductView } = await import('./product-view');
-      customElements.define('shoprocket-product-view', ProductView);
+      try {
+        const { ProductView } = await import('./product-view');
+        customElements.define('shoprocket-product-view', ProductView);
+      } catch (err) {
+        // Element may have been defined by another component in a race condition
+        if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+          throw err;
+        }
+      }
     }
 
     // Lock body scroll
@@ -267,31 +308,39 @@ export class BuyButton extends ShoprocketElement {
         @click=${this.handleClick}
         ?disabled=${isOutOfStock || allStockInCart || !this.canAddToCart()}
       >
-        ${this.showName ? html`
-          <span style="font-weight: normal;">${this.productData.name}</span>
-        ` : ''}
+        <div class="flex items-center justify-center gap-x-2 w-full px-2 min-w-0">
+          ${this.showName ? html`
+            <span class="truncate min-w-0">${this.productData.name}</span>
+          ` : ''}
 
-        ${this.showPrice ? html`
-          <span style="font-weight: bold; margin-left: 0.5rem;">
-            ${formatProductPrice(this.productData)}
-          </span>
-        ` : ''}
+          ${this.showPrice ? html`
+            <span class="shrink-0 whitespace-nowrap">
+              ${formatProductPrice(this.productData)}
+            </span>
+          ` : ''}
 
-        ${this.adding ? html`
-          <span class="sr-button-content">${loadingSpinner('sm')}</span>
-        ` : this.success ? html`
-          <span class="sr-button-content">
-            <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            Added
-          </span>
-        ` : isOutOfStock ? 'Out of Stock' :
-          allStockInCart ? `Max (${this.productData.inventory_count}) in cart` :
-          needsOptions ? 'Select Options' : 'Add to Cart'}
+          ${this.adding ? html`
+            <span class="sr-button-content shrink-0">${loadingSpinner('sm')}</span>
+          ` : this.success ? html`
+            <span class="sr-button-content shrink-0">
+              <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              Added
+            </span>
+          ` : isOutOfStock ? html`<span class="shrink-0">Out of Stock</span>` :
+            allStockInCart ? html`<span class="shrink-0">Max (${this.productData.inventory_count}) in cart</span>` :
+            needsOptions ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">Add to Cart</span>`}
+        </div>
       </button>
 
-      ${this.showingModal && this.modalProduct ? this.renderModal() : ''}
+      ${this.showingModal && this.modalProduct ? this.renderModal() : this.keepOverlay ? this.renderOverlayOnly() : ''}
+    `;
+  }
+
+  private renderOverlayOnly() {
+    return html`
+      <div class="sr-modal-overlay transitioning"></div>
     `;
   }
 
@@ -303,7 +352,6 @@ export class BuyButton extends ShoprocketElement {
           <shoprocket-product-view
             .sdk=${this.sdk}
             .product=${this.modalProduct}
-            product-id="${this.modalProduct?.id || ''}"
           ></shoprocket-product-view>
         </div>
       </div>
