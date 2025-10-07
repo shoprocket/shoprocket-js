@@ -6,6 +6,7 @@ import { formatProductPrice } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import { isAllStockInCart } from '../utils/cart-utils';
+import { HashRouter } from '../core/hash-router';
 
 /**
  * Buy Button Component - Quick add-to-cart button for products
@@ -49,6 +50,8 @@ export class BuyButton extends ShoprocketElement {
   @state() private modalProduct?: Product;
 
   private successTimeout?: number;
+  private hashRouter!: HashRouter;
+  private unsubscribeHash?: () => void;
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -58,6 +61,14 @@ export class BuyButton extends ShoprocketElement {
       return;
     }
 
+    // Initialize hash router
+    this.hashRouter = HashRouter.getInstance();
+
+    // Subscribe to hash changes
+    this.unsubscribeHash = this.hashRouter.subscribe(() => {
+      this.handleHashChange();
+    });
+
     // Listen to cart events for reactivity
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
@@ -65,6 +76,9 @@ export class BuyButton extends ShoprocketElement {
 
     // Always preload product for best UX
     await this.loadProduct();
+
+    // Check if we should open modal based on initial URL
+    this.handleHashChange();
   }
 
   override disconnectedCallback(): void {
@@ -72,6 +86,11 @@ export class BuyButton extends ShoprocketElement {
 
     if (this.successTimeout) {
       clearTimeout(this.successTimeout);
+    }
+
+    // Unsubscribe from hash changes
+    if (this.unsubscribeHash) {
+      this.unsubscribeHash();
     }
 
     // Remove cart event listeners
@@ -148,7 +167,37 @@ export class BuyButton extends ShoprocketElement {
     }, TIMEOUTS.SUCCESS_MESSAGE);
   }
 
+  private handleHashChange(): void {
+    if (!this.productData) return;
+
+    const state = this.hashRouter.getState();
+    const productSlug = this.productData.slug || this.productData.id;
+
+    // Check if URL is showing this button's product
+    const shouldShowModal = state.view === 'product' && state.productSlug === productSlug;
+
+    if (shouldShowModal && !this.showingModal) {
+      // Open modal without updating URL (already updated)
+      this.openProductModalSilent();
+    } else if (!shouldShowModal && this.showingModal) {
+      // Close modal without navigating (already navigated away)
+      this.closeModalSilent();
+    }
+  }
+
   private async openProductModal(): Promise<void> {
+    if (!this.productData) return;
+
+    const productSlug = this.productData.slug || this.productData.id;
+
+    // Update URL to show this product
+    this.hashRouter.navigateToProduct(productSlug, false);
+
+    // Open modal (hash change will trigger this, but do it immediately for better UX)
+    await this.openProductModalSilent();
+  }
+
+  private async openProductModalSilent(): Promise<void> {
     if (!this.productData) return;
 
     // Ensure product-view is registered
@@ -166,6 +215,16 @@ export class BuyButton extends ShoprocketElement {
   }
 
   private closeModal(): void {
+    // Navigate back to remove product from URL
+    if (this.showingModal) {
+      window.history.back();
+    }
+
+    // Close modal immediately (hash change will also trigger this)
+    this.closeModalSilent();
+  }
+
+  private closeModalSilent(): void {
     // Unlock body scroll
     document.body.style.overflow = '';
 
