@@ -3118,6 +3118,20 @@ shoprocket-product-modal.closing .sr-modal-content {
   animation: sr-modal-slideDown 0.2s ease-in;
 }
 
+/* Buy button modal closing animations */
+.sr-modal-overlay.closing {
+  animation: sr-modal-fadeOut 0.2s ease-in;
+}
+
+.sr-modal-content.closing {
+  animation: sr-modal-slideDown 0.2s ease-in;
+}
+
+/* Fade out overlay when transitioning to cart */
+.sr-modal-overlay.transitioning {
+  animation: sr-modal-fadeOut 0.25s ease forwards;
+}
+
 @keyframes sr-modal-fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
