@@ -139,12 +139,17 @@ export class BuyButton extends ShoprocketElement {
     try {
       this.loading = true;
       this.productData = await this.sdk.products.get(this.product);
-    } catch (error) {
-      console.error('Failed to load product for buy button:', error);
-      this.dispatchEvent(new CustomEvent('error', {
-        detail: { error: 'Failed to load product' },
-        bubbles: true
-      }));
+      this.clearError();
+    } catch (err: any) {
+      // Show user-friendly error message
+      if (err.response?.status === 404 || err.status === 404) {
+        // 404 is expected for invalid product IDs - don't log to console
+        this.showError('Product not found', 0);
+      } else {
+        // Unexpected error - log for debugging
+        console.error('Failed to load product for buy button:', err);
+        this.showError('Failed to load product', 0);
+      }
     } finally {
       this.loading = false;
     }
@@ -277,6 +282,16 @@ export class BuyButton extends ShoprocketElement {
   }
 
   protected override render() {
+    // Show error state
+    if (this.errorMessage) {
+      return html`
+        <button class="sr-button sr-button-primary" disabled>
+          ${this.errorMessage}
+        </button>
+      `;
+    }
+
+    // Show loading state
     if (this.loading || !this.productData) {
       return html`
         <button class="sr-button sr-button-primary" disabled>
