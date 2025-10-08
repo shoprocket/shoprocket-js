@@ -3095,7 +3095,7 @@ shoprocket-product-modal {
   border: none;
   background: var(--sr-modal-close-background, rgba(0, 0, 0, 0.1));
   color: var(--sr-modal-close-color, var(--color-on-surface, #333));
-  border-radius: 50%;
+  border-radius: var(--sr-radius);
   cursor: pointer;
   font-size: 20px;
   line-height: 1;
@@ -3166,9 +3166,15 @@ shoprocket-product-modal.closing .sr-modal-content {
 
 /* Mobile responsive */
 @media (max-width: 768px) {
+  .sr-modal-overlay {
+    padding: 0;
+  }
+
   .sr-modal-content {
-    max-width: 100vw;
-    max-height: 100vh;
+    width: 100dvw;
+    height: 100dvh;
+    max-width: 100dvw;
+    max-height: 100dvh;
     border-radius: 0;
   }
 }
