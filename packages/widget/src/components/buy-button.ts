@@ -12,7 +12,7 @@ import { HashRouter } from '../core/hash-router';
  * Buy Button Component - Quick add-to-cart button for products
  *
  * Automatically handles:
- * - Simple products: Direct add to cart
+ * - Simple products: Direct add to cart (or modal if action="view")
  * - Products with variants: Opens modal for selection
  * - Out of stock: Disables button
  * - Success states: Shows confirmation
@@ -20,6 +20,12 @@ import { HashRouter } from '../core/hash-router';
  * @example
  * <!-- Basic buy button -->
  * <div data-shoprocket="buy-button" data-product="prod_123"></div>
+ *
+ * @example
+ * <!-- View product button (always opens modal) -->
+ * <div data-shoprocket="buy-button"
+ *      data-product="prod_123"
+ *      data-action="view"></div>
  *
  * @example
  * <!-- With price display -->
@@ -38,6 +44,7 @@ export class BuyButton extends ShoprocketElement {
   // Use Shadow DOM - this is a top-level widget component
 
   @property({ type: String, attribute: 'data-product' }) product?: string;
+  @property({ type: String, attribute: 'data-action' }) action: 'buy' | 'view' = 'buy';
   @property({ type: Boolean, attribute: 'data-show-price' }) showPrice = false;
   @property({ type: Boolean, attribute: 'data-show-name' }) showName = false;
   @property({ type: Number, attribute: 'data-quantity' }) quantity = 1;
@@ -180,7 +187,13 @@ export class BuyButton extends ShoprocketElement {
   private async handleClick(): Promise<void> {
     if (!this.productData || this.adding || this.success) return;
 
-    // Check if product needs variant selection
+    // If action is "view", always open modal
+    if (this.action === 'view') {
+      this.openProductModal();
+      return;
+    }
+
+    // For "buy" action: check if product needs variant selection
     if (this.productData.has_variants || this.productData.has_required_options) {
       this.openProductModal();
     } else {
@@ -336,6 +349,7 @@ export class BuyButton extends ShoprocketElement {
     // Use same classes as product list for consistency
     const buttonClasses = [
       'sr-button',
+      `sr-button-action-${this.action}`,
       this.success ? 'sr-button-success' : 'sr-button-primary'
     ].filter(Boolean).join(' ');
 
@@ -367,6 +381,7 @@ export class BuyButton extends ShoprocketElement {
             </span>
           ` : isOutOfStock ? html`<span class="shrink-0">Out of Stock</span>` :
             allStockInCart ? html`<span class="shrink-0">Max (${this.productData.inventory_count}) in cart</span>` :
+            this.action === 'view' ? html`<span class="shrink-0">View Product</span>` :
             needsOptions ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">Add to Cart</span>`}
         </div>
       </button>

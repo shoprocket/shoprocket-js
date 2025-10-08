@@ -319,8 +319,12 @@ export class HashRouter extends EventTarget {
     if (!ourPart) {
       // Remove our part entirely
       if (!userPart || userPart === '#') {
-        // No user part and no our part = clear hash
-        window.location.hash = '';
+        // No user part and no our part = clear hash completely
+        // Use replaceState to avoid leaving '#' in URL (which causes scroll jump)
+        const url = window.location.href.split('#')[0];
+        window.history.replaceState(null, '', url);
+        // Trigger update since replaceState doesn't fire hashchange
+        this.updateStateFromHash();
       } else {
         // Keep user's hash only
         window.location.hash = userPart;
