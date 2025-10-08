@@ -202,6 +202,30 @@
     </div>
   </div>
 
+  <!-- Test 7: View action -->
+  <div class="test-section">
+    <h2>7. View Product Action</h2>
+    <p>Testing data-action="view" - always opens modal instead of adding to cart</p>
+    <div class="button-grid">
+      <div class="button-demo">
+        <label>Simple Product (action="view")</label>
+        <div data-shoprocket="buy-button" data-product="anti-aging-flavor-C-serum" data-action="view"></div>
+      </div>
+      <div class="button-demo">
+        <label>With Variants (action="view")</label>
+        <div data-shoprocket="buy-button" data-product="anti-aging-renewal-serum" data-action="view"></div>
+      </div>
+      <div class="button-demo">
+        <label>With name + price (action="view")</label>
+        <div data-shoprocket="buy-button" data-product="papaya-quandong-hand-lotion" data-action="view" data-show-name="true" data-show-price="true"></div>
+      </div>
+      <div class="button-demo">
+        <label>Out of stock (action="view")</label>
+        <div data-shoprocket="buy-button" data-product="hair-cleanser" data-action="view"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Load Shoprocket Widget -->
   <script src="shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>
 
