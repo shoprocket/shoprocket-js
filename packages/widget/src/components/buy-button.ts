@@ -81,8 +81,30 @@ export class BuyButton extends ShoprocketElement {
     // Always preload product for best UX
     await this.loadProduct();
 
+    // Prefetch product-view component during idle time for instant modal opens
+    this.prefetchProductView();
+
     // Check if we should open modal based on initial URL
     this.handleHashChange();
+  }
+
+  private prefetchProductView(): void {
+    // Use requestIdleCallback if available, otherwise setTimeout
+    const prefetch = () => {
+      // Prefetch both product-view and product-detail for instant modal opens
+      if (!customElements.get('shoprocket-product-view')) {
+        import('./product-view').catch(() => {});
+      }
+      if (!customElements.get('shoprocket-product')) {
+        import('./product-detail').catch(() => {});
+      }
+    };
+
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(prefetch);
+    } else {
+      setTimeout(prefetch, 1);
+    }
   }
 
   override disconnectedCallback(): void {
