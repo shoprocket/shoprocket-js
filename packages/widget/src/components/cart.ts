@@ -1841,23 +1841,23 @@ export class CartWidget extends ShoprocketElement {
 
     return html`
       <!-- Generic Overlay -->
-      <div 
+      <div
         class="sr-cart-overlay ${this.isOpen ? 'open' : 'closed'}"
         @click="${() => this.isOpen && this.closeCart()}"
       ></div>
-      
+
       <!-- Cart Toggle Button -->
       <div class="sr-cart-toggle-container sr-cart-toggle-${this.position} ${this.floating ? 'sr-cart-floating' : ''}" data-shoprocket="cart-toggle">
-        <button 
+        <button
           class="sr-cart-toggle-button ${this.isOpen ? 'hidden' : ''}"
           @click="${this.toggleCart}"
         >
           ${this.renderTriggerContent(totalQuantity)}
         </button>
-        
+
         ${this.renderNotification()}
       </div>
-      
+
       <!-- Cart Panel - SEPARATE from toggle button -->
       <div class="sr-cart-panel sr-cart-panel-${this.effectiveWidgetStyle} sr-cart-panel-${this.position} ${this.isOpen ? 'open' : 'closed'}">
         <div class="sr-cart-header ${this.effectiveWidgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-header` : ''}">

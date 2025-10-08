@@ -334,12 +334,64 @@ export class WidgetManager {
   }
   
   /**
+   * Reload all widgets - unmounts existing widgets and remounts them with current attributes
+   * Useful when data-* attributes have changed dynamically
+   * @example Shoprocket.reload()
+   */
+  public reload(): void {
+    if (!this.initialized || !this.sdk) {
+      console.warn('Shoprocket: Not initialized. Call init() first.');
+      return;
+    }
+
+    // Find all mounted widget components
+    const widgets = document.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-product-view, shoprocket-buy-button');
+
+    // Replace each widget with its original data-shoprocket mount point
+    widgets.forEach(widget => {
+      // Get widget type from tag name
+      const tagName = widget.tagName.toLowerCase();
+      const widgetType = tagName.replace('shoprocket-', '');
+
+      // Create replacement mount point
+      const mountPoint = document.createElement('div');
+      mountPoint.setAttribute('data-shoprocket', widgetType);
+
+      // Copy all data-* attributes from the widget
+      Array.from(widget.attributes).forEach(attr => {
+        if (attr.name.startsWith('data-')) {
+          mountPoint.setAttribute(attr.name, attr.value);
+        }
+      });
+
+      // Copy inline styles (CSS variables)
+      if (widget instanceof HTMLElement && widget.getAttribute('style')) {
+        mountPoint.setAttribute('style', widget.getAttribute('style')!);
+      }
+
+      // Copy classes
+      if (widget.className) {
+        mountPoint.className = widget.className;
+      }
+
+      // Replace widget with mount point
+      widget.replaceWith(mountPoint);
+    });
+
+    // Clear mounted widgets tracking
+    this.mountedWidgets.clear();
+
+    // Remount all widgets
+    this.autoMount();
+  }
+
+  /**
    * Auto-mount widgets based on data attributes
    */
   private autoMount(): void {
     // Find all elements with data-shoprocket attribute
     const elements = document.querySelectorAll('[data-shoprocket]');
-    
+
     elements.forEach(element => {
       const widgetType = element.getAttribute('data-shoprocket');
       if (!widgetType) return;
