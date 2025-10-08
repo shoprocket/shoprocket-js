@@ -3,354 +3,860 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Semantic Classes Theming Test</title>
+  <title>ShopRocket Widget - Theme Customization</title>
   <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
+    * {
       margin: 0;
-      padding: 20px;
-      background: #f5f5f5;
+      padding: 0;
+      box-sizing: border-box;
     }
-    
-    .demo-section {
-      max-width: 1200px;
-      margin: 0 auto 40px;
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #fafafa;
+      color: #09090b;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .header {
       background: white;
-      padding: 30px;
+      border: 1px solid #e4e4e7;
+      padding: 2rem;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
     }
-    
-    h1, h2 {
-      margin-top: 0;
+
+    .header h1 {
+      font-size: 1.875rem;
+      margin-bottom: 0.25rem;
+      font-weight: 600;
+      color: #09090b;
     }
-    
-    h2 {
-      border-bottom: 2px solid #e5e7eb;
-      padding-bottom: 10px;
-      margin-bottom: 20px;
+
+    .header p {
+      font-size: 0.875rem;
+      color: #71717a;
     }
-    
-    .theme-controls {
+
+    .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-      padding: 20px;
-      background: #f9fafb;
-      border-radius: 6px;
+      grid-template-columns: 320px 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
     }
-    
-    .control-group {
+
+    @media (max-width: 1024px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid #e4e4e7;
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .panel h2 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #09090b;
+    }
+
+    .panel h3 {
+      font-size: 0.75rem;
+      margin: 1.5rem 0 0.75rem;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .preset-btn {
+      padding: 0.625rem 0.875rem;
+      border: 1px solid #e4e4e7;
+      background: #fafafa;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.813rem;
+      font-weight: 500;
+      transition: all 0.15s;
+      text-align: left;
+      color: #09090b;
+    }
+
+    .preset-btn:hover {
+      border-color: #d4d4d8;
+      background: #f4f4f5;
+    }
+
+    .preset-btn.active {
+      background: #09090b;
+      color: white;
+      border-color: #09090b;
+    }
+
+    .controls {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 0.75rem;
     }
-    
-    .control-group label {
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
-    }
-    
-    .control-group input {
-      padding: 8px;
-      border: 1px solid #d1d5db;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    
-    .control-group input[type="color"] {
-      height: 40px;
-      cursor: pointer;
-    }
-    
-    .preset-themes {
+
+    .control {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+      flex-direction: column;
+      gap: 0.375rem;
     }
-    
-    .preset-btn {
-      padding: 10px 20px;
-      border: 2px solid #e5e7eb;
-      background: white;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
+
+    .control label {
+      font-size: 0.813rem;
       font-weight: 500;
-      transition: all 0.2s;
+      color: #09090b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    
-    .preset-btn:hover {
-      border-color: #3b82f6;
-      background: #eff6ff;
+
+    .control small {
+      font-size: 0.75rem;
+      color: #71717a;
+      font-weight: 400;
     }
-    
-    .preset-btn.active {
-      background: #3b82f6;
-      color: white;
-      border-color: #3b82f6;
+
+    .color-input-wrapper {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
     }
-    
-    .code-preview {
-      background: #1f2937;
-      color: #e5e7eb;
-      padding: 20px;
+
+    .color-swatch {
+      width: 36px;
+      height: 36px;
       border-radius: 6px;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-      overflow-x: auto;
-      margin-top: 20px;
+      border: 1px solid #e4e4e7;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
     }
-    
-    .widget-container {
-      min-height: 400px;
-      padding: 20px;
+
+    .color-swatch input[type="color"] {
+      position: absolute;
+      inset: -2px;
+      width: calc(100% + 4px);
+      height: calc(100% + 4px);
+      border: none;
+      cursor: pointer;
+    }
+
+    .control input[type="text"] {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid #e4e4e7;
+      border-radius: 6px;
+      font-size: 0.813rem;
+      font-family: 'Monaco', monospace;
+      background: #fafafa;
+    }
+
+    .control input[type="range"] {
+      cursor: pointer;
+      accent-color: #09090b;
+    }
+
+    .range-value {
+      font-size: 0.75rem;
+      color: #71717a;
+      font-weight: 500;
+      font-family: 'Monaco', monospace;
+    }
+
+    .widget-preview {
       background: #fafafa;
       border-radius: 8px;
-      border: 2px dashed #e5e7eb;
+      padding: 1.5rem;
+      min-height: 500px;
+      border: 1px solid #e4e4e7;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+      background: #fafafa;
+      border-radius: 6px;
+      padding: 0.25rem;
+    }
+
+    .tab {
+      padding: 0.5rem 0.875rem;
+      background: transparent;
+      border: none;
+      font-size: 0.813rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: #71717a;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+
+    .tab:hover {
+      color: #09090b;
+      background: #f4f4f5;
+    }
+
+    .tab.active {
+      color: #09090b;
+      background: white;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .code-block {
+      background: #09090b;
+      color: #fafafa;
+      padding: 1rem;
+      border-radius: 6px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.75rem;
+      overflow-x: auto;
+      position: relative;
+      border: 1px solid #27272a;
+    }
+
+    .code-block pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: #27272a;
+      color: #fafafa;
+      border: 1px solid #3f3f46;
+      padding: 0.375rem 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.15s;
+      font-weight: 500;
+    }
+
+    .copy-btn:hover {
+      background: #3f3f46;
+    }
+
+    .copy-btn.copied {
+      background: #16a34a;
+      border-color: #16a34a;
+    }
+
+    .info-box {
+      background: #fafafa;
+      border: 1px solid #e4e4e7;
+      border-radius: 6px;
+      padding: 0.875rem;
+      margin-top: 1rem;
+      font-size: 0.875rem;
+    }
+
+    .info-box h4 {
+      font-size: 0.813rem;
+      margin-bottom: 0.375rem;
+      color: #09090b;
+      font-weight: 600;
+    }
+
+    .info-box ul {
+      margin-left: 1.25rem;
+    }
+
+    .info-box li {
+      margin: 0.25rem 0;
+    }
+
+    .preview-container {
+      display: none;
+    }
+
+    .preview-container.active {
+      display: block;
     }
   </style>
 </head>
 <body>
-  <div class="demo-section">
-    <h1>🎨 ShopRocket Widget - Semantic Classes Theming Test</h1>
-    <p>This demo shows how the new semantic class approach provides clean HTML and flexible theming through CSS variables.</p>
+  <div class="container">
+    <div class="header">
+      <h1>Theme Editor</h1>
+      <p>Customize your ShopRocket widget appearance with CSS variables</p>
+    </div>
+
+    <div class="grid">
+      <!-- Left Panel: Controls -->
+      <div class="panel">
+        <h2>Theme Controls</h2>
+
+        <div class="presets">
+          <button class="preset-btn active" onclick="applyPreset('default', event)">
+            Default
+          </button>
+          <button class="preset-btn" onclick="applyPreset('dark', event)">
+            Dark Mode
+          </button>
+          <button class="preset-btn" onclick="applyPreset('luxury', event)">
+            Luxury
+          </button>
+          <button class="preset-btn" onclick="applyPreset('playful', event)">
+            Playful
+          </button>
+          <button class="preset-btn" onclick="applyPreset('minimal', event)">
+            Minimal
+          </button>
+          <button class="preset-btn" onclick="applyPreset('brand', event)">
+            Brand
+          </button>
+        </div>
+
+        <h3>Colors</h3>
+        <div class="controls">
+          <div class="control">
+            <label>
+              <span>Primary</span>
+              <span class="range-value" id="primary-hex">#111827</span>
+            </label>
+            <small>Buttons, links, accents</small>
+            <div class="color-input-wrapper">
+              <div class="color-swatch">
+                <input type="color" id="color-primary" value="#111827" oninput="updateTheme()">
+              </div>
+              <input type="text" id="color-primary-text" value="#111827" oninput="updateColorFromText('primary')">
+            </div>
+          </div>
+          <div class="control">
+            <label>
+              <span>Surface</span>
+              <span class="range-value" id="surface-hex">#ffffff</span>
+            </label>
+            <small>Card backgrounds</small>
+            <div class="color-input-wrapper">
+              <div class="color-swatch">
+                <input type="color" id="color-surface" value="#ffffff" oninput="updateTheme()">
+              </div>
+              <input type="text" id="color-surface-text" value="#ffffff" oninput="updateColorFromText('surface')">
+            </div>
+          </div>
+          <div class="control">
+            <label>
+              <span>Text</span>
+              <span class="range-value" id="text-hex">#111827</span>
+            </label>
+            <small>Primary text on page background</small>
+            <div class="color-input-wrapper">
+              <div class="color-swatch">
+                <input type="color" id="color-text" value="#111827" oninput="updateTheme()">
+              </div>
+              <input type="text" id="color-text-text" value="#111827" oninput="updateColorFromText('text')">
+            </div>
+          </div>
+          <div class="control">
+            <label>
+              <span>Border</span>
+              <span class="range-value" id="border-hex">#e5e7eb</span>
+            </label>
+            <small>Dividers and outlines</small>
+            <div class="color-input-wrapper">
+              <div class="color-swatch">
+                <input type="color" id="color-border" value="#e5e7eb" oninput="updateTheme()">
+              </div>
+              <input type="text" id="color-border-text" value="#e5e7eb" oninput="updateColorFromText('border')">
+            </div>
+          </div>
+
+          <div class="control">
+            <label>
+              <span>Error Color</span>
+              <span class="range-value" id="error-hex">#ef4444</span>
+            </label>
+            <small>Error messages/borders</small>
+            <div class="color-input-wrapper">
+              <div class="color-swatch">
+                <input type="color" id="color-error" value="#ef4444" oninput="updateTheme()">
+              </div>
+              <input type="text" id="color-error-text" value="#ef4444" oninput="updateColorFromText('error')">
+            </div>
+          </div>
+        </div>
+
+        <h3>Layout & Spacing</h3>
+        <div class="controls">
+          <div class="control">
+            <label>
+              Border Radius
+              <span class="range-value" id="radius-value">5px</span>
+            </label>
+            <input type="range" id="sr-radius" min="0" max="20" value="5" step="1" oninput="updateTheme()">
+          </div>
+          <div class="control">
+            <label>
+              Product Grid Columns
+              <span class="range-value" id="cols-value">4</span>
+            </label>
+            <input type="range" id="cols" min="1" max="8" value="4" step="1" oninput="updateTheme()">
+          </div>
+          <div class="control">
+            <label>
+              Items Per Page
+              <span class="range-value" id="limit-value">4</span>
+            </label>
+            <input type="range" id="limit" min="4" max="24" value="4" step="4" oninput="updateTheme()">
+          </div>
+        </div>
+
+        <h3>Typography</h3>
+        <div class="controls">
+          <div class="control">
+            <label>
+              Product Title Size
+              <span class="range-value" id="title-size-value">14px</span>
+            </label>
+            <input type="range" id="sr-product-title-size" min="12" max="20" value="14" step="1" oninput="updateTheme()">
+          </div>
+          <div class="control">
+            <label>
+              Button Font Size
+              <span class="range-value" id="btn-size-value">14px</span>
+            </label>
+            <input type="range" id="sr-button-font-size" min="12" max="18" value="14" step="1" oninput="updateTheme()">
+          </div>
+        </div>
+
+        <div class="info-box">
+          <h4>How to Apply</h4>
+          <p>Copy the generated CSS below and add it to your stylesheet.</p>
+        </div>
+      </div>
+
+      <!-- Right Panel: Preview -->
+      <div>
+        <div class="panel">
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('catalog', event)">Product Catalog</button>
+            <button class="tab" onclick="switchTab('button', event)">Buy Button</button>
+            <button class="tab" onclick="switchTab('cart', event)">Shopping Cart</button>
+          </div>
+
+          <div class="preview-container active" id="preview-catalog">
+            <div class="widget-preview">
+              <iframe
+                id="catalog-preview-frame"
+                style="width: 100%; height: 700px; border: none; border-radius: 8px; background: white;">
+              </iframe>
+            </div>
+          </div>
+
+          <div class="preview-container" id="preview-button">
+            <div class="widget-preview">
+              <iframe
+                id="button-preview-frame"
+                style="width: 100%; height: 700px; border: none; border-radius: 8px; background: white;">
+              </iframe>
+            </div>
+          </div>
+
+          <div class="preview-container" id="preview-cart">
+            <div class="widget-preview">
+              <iframe
+                id="cart-preview-frame"
+                style="width: 100%; height: 700px; border: none; border-radius: 8px; background: white;">
+              </iframe>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top: 1.5rem;">
+          <h2>Embed Code</h2>
+          <div class="code-block" id="embed-output">
+            <button class="copy-btn" onclick="copyEmbed()">Copy</button>
+            <pre>/* Loading... */</pre>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top: 1.5rem;">
+          <h2>Generated CSS</h2>
+          <div class="code-block" id="css-output">
+            <button class="copy-btn" onclick="copyCss()">Copy</button>
+            <pre>/* Loading... */</pre>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="demo-section">
-    <h2>Theme Presets</h2>
-    <div class="preset-themes">
-      <button class="preset-btn active" onclick="applyTheme('default', event)">Default</button>
-      <button class="preset-btn" onclick="applyTheme('dark', event)">Dark Mode</button>
-      <button class="preset-btn" onclick="applyTheme('brand', event)">Brand Colors</button>
-      <button class="preset-btn" onclick="applyTheme('minimal', event)">Minimal</button>
-      <button class="preset-btn" onclick="applyTheme('bold', event)">Bold & Colorful</button>
-    </div>
-    
-    <h3>Custom Theme Controls</h3>
-    <div class="theme-controls">
-      <!-- Theme-level variables -->
-      <div class="control-group">
-        <label>Primary Color (--color-primary)</label>
-        <input type="color" id="color-primary" value="#111827" onchange="updateTheme()">
-      </div>
-      
-      <div class="control-group">
-        <label>Surface Color (--color-surface)</label>
-        <input type="color" id="color-surface" value="#ffffff" onchange="updateTheme()">
-      </div>
-      
-      <div class="control-group">
-        <label>Text Color (--color-text)</label>
-        <input type="color" id="color-text" value="#111827" onchange="updateTheme()">
-      </div>
-      
-      <!-- Component-specific overrides -->
-      <div class="control-group">
-        <label>Card Background (--sr-card-bg)</label>
-        <input type="color" id="sr-card-bg" value="#ffffff" onchange="updateTheme()">
-      </div>
-      
-      <div class="control-group">
-        <label>Button Background (--sr-button-primary-bg)</label>
-        <input type="color" id="sr-button-primary-bg" value="#111827" onchange="updateTheme()">
-      </div>
-      
-      <div class="control-group">
-        <label>Card Padding (--sr-card-padding)</label>
-        <input type="text" id="sr-card-padding" value="1rem" placeholder="e.g., 1rem, 20px" onchange="updateTheme()">
-      </div>
-      
-      <div class="control-group">
-        <label>Card Shadow (--sr-card-shadow)</label>
-        <input type="text" id="sr-card-shadow" value="0 4px 6px -1px rgba(0, 0, 0, 0.1)" placeholder="CSS shadow value" onchange="updateTheme()">
-      </div>
-      
-      <div class="control-group">
-        <label>Card Radius (--sr-card-radius)</label>
-        <input type="text" id="sr-card-radius" value="8px" placeholder="e.g., 8px, 1rem" onchange="updateTheme()">
-      </div>
-    </div>
-  </div>
+  <!-- Widget is loaded in iframes only, not on root page -->
 
-  <div class="demo-section">
-    <h2>Widget Preview</h2>
-    <div class="widget-container">
-      <div id="widget"
-           data-shoprocket="catalog" 
-           data-limit="4">
-      </div>
-    </div>
-    
-    <div class="code-preview" id="css-output">
-      /* Current theme CSS */
-      shoprocket-catalog {
-        --color-primary: #111827;
-        --color-surface: #ffffff;
-        --color-text: #111827;
-      }
-    </div>
-  </div>
-
-  <div class="demo-section">
-    <h2>Key Benefits of This Approach</h2>
-    <ul>
-      <li><strong>Clean HTML:</strong> No utility soup - just semantic classes like <code>sr-product-card</code></li>
-      <li><strong>Three-Level Customization:</strong>
-        <ol>
-          <li>Theme variables (e.g., <code>--color-primary</code>) affect multiple components</li>
-          <li>Component variables (e.g., <code>--sr-card-bg</code>) for granular control</li>
-          <li>Direct CSS overrides for ultimate flexibility</li>
-        </ol>
-      </li>
-      <li><strong>Small Bundle:</strong> Styles defined once in CSS, not repeated inline</li>
-      <li><strong>Shadow DOM Compatible:</strong> CSS variables pierce the shadow boundary</li>
-      <li><strong>Maintainable:</strong> All styles in one place, using Tailwind's @apply</li>
-    </ul>
-  </div>
-
-  <!-- Load the widget -->
-  <script src="shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>
-  
   <script>
-    const themes = {
+    // Track current limit to detect changes
+    let currentCatalogLimit = '4';
+    let limitChangeTimeout = null;
+
+    const presets = {
       default: {
         '--color-primary': '#111827',
         '--color-surface': '#ffffff',
         '--color-text': '#111827',
-        '--color-hover': '#f3f4f6',
-        '--sr-card-shadow': '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        '--sr-card-radius': '8px',
-        '--sr-card-padding': '1rem'
+        '--color-border': '#e5e7eb',
+        '--color-error': '#ef4444',
+        '--sr-radius': '5px',
+        '--cols': '4',
+        '--sr-product-title-size': '14px',
+        '--sr-button-font-size': '14px'
       },
       dark: {
         '--color-primary': '#818cf8',
         '--color-surface': '#1f2937',
         '--color-text': '#e5e7eb',
-        '--color-hover': '#374151',
-        '--color-on-primary': '#1f2937',
-        '--sr-card-bg': '#111827',
-        '--sr-card-shadow': '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
-        '--sr-card-text': '#e5e7eb',
-        '--sr-product-title-color': '#f3f4f6',
-        '--sr-product-price-color': '#818cf8'
+        '--color-border': '#374151',
+        '--color-error': '#f87171',
+        '--sr-radius': '8px',
+        '--cols': '4',
+        '--sr-product-title-size': '14px',
+        '--sr-button-font-size': '14px'
       },
-      brand: {
-        '--color-primary': '#dc2626',
-        '--color-surface': '#fef2f2',
-        '--color-text': '#7f1d1d',
-        '--sr-button-primary-bg': '#dc2626',
-        '--sr-button-primary-text': '#ffffff',
-        '--sr-card-radius': '12px'
+      luxury: {
+        '--color-primary': '#92400e',
+        '--color-surface': '#fffbeb',
+        '--color-text': '#78350f',
+        '--color-border': '#fde68a',
+        '--color-error': '#dc2626',
+        '--sr-radius': '12px',
+        '--cols': '3',
+        '--sr-product-title-size': '16px',
+        '--sr-button-font-size': '14px'
+      },
+      playful: {
+        '--color-primary': '#ec4899',
+        '--color-surface': '#fdf2f8',
+        '--color-text': '#831843',
+        '--color-border': '#fbcfe8',
+        '--color-error': '#f43f5e',
+        '--sr-radius': '16px',
+        '--cols': '4',
+        '--sr-product-title-size': '15px',
+        '--sr-button-font-size': '15px'
       },
       minimal: {
         '--color-primary': '#000000',
         '--color-surface': '#ffffff',
         '--color-text': '#000000',
-        '--sr-card-shadow': 'none',
-        '--sr-card-radius': '0',
-        '--sr-card-padding': '0.75rem',
-        '--sr-button-radius': '0'
+        '--color-border': '#000000',
+        '--color-error': '#ef4444',
+        '--sr-radius': '0px',
+        '--cols': '4',
+        '--sr-product-title-size': '14px',
+        '--sr-button-font-size': '13px'
       },
-      bold: {
-        '--color-primary': '#7c3aed',
-        '--color-surface': '#faf5ff',
-        '--color-text': '#4c1d95',
-        '--sr-card-bg': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        '--sr-card-text': '#ffffff',
-        '--sr-card-shadow': '0 10px 30px -5px rgba(124, 58, 237, 0.3)',
-        '--sr-card-radius': '20px',
-        '--sr-product-title-color': '#ffffff',
-        '--sr-product-price-color': '#fbbf24',
-        '--sr-button-primary-bg': '#fbbf24',
-        '--sr-button-primary-text': '#4c1d95'
+      brand: {
+        '--color-primary': '#dc2626',
+        '--color-surface': '#fef2f2',
+        '--color-text': '#7f1d1d',
+        '--color-border': '#fecaca',
+        '--color-error': '#dc2626',
+        '--sr-radius': '6px',
+        '--cols': '4',
+        '--sr-product-title-size': '14px',
+        '--sr-button-font-size': '14px'
       }
     };
-    
-    function applyTheme(themeName, evt) {
-      // Look for the shoprocket-catalog element
-      const widgetElement = document.querySelector('shoprocket-catalog');
-      
-      if (!widgetElement) {
-        console.log('Widget not loaded yet, waiting...');
-        setTimeout(() => applyTheme(themeName, evt), 500);
-        return;
-      }
-      
-      const theme = themes[themeName];
-      
-      // Apply theme to the widget element
-      Object.entries(theme).forEach(([key, value]) => {
-        widgetElement.style.setProperty(key, value);
+
+    function applyPreset(name, evt) {
+      const preset = presets[name];
+
+      // Update controls
+      Object.entries(preset).forEach(([key, value]) => {
+        const id = key.replace('--', '');
+        const input = document.getElementById(id);
+        const textInput = document.getElementById(id + '-text');
+
+        if (input) {
+          // Handle different input types
+          if (input.type === 'color') {
+            input.value = value;
+            if (textInput) textInput.value = value;
+          } else if (input.type === 'range') {
+            input.value = parseInt(value);
+          }
+        }
       });
-      
+
       // Update active button
-      document.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
       if (evt && evt.target) {
         evt.target.classList.add('active');
       }
-      
-      // Update controls to reflect theme
-      Object.entries(theme).forEach(([key, value]) => {
-        const input = document.getElementById(key.replace('--', ''));
-        if (input) {
-          input.value = value;
-        }
-      });
-      
-      updateCodePreview();
+
+      updateTheme();
     }
-    
-    function updateTheme() {
-      const widgetElement = document.querySelector('shoprocket-catalog');
-      
-      if (!widgetElement) {
-        console.log('Widget not loaded yet');
-        return;
+
+    function updateColorFromText(name) {
+      const textInput = document.getElementById(`color-${name}-text`);
+      const colorInput = document.getElementById(`color-${name}`);
+
+      if (textInput && colorInput && /^#[0-9A-F]{6}$/i.test(textInput.value)) {
+        colorInput.value = textInput.value;
+        updateTheme();
       }
-      
-      const controls = [
-        'color-primary',
-        'color-surface',
-        'color-text',
-        'sr-card-bg',
-        'sr-button-primary-bg',
-        'sr-card-padding',
-        'sr-card-shadow',
-        'sr-card-radius'
-      ];
-      
-      controls.forEach(id => {
-        const input = document.getElementById(id);
-        if (input && input.value) {
-          widgetElement.style.setProperty('--' + id, input.value);
-        }
-      });
-      
-      updateCodePreview();
     }
-    
-    function updateCodePreview() {
-      const widgetElement = document.querySelector('shoprocket-catalog');
-      
-      if (!widgetElement) return;
-      
-      const styles = widgetElement.getAttribute('style') || '';
-      const cssVars = styles.split(';')
-        .filter(s => s.includes('--'))
-        .map(s => '  ' + s.trim())
-        .join(';\n');
-      
-      document.getElementById('css-output').textContent = 
-`/* Apply this CSS to customize your widget */
-shoprocket-catalog {
-${cssVars};
+
+    function updateTheme() {
+      const vars = getThemeVars();
+      const limitValue = document.getElementById('limit').value;
+
+      // Update text inputs and hex displays
+      ['primary', 'surface', 'text', 'border', 'error'].forEach(name => {
+        const colorValue = vars[`color-${name}`];
+        const textInput = document.getElementById(`color-${name}-text`);
+        const hexDisplay = document.getElementById(`${name}-hex`);
+        if (textInput) textInput.value = colorValue;
+        if (hexDisplay) hexDisplay.textContent = colorValue;
+      });
+
+      // Update range value displays
+      document.getElementById('radius-value').textContent = vars['sr-radius'];
+      document.getElementById('cols-value').textContent = vars['cols'];
+      document.getElementById('limit-value').textContent = limitValue;
+      document.getElementById('title-size-value').textContent = vars['sr-product-title-size'];
+      document.getElementById('btn-size-value').textContent = vars['sr-button-font-size'];
+
+      // Check if limit changed - update and reload
+      if (limitValue !== currentCatalogLimit) {
+        currentCatalogLimit = limitValue;
+
+        // Update the data-limit attribute in the iframe
+        const catalogFrame = document.getElementById('catalog-preview-frame');
+        if (catalogFrame) {
+          const frameDoc = catalogFrame.contentDocument || catalogFrame.contentWindow.document;
+          const catalogMount = frameDoc.querySelector('[data-shoprocket="catalog"]') || frameDoc.querySelector('shoprocket-catalog');
+
+          if (catalogMount) {
+            catalogMount.setAttribute('data-limit', limitValue);
+
+            // Reload the widgets in the iframe to pick up the new limit
+            if (frameDoc.defaultView.Shoprocket && typeof frameDoc.defaultView.Shoprocket.reload === 'function') {
+              frameDoc.defaultView.Shoprocket.reload();
+            }
+          }
+        }
+      }
+
+      // Update all iframe widgets with new theme variables
+      updateIframeWidgets(vars);
+
+      updateEmbedCode(limitValue, vars);
+      updateCssOutput(vars);
+    }
+
+    function updateEmbedCode(limit, vars) {
+      const styleVars = Object.entries(vars)
+        .map(([key, value]) => `--${key}: ${value}`)
+        .join('; ');
+
+      const embedCode = `<div data-shoprocket="catalog" data-limit="${limit}" style="${styleVars};"></div>`;
+
+      document.getElementById('embed-output').querySelector('pre').textContent = embedCode;
+    }
+
+    function updateCssOutput(vars) {
+      const css = Object.entries(vars)
+        .map(([key, value]) => `  --${key}: ${value};`)
+        .join('\n');
+
+      document.getElementById('css-output').querySelector('pre').textContent =
+`/* Add this CSS to your stylesheet */
+shoprocket-catalog,
+shoprocket-cart,
+[data-shoprocket] {
+${css}
 }`;
     }
+
+    function switchTab(name, evt) {
+      // Update tabs
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      if (evt && evt.target) {
+        evt.target.classList.add('active');
+      }
+
+      // Update previews
+      document.querySelectorAll('.preview-container').forEach(container => {
+        container.classList.remove('active');
+      });
+      document.getElementById('preview-' + name).classList.add('active');
+    }
+
+    function copyEmbed() {
+      const code = document.getElementById('embed-output').querySelector('pre').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    function copyCss() {
+      const code = document.getElementById('css-output').querySelector('pre').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    // Get current theme variables
+    function getThemeVars() {
+      return {
+        'color-primary': document.getElementById('color-primary').value,
+        'color-surface': document.getElementById('color-surface').value,
+        'color-text': document.getElementById('color-text').value,
+        'color-border': document.getElementById('color-border').value,
+        'color-error': document.getElementById('color-error').value,
+        'sr-radius': document.getElementById('sr-radius').value + 'px',
+        'cols': document.getElementById('cols').value,
+        'sr-product-title-size': document.getElementById('sr-product-title-size').value + 'px',
+        'sr-button-font-size': document.getElementById('sr-button-font-size').value + 'px'
+      };
+    }
+
+    // Initialize iframe with widget
+    function initIframe(frameId, widgetHtml) {
+      const frame = document.getElementById(frameId);
+      if (!frame) return;
+
+      const vars = getThemeVars();
+      const styleVars = Object.entries(vars)
+        .map(([key, value]) => `--${key}: ${value}`)
+        .join('; ');
+
+      // Force complete iframe reload by setting src to blank then rewriting
+      frame.src = 'about:blank';
+
+      // Wait a tick for the iframe to clear
+      setTimeout(() => {
+        const frameDoc = frame.contentDocument || frame.contentWindow.document;
+
+        frameDoc.open();
+        frameDoc.write(`
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body {
+                  margin: 0;
+                  padding: 0;
+                  background: white;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+                }
+              </style>
+            </head>
+            <body>
+              ${widgetHtml.replace(/\{STYLE_VARS\}/g, styleVars)}
+              <script src="shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"><\/script>
+            </body>
+          </html>
+        `);
+        frameDoc.close();
+      }, 10);
+    }
+
+    // Initialize all iframes
+    function initAllIframes() {
+      const limit = document.getElementById('limit').value;
+
+      // Catalog iframe
+      initIframe('catalog-preview-frame',
+        `<div data-shoprocket="catalog" data-limit="${limit}" style="{STYLE_VARS}"></div>`
+      );
+
+      // Buy button iframe with multiple examples
+      initIframe('button-preview-frame', `
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; padding: 1rem;">
+          <div>
+            <h4 style="margin-bottom: 0.5rem; font-size: 0.875rem; color: #6b7280;">Simple Product</h4>
+            <div data-shoprocket="buy-button" data-product="anti-aging-flavor-C-serum" style="{STYLE_VARS}"></div>
+          </div>
+          <div>
+            <h4 style="margin-bottom: 0.5rem; font-size: 0.875rem; color: #6b7280;">With Variants</h4>
+            <div data-shoprocket="buy-button" data-product="anti-aging-renewal-serum" style="{STYLE_VARS}"></div>
+          </div>
+          <div>
+            <h4 style="margin-bottom: 0.5rem; font-size: 0.875rem; color: #6b7280;">With Name + Price</h4>
+            <div data-shoprocket="buy-button" data-product="papaya-quandong-hand-lotion" data-show-name="true" data-show-price="true" style="{STYLE_VARS}"></div>
+          </div>
+          <div>
+            <h4 style="margin-bottom: 0.5rem; font-size: 0.875rem; color: #6b7280;">View Action</h4>
+            <div data-shoprocket="buy-button" data-product="argan-liquid-gold-soft-oil-mist" data-action="view" style="{STYLE_VARS}"></div>
+          </div>
+        </div>
+      `);
+
+      // Cart iframe
+      initIframe('cart-preview-frame',
+        `<div data-shoprocket="cart" style="{STYLE_VARS}"></div>`
+      );
+    }
+
+    // Update iframe widgets when theme changes
+    function updateIframeWidgets(vars) {
+      const iframes = ['catalog-preview-frame', 'button-preview-frame', 'cart-preview-frame'];
+
+      iframes.forEach(frameId => {
+        const frame = document.getElementById(frameId);
+        if (!frame) return;
+
+        const frameDoc = frame.contentDocument || frame.contentWindow.document;
+        const widgets = frameDoc.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-buy-button, [data-shoprocket]');
+
+        widgets.forEach(widget => {
+          Object.entries(vars).forEach(([key, value]) => {
+            widget.style.setProperty('--' + key, value);
+          });
+        });
+      });
+    }
+
+    // Initialize all iframes on load
+    setTimeout(() => {
+      initAllIframes();
+      updateTheme(); // Update embed code and CSS output on page load
+    }, 500);
   </script>
 </body>
 </html>

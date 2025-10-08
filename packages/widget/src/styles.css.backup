@@ -124,45 +124,25 @@
   --tw-border-spacing-x: 0;
   --tw-border-spacing-y: 0;
 
-  /* =====================================================
-   * CORE THEME COLORS - User Customizable
-   * These are the main colors users set in the theme editor
-   * ===================================================== */
+  /* Core colors */
   --color-surface: #ffffff;
-  --color-primary: #111827;
+  --color-surface-hover: #f9fafb;
+  --color-primary: #111827;  /* Dark navy/black for buttons */
   --color-text: #111827;
+  --color-text-muted: #6b7280;
   --color-border: #e5e7eb;
-  --color-error: #ef4444;
-
-  /* =====================================================
-   * AUTO-DERIVED COLORS - Calculated Automatically
-   * These adapt based on core colors above
-   * Advanced users can override by setting the specific variable
-   * ===================================================== */
-
-  /* Hover states - blend border with surface */
-  --color-hover: color-mix(in srgb, var(--color-border) 60%, var(--color-surface) 40%);
-
-  /* Disabled/subtle backgrounds - slightly darker/lighter than surface */
-  --color-surface-hover: color-mix(in srgb, var(--color-surface) 92%, var(--color-text) 8%);
-
-  /* Input backgrounds - subtle variation of surface (can be overridden) */
-  --color-input-bg: var(--color-input-bg-override, color-mix(in srgb, var(--color-surface) 97%, var(--color-text) 3%));
-
-  /* Muted/secondary text - 60% opacity of main text */
-  --color-text-muted: color-mix(in srgb, var(--color-text) 60%, transparent 40%);
-
-  /* Text on colored backgrounds - uses core text color with fallback */
-  --color-on-surface: var(--color-text);
-  --color-on-primary: #ffffff;
-  --color-on-success: #ffffff;
-  --color-on-error: #ffffff;
-
-  /* System colors */
+  --color-hover: #f3f4f6;
+  --color-input-bg: #f8fafc;
   --color-info: var(--color-blue-500);
   --color-success: var(--color-green-600);
   --color-warning: var(--color-yellow-400);
   --color-danger: var(--color-red-500);
+
+  /* Text on colored backgrounds */
+  --color-on-primary: #ffffff;
+  --color-on-surface: #111827;
+  --color-on-success: #ffffff;
+  --color-on-error: #ffffff;
 
   /* Spacing - Tailwind v4 uses its own spacing scale internally */
   /* We only define custom spacing for non-Tailwind use cases */
@@ -2344,7 +2324,7 @@
 }
 
 .sr-checkbox-text {
-  @apply ms-2 text-sm font-medium text-[var(--color-text-muted)] 
+  @apply ms-2 text-sm font-medium text-[var(--color-text-secondary)] 
          transition-colors duration-150 select-none;
 }
 
@@ -2372,8 +2352,7 @@
 
 /* Review Cards */
 .sr-review-card {
-  @apply rounded border;
-  background: var(--color-surface);
+  @apply bg-white rounded border;
   border-color: var(--color-border, #e5e7eb);
 }
 
@@ -2476,7 +2455,8 @@
 
 .sr-order-total-line {
   @apply flex justify-between text-xs;
-  color: var(--color-text-muted);
+  color: var(--color-text);
+  opacity: 0.7;
 }
 
 .sr-discount-line {

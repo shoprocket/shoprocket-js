@@ -221,7 +221,7 @@ export class ProductCatalog extends ShoprocketElement {
   
   protected override updated(_changedProperties: PropertyValues): void {
     super.updated(_changedProperties);
-    
+
     // Track view_item_list when list view is shown for a new page
     if (this.currentView === 'list' && this.currentPage !== this.currentTrackedPage) {
       const pageProducts = this.getPageProducts();
@@ -234,8 +234,21 @@ export class ProductCatalog extends ShoprocketElement {
         this.currentTrackedPage = this.currentPage;
       }
     }
-    
+
     // Note: view_item tracking is handled by the product-detail component itself
+  }
+
+  /**
+   * Public method to reload the catalog with fresh data
+   * Clears all cached pages and reloads from page 1
+   */
+  public async reload(): Promise<void> {
+    this.loadedPages.clear();
+    this.loadingPages.clear();
+    this.allProducts.clear();
+    this.individualProducts.clear();
+    this.currentPage = 1;
+    await this.loadProducts(1);
   }
   
   private async loadProducts(page: number = 1): Promise<void> {

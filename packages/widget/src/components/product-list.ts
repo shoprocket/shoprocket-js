@@ -140,22 +140,22 @@ export class ProductListTemplates {
           
           <!-- Quick Actions -->
           <div class="sr-product-actions">
-            <button 
+            <button
               class="sr-button ${isAdded ? 'sr-button-success' : 'sr-button-primary'}"
               @click="${(e: Event) => { e.stopPropagation(); !isSkeleton && handlers.handleAddToCart(product); }}"
               ?disabled="${isSkeleton || isOutOfStock || allStockInCart}"
             >
-              ${isSkeleton ? '' : 
-                isOutOfStock ? 'Out of Stock' : 
-                allStockInCart ? `Max (${product.inventory_count}) in cart` :
-                isAdded ? html`
-                  <span class="sr-button-content">
+              <span class="sr-button-content">
+                ${isSkeleton ? '' :
+                  isOutOfStock ? 'Out of Stock' :
+                  allStockInCart ? html`<span class="sr-button-text">Max (${product.inventory_count}) in cart</span>` :
+                  isAdded ? html`
                     <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    Added
-                  </span>
-                ` : isLoading ? html`<span class="sr-button-content">${loadingSpinner('sm')}</span>` : (needsOptions ? 'Select Options' : 'Add to Cart')}
+                    <span class="sr-button-text">Added</span>
+                  ` : isLoading ? loadingSpinner('sm') : html`<span class="sr-button-text">${needsOptions ? 'Select Options' : 'Add to Cart'}</span>`}
+              </span>
             </button>
           </div>
         </div>
