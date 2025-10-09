@@ -10,6 +10,7 @@ import { CartService } from './services/cart';
 import { StoreService } from './services/store';
 import { AuthService } from './services/auth';
 import { LocationService } from './services/location';
+import { CategoriesService } from './services/categories';
 
 export interface ShoprocketConfig {
   publicKey: string;
@@ -28,6 +29,7 @@ export class ShoprocketCore {
   public store: StoreService;
   public auth: AuthService;
   public location: LocationService;
+  public categories: CategoriesService;
 
   constructor(config: ShoprocketConfig) {
     this.config = {
@@ -51,6 +53,7 @@ export class ShoprocketCore {
     this.store = new StoreService(this.api);
     this.auth = new AuthService(this.api);
     this.location = new LocationService(this.api);
+    this.categories = new CategoriesService(this.api);
   }
 
   /**
@@ -120,6 +123,7 @@ export * from './services/cart';
 export * from './services/store';
 export * from './services/auth';
 export * from './services/location';
+export * from './services/categories';
 
 // Default export for convenience
 export default ShoprocketCore;

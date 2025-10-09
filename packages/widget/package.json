@@ -19,7 +19,7 @@
     "build:iife": "vite build",
     "build:bundle:prod": "NODE_ENV=production vite build --config vite.config.prod.mts",
     "build:esm": "vite build --config vite.config.esm.mts",
-    "build:watch": "npm run build && vite build --watch --config vite.config.esm.mts",
+    "build:watch": "vite build --watch --config vite.config.esm.mts",
     "watch": "vite build --watch --config vite.config.esm.mts",
     "watch:iife": "vite build --watch",
     "watch:esm": "vite build --watch --config vite.config.esm.mts",

@@ -51,6 +51,7 @@
   "sideEffects": false,
   "devDependencies": {
     "@size-limit/preset-small-lib": "^11.0.0",
-    "size-limit": "^11.0.0"
+    "size-limit": "^11.0.0",
+    "vite-plugin-dts": "^4.5.4"
   }
 }

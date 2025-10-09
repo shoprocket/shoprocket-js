@@ -135,6 +135,7 @@ export class AnalyticsManager {
       event,
       data,
       store_id: storeId, // Required by backend
+      store_mode: store?.store_mode || null, // Store mode (test/live)
       cart_token: cartToken,
       url: location.href,
       ...attribution // Include UTM params, referrer, device info

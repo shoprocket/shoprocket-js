@@ -466,12 +466,14 @@ export class WidgetManager {
     // Replace the mount point with our component to avoid unnecessary wrapper
     // Copy over any custom CSS variables or styles from the mount point
     if (element instanceof HTMLElement && component instanceof HTMLElement) {
-      // Copy inline styles (including CSS variables)
-      component.setAttribute('style', element.getAttribute('style') || '');
-      // Copy classes if any
-      if (element.className) {
-        component.className = element.className;
+      // Copy inline styles only if they exist
+      const inlineStyles = element.getAttribute('style');
+      if (inlineStyles) {
+        component.setAttribute('style', inlineStyles);
       }
+      // Add shoprocket class for consistent theme targeting
+      const existingClasses = element.className ? element.className + ' shoprocket' : 'shoprocket';
+      component.className = existingClasses;
     }
 
     // Replace the element with our component
