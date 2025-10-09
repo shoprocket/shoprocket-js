@@ -689,9 +689,7 @@
 
       document.getElementById('css-output').querySelector('pre').textContent =
 `/* Add this CSS to your stylesheet */
-shoprocket-catalog,
-shoprocket-cart,
-[data-shoprocket] {
+.shoprocket {
 ${css}
 }`;
     }
@@ -842,7 +840,7 @@ ${css}
         if (!frame) return;
 
         const frameDoc = frame.contentDocument || frame.contentWindow.document;
-        const widgets = frameDoc.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-buy-button, [data-shoprocket]');
+        const widgets = frameDoc.querySelectorAll('.shoprocket');
 
         widgets.forEach(widget => {
           Object.entries(vars).forEach(([key, value]) => {

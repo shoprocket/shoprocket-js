@@ -147,6 +147,10 @@ const componentLoaders: Record<string, () => Promise<typeof ShoprocketElement>> 
   'cart': async () => {
     const { CartWidget } = await import('./components/cart');
     return CartWidget;
+  },
+  'categories': async () => {
+    const { CategoriesWidget } = await import('./components/categories');
+    return CategoriesWidget;
   }
 };
 

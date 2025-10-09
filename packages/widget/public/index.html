@@ -33,7 +33,18 @@
       overflow: auto;
     }
 
-
+    /* Minimal theme */
+    /* .shoprocket {
+      --color-primary: #000000;
+      --color-surface: #ffffff;
+      --color-text: #000000;
+      --color-border: #000000;
+      --color-error: #ef4444;
+      --sr-radius: 0px;
+      --cols: 4;
+      --sr-product-title-size: 14px;
+      --sr-button-font-size: 13px;
+    } */
 
 
   </style>
@@ -56,19 +67,27 @@
   
 
   <div class="container">
-    
-    <!-- Product Catalog Widget -->
-    <div data-shoprocket="catalog" 
-         data-limit="4"
-         data-style="grid"
-         
-         data-theme="summer">
+
+    <!-- Categories Widget -->
+    <h2>Categories</h2>
+    <div data-shoprocket="categories"
+         data-routable="true"
+         data-columns="4">
     </div>
-    <!-- data-category="hair-products"  -->
+
+    <hr style="margin: 3rem 0; border: 0; border-top: 1px solid #e5e7eb;">
+
+    <!-- Product Catalog Widget -->
+    <h2>Product Catalog</h2>
+    <div data-shoprocket="catalog"
+         data-limit="4"
+         data-style="grid">
+    </div>
+
   </div>
 
   <!-- Shopping Cart Widget (optional) -->
-  <div data-shoprocket="cart" 
+  <div data-shoprocket="cart"
        data-position="middle-right"
        data-style="sidebar">
   </div>
