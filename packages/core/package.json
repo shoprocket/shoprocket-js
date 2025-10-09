@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "dev": "vite build --watch",
-    "build": "vite build && tsc --declaration --emitDeclarationOnly",
+    "build": "vite build",
     "test": "vitest",
     "lint": "eslint src",
     "clean": "rm -rf dist",
