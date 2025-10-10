@@ -33,7 +33,11 @@ export type FeatureKey =
   
   // Behaviors
   | 'scroll'          // Auto-scroll behavior
-  | 'analytics';      // Analytics tracking
+  | 'analytics'       // Analytics tracking
+
+  // Catalog Features
+  | 'filters'         // Filter toolbar (search, sort, category)
+  | 'pagination';     // Pagination controls
 
 // Feature configuration
 export interface FeatureConfig {
@@ -62,22 +66,26 @@ export interface FeatureConfig {
 // Default features per widget type
 export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
   'product-view': [
-    'media', 'gallery', 'zoom', 'title', 'price', 'stock', 
+    'media', 'gallery', 'zoom', 'title', 'price', 'stock',
     'variants', 'quantity', 'add-to-cart', 'description'
   ],
   'product-card': [
     'media', 'title', 'price', 'add-to-cart'
   ],
   'product-detail': [
-    'navigation', 'media', 'gallery', 'zoom', 'title', 'price', 
-    'stock', 'sku', 'variants', 'quantity', 'add-to-cart', 
+    'navigation', 'media', 'gallery', 'zoom', 'title', 'price',
+    'stock', 'sku', 'variants', 'quantity', 'add-to-cart',
     'description', 'reviews', 'share', 'scroll'
   ],
   // shoprocket-product element (used in catalog)
   'product': [
-    'navigation', 'media', 'gallery', 'zoom', 'title', 'price', 
-    'stock', 'sku', 'variants', 'quantity', 'add-to-cart', 
+    'navigation', 'media', 'gallery', 'zoom', 'title', 'price',
+    'stock', 'sku', 'variants', 'quantity', 'add-to-cart',
     'description', 'reviews', 'share', 'scroll'
+  ],
+  // Product catalog widget
+  'catalog': [
+    'filters', 'pagination'
   ]
 };
 

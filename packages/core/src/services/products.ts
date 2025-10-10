@@ -65,7 +65,7 @@ export class ProductsService {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
           if (key === 'category') {
-            // Handle new filter[category] format
+            // Handle filter[category] format
             if (Array.isArray(value)) {
               // Multiple: filter[category][]=val1&filter[category][]=val2
               value.forEach(cat => {
@@ -75,7 +75,27 @@ export class ProductsService {
               // Single: filter[category]=val
               queryParams.append('filter[category]', value.toString());
             }
+          } else if (key === 'search') {
+            // Search uses filter[search] format
+            queryParams.append('filter[search]', value.toString());
+          } else if (key === 'sort') {
+            // Convert sort format: "name_asc" -> "name", "name_desc" -> "-name"
+            const sortValue = value.toString();
+            if (sortValue.endsWith('_desc')) {
+              queryParams.append('sort', '-' + sortValue.replace('_desc', ''));
+            } else if (sortValue.endsWith('_asc')) {
+              queryParams.append('sort', sortValue.replace('_asc', ''));
+            } else {
+              queryParams.append('sort', sortValue);
+            }
+          } else if (key === 'min_price') {
+            // Price min uses filter[price_min] format (convert to cents)
+            queryParams.append('filter[price_min]', (Number(value) * 100).toString());
+          } else if (key === 'max_price') {
+            // Price max uses filter[price_max] format (convert to cents)
+            queryParams.append('filter[price_max]', (Number(value) * 100).toString());
           } else {
+            // Standard params (page, per_page)
             queryParams.append(key, value.toString());
           }
         }

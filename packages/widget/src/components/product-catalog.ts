@@ -2,9 +2,11 @@ import { html, css, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ApiResponse } from '../types/api';
+import type { Category } from '@shoprocket/core';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { ProductListTemplates } from './product-list';
 import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
+import './catalog-filters'; // Register filter component
 
 /**
  * Product Catalog Component - Displays a grid of products with pagination
@@ -15,7 +17,7 @@ import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
  * 
  * @attr {string} data-shoprocket - Must be "catalog" to initialize this component
  * @attr {string} [data-store-id] - Store ID for loading products (if not using global config)
- * @attr {string} [data-category] - Filter products by category slug
+ * @attr {string} [data-categories] - Filter products by category slug(s) - comma-separated
  * @attr {number} [data-limit=12] - Number of products per page
  * @attr {boolean} [data-routable=false] - Enable URL hash synchronization for this catalog
  * @attr {string} [data-show] - Comma-separated features to show (replaces defaults)
@@ -27,8 +29,8 @@ import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
  * 
  * @example
  * <!-- Filtered catalog with pagination -->
- * <div data-shoprocket="catalog" 
- *      data-category="t-shirts" 
+ * <div data-shoprocket="catalog"
+ *      data-categories="t-shirts,shirts"
  *      data-limit="8"></div>
  * 
  * @example
@@ -125,8 +127,8 @@ export class ProductCatalog extends ShoprocketElement {
   @property({ type: String, attribute: 'store-id' })
   storeId?: string;
 
-  @property({ type: String, attribute: 'data-category' })
-  category?: string;
+  @property({ type: String, attribute: 'data-categories' })
+  categories?: string;
 
   @property({ type: Number, attribute: 'data-limit' })
   limit?: number;
@@ -137,9 +139,25 @@ export class ProductCatalog extends ShoprocketElement {
   @property({ type: Boolean, attribute: 'data-use-light-dom' })
   useLightDom = false;
 
+  @property({ type: String, attribute: 'data-filter-position' })
+  filterPosition: 'top' | 'left' = 'top';
+
   @state()
   private currentView: 'list' | 'product' = 'list';
-  
+
+  // Filter state
+  @state()
+  private searchQuery = '';
+
+  @state()
+  private sortBy = '';
+
+  @state()
+  private selectedCategory = '';
+
+  @state()
+  private allCategories: Category[] = [];
+
   // Virtual pagination: Store all loaded products by their absolute position
   @state()
   private allProducts: Map<number, Product> = new Map();
@@ -239,7 +257,7 @@ export class ProductCatalog extends ShoprocketElement {
       if (pageProducts.length > 0) {
         this.track(EVENTS.VIEW_ITEM_LIST, {
           items: pageProducts,
-          item_list_name: this.category || 'All Products',
+          item_list_name: this.categories || 'All Products',
           item_list_id: `page_${this.currentPage}`
         });
         this.currentTrackedPage = this.currentPage;
@@ -278,10 +296,26 @@ export class ProductCatalog extends ShoprocketElement {
     // Create and store the loading promise
     const loadingPromise = this.withLoading('products', async () => {
       try {
+        // Build category parameter
+        let categoryParam: string | string[] | undefined;
+
+        if (this.selectedCategory) {
+          // User selected a specific category from the filter dropdown
+          categoryParam = this.selectedCategory;
+        } else if (this.categories) {
+          // data-categories attribute is set - use those categories
+          // (applies when user selects "All" from filter or no filter selection)
+          const slugs = this.categories.split(',').map(c => c.trim());
+          categoryParam = slugs.length === 1 ? slugs[0] : slugs;
+        }
+        // If no selectedCategory AND no data-categories → undefined (all products)
+
         const response = await this.sdk.products.list({
           page,
           per_page: this.limit || 12,
-          category: this.category,
+          category: categoryParam,
+          search: this.searchQuery || undefined,
+          sort: this.sortBy || undefined,
         }) as ApiResponse<Product[]>;
 
         const products = response.data || [];
@@ -323,6 +357,31 @@ export class ProductCatalog extends ShoprocketElement {
     return loadingPromise;
   }
 
+  /**
+   * Load categories for filter dropdown
+   */
+  private async loadCategories(): Promise<void> {
+    try {
+      if (this.categories) {
+        // Load specific categories if data-categories attribute is set
+        const slugs = this.categories.split(',').map(c => c.trim());
+        const response = await this.sdk.categories.list({
+          filter: { slug: slugs },
+        });
+        this.allCategories = response.data || [];
+      } else {
+        // Load all root categories if no categories specified
+        const response = await this.sdk.categories.list({
+          filter: { root: true },
+        });
+        this.allCategories = response.data || [];
+      }
+    } catch (error) {
+      console.warn('Failed to load categories:', error);
+      this.allCategories = [];
+    }
+  }
+
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
     
@@ -349,22 +408,27 @@ export class ProductCatalog extends ShoprocketElement {
       }
     }
     
+    // Load categories for filter (if filters feature enabled)
+    if (this.hasFeature('filters')) {
+      await this.loadCategories();
+    }
+
     // Only primary instance handles routing
     if (this.isPrimary) {
       // Get HashRouter singleton and listen for state changes
       this.hashRouter = HashRouter.getInstance();
       this.handleHashStateChange = this.handleHashStateChange.bind(this);
       this.hashRouter.addEventListener('state-change', this.handleHashStateChange);
-      
+
       // Set initial view based on current hash state
       const initialState = this.hashRouter.getCurrentState();
-      
+
       // Always extract page from params, even if we're in product view
       // This ensures when going back to list, we're on the correct page
       if (initialState.params['page']) {
         this.currentPage = parseInt(initialState.params['page'], 10);
       }
-      
+
       // Handle initial state - either product view or list with page
       if (initialState.view === 'list') {
         // Load products for the current page
@@ -397,9 +461,20 @@ export class ProductCatalog extends ShoprocketElement {
 
   protected override render(): TemplateResult {
     const pageProducts = this.getPageProducts();
-    
+
     return html`
       <div class="sr-catalog-list-view ${this.currentView === 'list' ? 'visible' : 'hidden'}">
+        ${this.hasFeature('filters') ? html`
+          <shoprocket-catalog-filters
+            .search="${this.searchQuery}"
+            .sort="${this.sortBy}"
+            .category="${this.selectedCategory}"
+            .categories="${this.allCategories}"
+            .filterPosition="${this.filterPosition}"
+            .totalProducts="${this.totalProducts}"
+            @filter-change="${this.handleFilterChange}"
+          ></shoprocket-catalog-filters>
+        ` : ''}
         ${ProductListTemplates.renderProductList(
           pageProducts,
           this.isLoading('products'),
@@ -436,7 +511,7 @@ export class ProductCatalog extends ShoprocketElement {
     // Track product selection
     this.track(EVENTS.SELECT_ITEM, {
       ...product,
-      category: this.category
+      category: this.categories
     });
 
     // If not the primary instance (embedded in another widget), dispatch event
@@ -463,15 +538,35 @@ export class ProductCatalog extends ShoprocketElement {
   
   private handleProductAdded = (event: CustomEvent): void => {
     const { product } = event.detail;
-    
+
     // Show success state
     this.addedToCartProducts.add(product.id);
     this.requestUpdate();
-    
+
     setTimeout(() => {
       this.addedToCartProducts.delete(product.id);
       this.requestUpdate();
     }, TIMEOUTS.SUCCESS_MESSAGE);
+  }
+
+  private handleFilterChange = async (event: CustomEvent): Promise<void> => {
+    const { filterType, value } = event.detail;
+
+    // Update filter state
+    switch (filterType) {
+      case 'search':
+        this.searchQuery = value;
+        break;
+      case 'sort':
+        this.sortBy = value;
+        break;
+      case 'category':
+        this.selectedCategory = value;
+        break;
+    }
+
+    // Reload products with new filters
+    await this.reload();
   }
   
   private handleCartUpdate = (): void => {
