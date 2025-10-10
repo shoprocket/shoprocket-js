@@ -109,10 +109,18 @@ export class ProductCatalog extends ShoprocketElement {
     }
   `;
 
+  // Use Light DOM when embedded in other widgets to avoid nested shadow DOM
+  protected override createRenderRoot(): HTMLElement | ShadowRoot {
+    if (this.useLightDom) {
+      return this; // Light DOM
+    }
+    return super.createRenderRoot(); // Shadow DOM (default)
+  }
+
   // Track primary instance for routing
   private static primaryInstance: ProductCatalog | null = null;
   private isPrimary = false;
-  
+
   // We still need to read attributes to pass to children
   @property({ type: String, attribute: 'store-id' })
   storeId?: string;
@@ -122,9 +130,12 @@ export class ProductCatalog extends ShoprocketElement {
 
   @property({ type: Number, attribute: 'data-limit' })
   limit?: number;
-  
+
   @property({ type: Boolean, attribute: 'data-routable' })
   routable = false;
+
+  @property({ type: Boolean, attribute: 'data-use-light-dom' })
+  useLightDom = false;
 
   @state()
   private currentView: 'list' | 'product' = 'list';
@@ -325,14 +336,17 @@ export class ProductCatalog extends ShoprocketElement {
     window.addEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
     
     // Determine if this instance should be primary
-    if (this.routable && !ProductCatalog.primaryInstance) {
-      // Explicit routable attribute takes precedence
-      ProductCatalog.primaryInstance = this;
-      this.isPrimary = true;
-    } else if (!this.routable && !ProductCatalog.primaryInstance) {
-      // First instance becomes primary by default
-      ProductCatalog.primaryInstance = this;
-      this.isPrimary = true;
+    // Light DOM instances are always embedded in another widget, so never primary
+    if (!this.useLightDom) {
+      if (this.routable && !ProductCatalog.primaryInstance) {
+        // Explicit routable attribute takes precedence
+        ProductCatalog.primaryInstance = this;
+        this.isPrimary = true;
+      } else if (!this.routable && !ProductCatalog.primaryInstance) {
+        // First instance becomes primary by default
+        ProductCatalog.primaryInstance = this;
+        this.isPrimary = true;
+      }
     }
     
     // Only primary instance handles routing
@@ -420,18 +434,29 @@ export class ProductCatalog extends ShoprocketElement {
 
   private async handleProductClick(product: Product): Promise<void> {
     // Track product selection
-    this.track(EVENTS.SELECT_ITEM, { 
+    this.track(EVENTS.SELECT_ITEM, {
       ...product,
-      category: this.category 
+      category: this.category
     });
-    
-    // Find the product's index
+
+    // If not the primary instance (embedded in another widget), dispatch event
+    // so parent can handle everything (URL routing + product display)
+    if (!this.isPrimary) {
+      this.dispatchEvent(new CustomEvent('product-click', {
+        detail: { product },
+        bubbles: true,
+        composed: true,
+      }));
+      return; // Parent handles product display
+    }
+
+    // Primary instance handles product display directly
     const targetIndex = this.findProductIndex(product.slug || product.id);
     if (targetIndex === -1) {
       console.error('Product not found in loaded products');
       return;
     }
-    
+
     this.currentProductIndex = targetIndex;
     await this.showProductDetail(product);
   }
