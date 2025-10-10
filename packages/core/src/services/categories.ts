@@ -53,10 +53,10 @@ export class CategoriesService {
       if (params.filter) {
         Object.entries(params.filter).forEach(([key, value]) => {
           if (value !== undefined) {
-            if (key === 'id' && Array.isArray(value)) {
-              // Multiple IDs: filter[id][]=val1&filter[id][]=val2
-              value.forEach(id => {
-                queryParams.append('filter[id][]', id);
+            if ((key === 'id' || key === 'slug') && Array.isArray(value)) {
+              // Multiple values: filter[key][]=val1&filter[key][]=val2
+              value.forEach(val => {
+                queryParams.append(`filter[${key}][]`, val);
               });
             } else if (key === 'root' && typeof value === 'boolean') {
               // Boolean: filter[root]=true

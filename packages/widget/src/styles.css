@@ -465,18 +465,6 @@
     color: var(--color-on-success);
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .sr-button-success:hover:not(:disabled) {
-      background: var(--sr-button-success-bg-hover);
-      opacity: 0.9;
-    }
-  }
-
-  .sr-button-success:active:not(:disabled) {
-    background: var(--sr-button-success-bg-hover);
-    opacity: 0.9;
-  }
-
 
   /* Button Content */
   .sr-button-content {

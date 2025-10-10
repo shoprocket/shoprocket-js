@@ -724,6 +724,9 @@ export class ProductCatalog extends ShoprocketElement {
       }
     }
 
+    // Wait for element to be fully defined before rendering
+    await customElements.whenDefined('shoprocket-product');
+
     // Calculate which page this product is on
     const pageSize = this.limit || 12;
     const targetPage = Math.floor(this.currentProductIndex / pageSize) + 1;
@@ -758,6 +761,9 @@ export class ProductCatalog extends ShoprocketElement {
         }
       }
     }
+
+    // Wait for element to be fully defined before rendering
+    await customElements.whenDefined('shoprocket-product');
 
     // Only update if not already set (to avoid triggering re-renders)
     if (this.currentProductSlug !== productSlug) {
