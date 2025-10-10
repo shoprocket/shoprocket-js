@@ -2,8 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Product } from '../types/api';
-import { ProductListTemplates } from './product-list';
-import { WIDGET_EVENTS, TIMEOUTS } from '../constants';
+import { TIMEOUTS } from '../constants';
 
 // Import Category type from core
 import type { Category } from '@shoprocket/core';
@@ -57,20 +56,13 @@ export class CategoriesWidget extends ShoprocketElement {
   // State
   @state() private currentView: 'categories' | 'products' | 'product-detail' = 'categories';
   @state() private currentCategories: Category[] = [];
-  @state() private currentProducts: Product[] = [];
   @state() private currentProduct?: Product;
   @state() private navigationStack: NavigationItem[] = [{ type: 'root' }];
   @state() private loading = false;
-  @state() private loadingProducts = false;
   @state() private loadingProduct = false;
-  @state() private addedToCartProducts = new Set<string>();
 
   override connectedCallback(): void {
     super.connectedCallback();
-
-    // Listen for product added events to show success state
-    this.handleProductAdded = this.handleProductAdded.bind(this);
-    window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
 
     // Always enable routing - namespace filtering prevents conflicts
     window.addEventListener('hashchange', this.handleHashChange);
@@ -81,7 +73,6 @@ export class CategoriesWidget extends ShoprocketElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     window.removeEventListener('hashchange', this.handleHashChange);
   }
 
@@ -100,23 +91,6 @@ export class CategoriesWidget extends ShoprocketElement {
     }
     // Note: We also ignore empty hash - the widget should maintain its current state
     // rather than resetting when user navigates elsewhere on the page
-  };
-
-  /**
-   * Handle product added to cart event
-   */
-  private handleProductAdded = (event: CustomEvent) => {
-    const { product } = event.detail;
-    if (product && product.id) {
-      this.addedToCartProducts.add(product.id);
-      this.requestUpdate();
-
-      // Clear success state after timeout
-      setTimeout(() => {
-        this.addedToCartProducts.delete(product.id);
-        this.requestUpdate();
-      }, TIMEOUTS.SUCCESS_MESSAGE);
-    }
   };
 
   /**
@@ -223,10 +197,9 @@ export class CategoriesWidget extends ShoprocketElement {
         this.currentCategories = category.children || [];
         this.currentView = 'categories';
       } else {
-        // Leaf category - load products
+        // Leaf category - show products (catalog component will load them)
         this.currentCategories = [];
         this.currentView = 'products';
-        await this.loadCategoryProducts(category.id);
       }
     } catch (error) {
       console.error('Failed to load category:', error);
@@ -337,118 +310,13 @@ export class CategoriesWidget extends ShoprocketElement {
   }
 
   /**
-   * Load products for a category
-   */
-  private async loadCategoryProducts(categoryId: string) {
-    this.loadingProducts = true;
-
-    try {
-      const response = await this.sdk.products.list({
-        per_page: this.limit,
-        category: categoryId,
-      });
-
-      this.currentProducts = response.data || [];
-    } catch (error) {
-      console.error('Failed to load products:', error);
-      this.showError('Failed to load products');
-    } finally {
-      this.loadingProducts = false;
-    }
-  }
-
-  /**
-   * Handle product click - navigate to product detail
-   */
-  private handleProductClick = (product: Product) => {
-    // Dispatch event for external handling
-    this.dispatchEvent(new CustomEvent('product-click', {
-      detail: { product },
-      bubbles: true,
-      composed: true,
-    }));
-
-    // Get current category from navigation stack
-    const currentCategory = this.getCurrentCategory();
-    if (!currentCategory) {
-      console.error('Cannot navigate to product: no current category');
-      return;
-    }
-
-    // Navigate to product using category-scoped hash
-    // Format: #!/categories/{cat-id}/product/{product-slug}
-    const categoryIdentifier = currentCategory.slug || currentCategory.id;
-    const productIdentifier = product.slug || product.id;
-    window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
-  };
-
-  /**
-   * Handle add to cart
-   */
-  private handleAddToCart = async (product: Product) => {
-    // If product needs options, navigate to product page
-    if (!product.quick_add_eligible || !product.default_variant_id) {
-      this.handleProductClick(product);
-      return;
-    }
-
-    // Prepare cart item data for optimistic update
-    const cartItemData = {
-      product_id: product.id,
-      product_name: product.name,
-      variant_id: product.default_variant_id,
-      variant_name: undefined, // No variant text for default variant
-      quantity: 1,
-      price: product.price, // Already in correct format from API
-      media: product.media?.[0] ? [product.media[0]] : undefined,
-      source_url: window.location.href
-    };
-
-    // Include stock info for validation
-    const stockInfo = {
-      track_inventory: product.track_inventory ?? true, // Default to true if not specified
-      available_quantity: product.inventory_count ?? 0
-    };
-
-    // Dispatch event to cart component - it will handle everything including optimistic updates
-    window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
-      detail: { item: cartItemData, stockInfo }
-    }));
-  };
-
-  /**
    * Handle category click
    */
   private async handleCategoryClick(category: Category) {
-    if (this.hasChildren(category)) {
-      // Has subcategories - navigate into them
-      this.navigationStack.push({
-        type: 'category',
-        category: category,
-      });
-
-      this.currentCategories = category.children || [];
-
-      // Update URL (prefer slug, fallback to ID)
-      const identifier = category.slug || category.id;
-      window.location.hash = `#!/categories/${identifier}`;
-    } else {
-      // Leaf category - show products
-      this.navigationStack.push({
-        type: 'category',
-        category: category,
-      });
-
-      this.currentView = 'products';
-      this.currentCategories = [];
-
-      // Update URL (prefer slug, fallback to ID)
-      const identifier = category.slug || category.id;
-      window.location.hash = `#!/categories/${identifier}`;
-
-      // Load products for this category
-      await this.loadCategoryProducts(category.id);
-    }
+    // Just update the URL - the hash change handler will do the rest
+    // (load category data, update navigation stack, load products if needed)
+    const identifier = category.slug || category.id;
+    window.location.hash = `#!/categories/${identifier}`;
   }
 
   /**
@@ -582,28 +450,46 @@ export class CategoriesWidget extends ShoprocketElement {
   }
 
   /**
-   * Render products grid
+   * Handle product click from embedded catalog
+   */
+  private handleCatalogProductClick = (event: CustomEvent) => {
+    const { product } = event.detail;
+    const currentCategory = this.getCurrentCategory();
+
+    if (!currentCategory) {
+      console.error('Cannot navigate to product: no current category');
+      return;
+    }
+
+    // Navigate to product using category-scoped hash
+    const categoryIdentifier = currentCategory.slug || currentCategory.id;
+    const productIdentifier = product.slug || product.id;
+    window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
+  };
+
+  /**
+   * Render products grid using catalog component in Light DOM mode
    */
   private renderProducts(): TemplateResult {
+    const currentCategory = this.getCurrentCategory();
+
+    if (!currentCategory) {
+      return html`
+        <div class="sr-empty-state">
+          <p>No category selected</p>
+        </div>
+      `;
+    }
+
     return html`
-      <div class="sr-category-products">
-        ${ProductListTemplates.renderProductList(
-          this.currentProducts,
-          this.loadingProducts,
-          this.limit,
-          this.errorMessage,
-          null, // successMessage
-          this.addedToCartProducts,
-          {
-            handleProductClick: this.handleProductClick,
-            handleAddToCart: this.handleAddToCart,
-            formatPrice: this.formatPrice,
-            getMediaUrl: this.getMediaUrl,
-            handleImageError: this.handleImageError,
-            isLoadingItem: () => false, // Cart handles loading state
-          }
-        )}
-      </div>
+      <shoprocket-catalog
+        .sdk="${this.sdk}"
+        data-category="${currentCategory.id}"
+        data-limit="${this.limit}"
+        data-routable="false"
+        data-use-light-dom="true"
+        @product-click="${this.handleCatalogProductClick}"
+      ></shoprocket-catalog>
     `;
   }
 
