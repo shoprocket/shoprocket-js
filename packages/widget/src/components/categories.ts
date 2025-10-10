@@ -1,9 +1,12 @@
 import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
-import type { Category } from '@shoprocket/core';
 import type { Product } from '../types/api';
 import { ProductListTemplates } from './product-list';
+import { WIDGET_EVENTS, TIMEOUTS } from '../constants';
+
+// Import Category type from core
+import type { Category } from '@shoprocket/core';
 
 interface NavigationItem {
   type: 'root' | 'category';
@@ -17,13 +20,11 @@ interface NavigationItem {
  * @fires category-click - When a category is clicked
  *
  * @attr {string} [data-categories] - Comma-separated category IDs/slugs to display
- * @attr {string} [data-parent] - Parent category ID/slug to start from
  * @attr {number} [data-columns=3] - Number of columns in grid
  * @attr {boolean} [data-show-images=true] - Show category images
  * @attr {boolean} [data-show-counts=true] - Show product counts
  * @attr {boolean} [data-show-description=true] - Show category descriptions
  * @attr {number} [data-limit=12] - Products per page when showing products
- * @attr {boolean} [data-routable=false] - Enable URL routing
  *
  * @example
  * <!-- Show all root categories -->
@@ -38,74 +39,127 @@ interface NavigationItem {
 export class CategoriesWidget extends ShoprocketElement {
   // Configuration
   @property({ type: String, attribute: 'data-categories' }) categories?: string;
-  @property({ type: String, attribute: 'data-parent' }) parent?: string;
   @property({ type: Number, attribute: 'data-columns' }) columns = 3;
-  @property({ type: Boolean, attribute: 'data-show-images' }) showImages = true;
-  @property({ type: Boolean, attribute: 'data-show-counts' }) showCounts = true;
-  @property({ type: Boolean, attribute: 'data-show-description' }) showDescription = true;
+  @property({
+    attribute: 'data-show-images',
+    converter: (value) => value !== 'false'
+  }) showImages = true;
+  @property({
+    attribute: 'data-show-counts',
+    converter: (value) => value !== 'false'
+  }) showCounts = true;
+  @property({
+    attribute: 'data-show-description',
+    converter: (value) => value !== 'false'
+  }) showDescription = true;
   @property({ type: Number, attribute: 'data-limit' }) limit = 12;
-  @property({ type: Boolean, attribute: 'data-routable' }) routable = false;
 
   // State
-  @state() private currentView: 'categories' | 'products' = 'categories';
+  @state() private currentView: 'categories' | 'products' | 'product-detail' = 'categories';
   @state() private currentCategories: Category[] = [];
   @state() private currentProducts: Product[] = [];
+  @state() private currentProduct?: Product;
   @state() private navigationStack: NavigationItem[] = [{ type: 'root' }];
   @state() private loading = false;
   @state() private loadingProducts = false;
+  @state() private loadingProduct = false;
   @state() private addedToCartProducts = new Set<string>();
-  @state() private loadingItems = new Map<string, boolean>();
 
   override connectedCallback(): void {
     super.connectedCallback();
 
-    // Initialize router if routable
-    if (this.routable) {
-      // Listen for hash changes
-      window.addEventListener('hashchange', this.handleHashChange);
+    // Listen for product added events to show success state
+    this.handleProductAdded = this.handleProductAdded.bind(this);
+    window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
 
-      // Sync with current URL on mount
-      this.syncWithUrl();
-    } else {
-      // No routing - just load initial data
-      this.loadInitialCategories();
-    }
+    // Always enable routing - namespace filtering prevents conflicts
+    window.addEventListener('hashchange', this.handleHashChange);
+
+    // Sync with current URL on mount
+    this.syncWithUrl();
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this.routable) {
-      window.removeEventListener('hashchange', this.handleHashChange);
-    }
+    window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
+    window.removeEventListener('hashchange', this.handleHashChange);
   }
 
   /**
    * Handle URL hash changes
    */
   private handleHashChange = () => {
-    this.syncWithUrl();
+    // Only sync if the hash is relevant to categories
+    // This prevents conflicts with other widgets (like catalog) on the same page
+    const hash = window.location.hash;
+
+    // Only handle hashes that start with #!/categories/
+    // Ignore everything else - it's for another widget (catalog, payment, etc.)
+    if (hash.startsWith('#!/categories/')) {
+      this.syncWithUrl();
+    }
+    // Note: We also ignore empty hash - the widget should maintain its current state
+    // rather than resetting when user navigates elsewhere on the page
   };
 
   /**
-   * Parse category ID from hash
-   * Format: #!/categories/cat_123
+   * Handle product added to cart event
    */
-  private getCategoryFromHash(): string | null {
+  private handleProductAdded = (event: CustomEvent) => {
+    const { product } = event.detail;
+    if (product && product.id) {
+      this.addedToCartProducts.add(product.id);
+      this.requestUpdate();
+
+      // Clear success state after timeout
+      setTimeout(() => {
+        this.addedToCartProducts.delete(product.id);
+        this.requestUpdate();
+      }, TIMEOUTS.SUCCESS_MESSAGE);
+    }
+  };
+
+  /**
+   * Parse route from hash
+   * Formats:
+   * - #!/categories/cat_123
+   * - #!/categories/cat_123/product/prod_slug
+   */
+  private parseRouteFromHash(): { categoryId: string | null; productSlug: string | null } {
     const hash = window.location.hash;
 
-    // Check if hash matches #!/categories/{id}
-    const match = hash.match(/^#!\/categories\/([^/]+)/);
-    return match ? match[1] : null;
+    // Check for product within category: #!/categories/{cat}/product/{slug}
+    const productMatch = hash.match(/^#!\/categories\/([^/]+)\/product\/([^/]+)/);
+    if (productMatch) {
+      return {
+        categoryId: productMatch[1] || null,
+        productSlug: productMatch[2] || null
+      };
+    }
+
+    // Check for category only: #!/categories/{id}
+    const categoryMatch = hash.match(/^#!\/categories\/([^/]+)/);
+    if (categoryMatch) {
+      return {
+        categoryId: categoryMatch[1] || null,
+        productSlug: null
+      };
+    }
+
+    return { categoryId: null, productSlug: null };
   }
 
   /**
    * Sync widget state with current URL
    */
   private async syncWithUrl() {
-    const categoryId = this.getCategoryFromHash();
+    const { categoryId, productSlug } = this.parseRouteFromHash();
 
-    if (categoryId) {
-      // URL has category - load it
+    if (productSlug && categoryId) {
+      // URL has category + product - load both
+      await this.loadCategoryAndProduct(categoryId, productSlug);
+    } else if (categoryId) {
+      // URL has category only - load it
       await this.loadCategory(categoryId);
     } else {
       // No category in URL - load initial categories
@@ -123,16 +177,10 @@ export class CategoriesWidget extends ShoprocketElement {
       let response;
 
       if (this.categories) {
-        // Load specific categories
-        const categoryIds = this.categories.split(',').map(c => c.trim());
+        // Load specific categories by slug (API supports filtering)
+        const slugs = this.categories.split(',').map(c => c.trim());
         response = await this.sdk.categories.list({
-          filter: { id: categoryIds },
-          include: 'children',
-        });
-      } else if (this.parent) {
-        // Load children of parent category
-        response = await this.sdk.categories.list({
-          filter: { parent_id: this.parent },
+          filter: { slug: slugs },
           include: 'children',
         });
       } else {
@@ -215,6 +263,80 @@ export class CategoriesWidget extends ShoprocketElement {
   }
 
   /**
+   * Load category and specific product within it
+   */
+  private async loadCategoryAndProduct(categoryId: string, productSlug: string) {
+    // Check if we're already viewing this category - if so, just load the product
+    const currentCategory = this.getCurrentCategory();
+
+    // Match by either ID or slug
+    if (currentCategory && (currentCategory.id === categoryId || currentCategory.slug === categoryId)) {
+      // Already in this category, just load/switch to the product
+      await this.loadProduct(productSlug);
+      return;
+    }
+
+    // Different category - need to load it first
+    this.loading = true;
+
+    try {
+      // Load the category first to build navigation stack
+      const response = await this.sdk.categories.get(categoryId, {
+        include: 'children,parent',
+      });
+
+      const category = response.data;
+
+      // Build navigation stack from parent data
+      this.buildNavigationStack(category);
+
+      // Now load the specific product
+      await this.loadProduct(productSlug);
+    } catch (error) {
+      console.error('Failed to load category and product:', error);
+      this.showError('Failed to load content');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  /**
+   * Load a specific product
+   */
+  private async loadProduct(productSlug: string) {
+    this.loadingProduct = true;
+
+    try {
+      // Lazy load product-detail component if not already loaded
+      // Note: We use 'shoprocket-product' (not 'shoprocket-product-detail') to match
+      // the name used by catalog and product-view components
+      if (!customElements.get('shoprocket-product')) {
+        try {
+          const { ProductDetail } = await import('./product-detail');
+          customElements.define('shoprocket-product', ProductDetail);
+        } catch (err) {
+          // Ignore if element was already defined by another component (race condition)
+          if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+            throw err;
+          }
+        }
+      }
+
+      // Wait for element to be fully defined before setting properties
+      await customElements.whenDefined('shoprocket-product');
+
+      const product = await this.sdk.products.get(productSlug);
+      this.currentProduct = product;
+      this.currentView = 'product-detail';
+    } catch (error) {
+      console.error('[Categories] Failed to load product:', error);
+      this.showError('Product not found');
+    } finally {
+      this.loadingProduct = false;
+    }
+  }
+
+  /**
    * Load products for a category
    */
   private async loadCategoryProducts(categoryId: string) {
@@ -246,70 +368,52 @@ export class CategoriesWidget extends ShoprocketElement {
       composed: true,
     }));
 
-    // Don't change hash - let other widgets (like catalog) handle product display
-    // This keeps the category URL in place
+    // Get current category from navigation stack
+    const currentCategory = this.getCurrentCategory();
+    if (!currentCategory) {
+      console.error('Cannot navigate to product: no current category');
+      return;
+    }
+
+    // Navigate to product using category-scoped hash
+    // Format: #!/categories/{cat-id}/product/{product-slug}
+    const categoryIdentifier = currentCategory.slug || currentCategory.id;
+    const productIdentifier = product.slug || product.id;
+    window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
   };
 
   /**
    * Handle add to cart
    */
   private handleAddToCart = async (product: Product) => {
-    const loadingKey = product.quick_add_eligible === false
-      ? `viewProduct-${product.id}`
-      : `addToCart-${product.id}`;
-
     // If product needs options, navigate to product page
-    if (product.quick_add_eligible === false) {
+    if (!product.quick_add_eligible || !product.default_variant_id) {
       this.handleProductClick(product);
       return;
     }
 
-    // Safety check for SDK
-    if (!this.sdk || !this.sdk.cart) {
-      console.error('SDK not initialized');
-      this.showError('Unable to add to cart - widget not initialized');
-      return;
-    }
+    // Prepare cart item data for optimistic update
+    const cartItemData = {
+      product_id: product.id,
+      product_name: product.name,
+      variant_id: product.default_variant_id,
+      variant_name: undefined, // No variant text for default variant
+      quantity: 1,
+      price: product.price, // Already in correct format from API
+      media: product.media?.[0] ? [product.media[0]] : undefined,
+      source_url: window.location.href
+    };
 
-    this.loadingItems.set(loadingKey, true);
-    this.requestUpdate();
+    // Include stock info for validation
+    const stockInfo = {
+      track_inventory: product.track_inventory ?? true, // Default to true if not specified
+      available_quantity: product.inventory_count ?? 0
+    };
 
-    try {
-      await this.sdk.cart.addItem({
-        product_id: product.id,
-        variant_id: product.default_variant_id,
-        quantity: 1,
-      });
-
-      // Show success state
-      this.addedToCartProducts.add(product.id);
-      this.requestUpdate();
-
-      // Dispatch cart update event
-      this.dispatchEvent(new CustomEvent('cart-updated', {
-        bubbles: true,
-        composed: true,
-      }));
-
-      // Reset after 2 seconds
-      setTimeout(() => {
-        this.addedToCartProducts.delete(product.id);
-        this.requestUpdate();
-      }, 2000);
-    } catch (error) {
-      console.error('Failed to add to cart:', error);
-      this.showError('Failed to add to cart');
-    } finally {
-      this.loadingItems.set(loadingKey, false);
-      this.requestUpdate();
-    }
-  };
-
-  /**
-   * Check if an item is loading
-   */
-  private isLoadingItem = (key: string): boolean => {
-    return this.loadingItems.get(key) || false;
+    // Dispatch event to cart component - it will handle everything including optimistic updates
+    window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
+      detail: { item: cartItemData, stockInfo }
+    }));
   };
 
   /**
@@ -325,11 +429,9 @@ export class CategoriesWidget extends ShoprocketElement {
 
       this.currentCategories = category.children || [];
 
-      // Update URL if routable (prefer slug, fallback to ID)
-      if (this.routable) {
-        const identifier = category.slug || category.id;
-        window.location.hash = `#!/categories/${identifier}`;
-      }
+      // Update URL (prefer slug, fallback to ID)
+      const identifier = category.slug || category.id;
+      window.location.hash = `#!/categories/${identifier}`;
     } else {
       // Leaf category - show products
       this.navigationStack.push({
@@ -340,11 +442,9 @@ export class CategoriesWidget extends ShoprocketElement {
       this.currentView = 'products';
       this.currentCategories = [];
 
-      // Update URL if routable (prefer slug, fallback to ID)
-      if (this.routable) {
-        const identifier = category.slug || category.id;
-        window.location.hash = `#!/categories/${identifier}`;
-      }
+      // Update URL (prefer slug, fallback to ID)
+      const identifier = category.slug || category.id;
+      window.location.hash = `#!/categories/${identifier}`;
 
       // Load products for this category
       await this.loadCategoryProducts(category.id);
@@ -355,23 +455,32 @@ export class CategoriesWidget extends ShoprocketElement {
    * Handle back button click
    */
   private handleBack() {
+    // If viewing product detail, go back to category products
+    if (this.currentView === 'product-detail') {
+      const currentCategory = this.getCurrentCategory();
+      if (currentCategory) {
+        const identifier = currentCategory.slug || currentCategory.id;
+        window.location.hash = `#!/categories/${identifier}`;
+      }
+      return;
+    }
+
+    // Otherwise, handle normal category navigation
     if (this.navigationStack.length <= 1) return;
 
     this.navigationStack.pop();
     const previous = this.navigationStack[this.navigationStack.length - 1];
 
+    if (!previous) return;
+
     if (previous.type === 'root') {
       // Back to root - clear URL and reload initial categories
-      if (this.routable) {
-        window.location.hash = '';
-      }
+      window.location.hash = '';
       this.loadInitialCategories();
     } else if (previous.category) {
       // Back to parent category
-      if (this.routable) {
-        const identifier = previous.category.slug || previous.category.id;
-        window.location.hash = `#!/categories/${identifier}`;
-      }
+      const identifier = previous.category.slug || previous.category.id;
+      window.location.hash = `#!/categories/${identifier}`;
       this.currentCategories = previous.category.children || [];
       this.currentView = 'categories';
     }
@@ -382,17 +491,29 @@ export class CategoriesWidget extends ShoprocketElement {
    */
   private getCurrentCategory(): Category | null {
     const current = this.navigationStack[this.navigationStack.length - 1];
-    return current.type === 'category' && current.category ? current.category : null;
+    return current && current.type === 'category' && current.category ? current.category : null;
   }
 
   /**
    * Render back button
    */
   private renderBackButton(): TemplateResult {
-    if (this.navigationStack.length <= 1) return html``;
+    // Show back button if viewing product or if not at root
+    if (this.currentView !== 'product-detail' && this.navigationStack.length <= 1) {
+      return html``;
+    }
 
-    const previous = this.navigationStack[this.navigationStack.length - 2];
-    const label = previous.type === 'root' ? 'All Categories' : previous.category?.name || 'Back';
+    let label: string;
+
+    if (this.currentView === 'product-detail') {
+      // Back from product to category products
+      const currentCategory = this.getCurrentCategory();
+      label = currentCategory?.name || 'Products';
+    } else {
+      // Back from category to parent
+      const previous = this.navigationStack[this.navigationStack.length - 2];
+      label = previous && previous.type === 'root' ? 'All Categories' : previous?.category?.name || 'Back';
+    }
 
     return html`
       <button
@@ -479,10 +600,35 @@ export class CategoriesWidget extends ShoprocketElement {
             formatPrice: this.formatPrice,
             getMediaUrl: this.getMediaUrl,
             handleImageError: this.handleImageError,
-            isLoadingItem: this.isLoadingItem,
+            isLoadingItem: () => false, // Cart handles loading state
           }
         )}
       </div>
+    `;
+  }
+
+  /**
+   * Render product detail view
+   */
+  private renderProductDetail(): TemplateResult {
+    if (this.loadingProduct) {
+      return html`<div class="sr-loading-spinner"></div>`;
+    }
+
+    if (!this.currentProduct) {
+      return html`
+        <div class="sr-empty-state">
+          <p>Product not found</p>
+        </div>
+      `;
+    }
+
+    return html`
+      <shoprocket-product
+        .sdk="${this.sdk}"
+        .product="${this.currentProduct}"
+        data-hide="navigation"
+      ></shoprocket-product>
     `;
   }
 
@@ -515,7 +661,7 @@ export class CategoriesWidget extends ShoprocketElement {
               ${this.currentCategories.map(cat => this.renderCategoryCard(cat))}
             </div>
           ` : this.renderEmptyState()}
-        ` : this.renderProducts()}
+        ` : this.currentView === 'product-detail' ? this.renderProductDetail() : this.renderProducts()}
       </div>
     `;
   }
