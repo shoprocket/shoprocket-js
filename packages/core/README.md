@@ -133,10 +133,20 @@ npm run build
 npm run build  # Should build without TypeScript errors
 ```
 
+**⚠️ IMPORTANT: Use `npm run build` to verify types, NOT `npx tsc --noEmit`**
+
+The standalone TypeScript CLI (`npx tsc --noEmit`) has caching issues and will show false positives about missing exports even when the types are correct. Always use `npm run build` (Vite) to verify - if Vite builds successfully, the types are working correctly.
+
+**Why this happens:**
+- Vite uses its own TypeScript integration with proper module resolution
+- The standalone `tsc` command can cache stale module information
+- The rolled-up `index.d.ts` works fine, but `tsc` may not pick it up immediately
+
 If you see TypeScript errors about missing exports, check that:
 - The export exists in `dist/index.d.ts` at the top level
 - You're using `import type` for interfaces/types (not `import`)
 - The build script hasn't been modified to include `tsc` commands
+- **Most importantly**: Run `npm run build` - if it succeeds, ignore `tsc --noEmit` errors
 
 ## License
 
