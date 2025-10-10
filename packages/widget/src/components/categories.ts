@@ -484,7 +484,7 @@ export class CategoriesWidget extends ShoprocketElement {
     return html`
       <shoprocket-catalog
         .sdk="${this.sdk}"
-        data-category="${currentCategory.id}"
+        data-categories="${currentCategory.slug}"
         data-limit="${this.limit}"
         data-routable="false"
         data-use-light-dom="true"
