@@ -57,14 +57,14 @@ export interface ViewItemListData {
 }
 
 // All possible analytics events
-export type AnalyticsEvent = 
+export type AnalyticsEvent =
+  | { name: 'page_view'; data: any }
   | { name: 'product_viewed'; data: ProductViewData }
   | { name: 'add_to_cart'; data: AddToCartData }
   | { name: 'remove_from_cart'; data: RemoveFromCartData }
   | { name: 'begin_checkout'; data: BeginCheckoutData }
   | { name: 'purchase'; data: PurchaseData }
   | { name: 'view_item_list'; data: ViewItemListData }
-  | { name: 'widget_loaded'; data: any }
   | { name: 'cart_opened'; data: any }
   | { name: 'cart_closed'; data: any }
   | { name: 'search_performed'; data: { query: string; results_count: number } };

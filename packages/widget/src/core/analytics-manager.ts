@@ -11,6 +11,7 @@ import { AnalyticsSanitizer } from '../utils/analytics-sanitizer';
 
 // Event names
 export const EVENTS = {
+  PAGE_VIEW: 'page_view',
   VIEW_ITEM_LIST: 'view_item_list',
   VIEW_ITEM: 'view_item',
   SELECT_ITEM: 'select_item',
@@ -140,6 +141,7 @@ export class AnalyticsManager {
       url: location.href,
       page_title: document.title,
       page_path: window.location.pathname,
+      hostname: location.hostname,
       ...attribution // Include UTM params, referrer, device info
     };
     
