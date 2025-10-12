@@ -138,6 +138,8 @@ export class AnalyticsManager {
       store_mode: store?.store_mode || null, // Store mode (test/live)
       cart_token: cartToken,
       url: location.href,
+      page_title: document.title,
+      page_path: window.location.pathname,
       ...attribution // Include UTM params, referrer, device info
     };
     
