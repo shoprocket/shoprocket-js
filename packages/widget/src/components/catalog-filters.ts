@@ -67,18 +67,19 @@ export class CatalogFilters extends ShoprocketElement {
       <div class="sr-catalog-filters ${isHorizontal ? 'sr-filters-horizontal' : 'sr-filters-sidebar'}">
         <!-- Search -->
         <div class="sr-filter-group sr-filter-search">
-          <div class="sr-search-input-wrapper">
-            <svg class="sr-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          <div class="sr-field-group-with-icon">
             <input
               type="text"
               id="search"
-              class="sr-filter-input sr-search-input"
-              placeholder="Search products..."
+              class="sr-field-input sr-field-input-with-icon peer sr-search-input"
+              placeholder=" "
               .value="${this.search}"
               @input="${this.handleSearchInput}"
             />
+            <svg class="sr-field-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <label class="sr-field-label" for="search">Search</label>
             ${this.search ? html`
               <button
                 type="button"
@@ -96,38 +97,44 @@ export class CatalogFilters extends ShoprocketElement {
 
         <!-- Sort -->
         <div class="sr-filter-group sr-filter-sort">
-          <select
-            id="sort"
-            class="sr-filter-select"
-            .value="${this.sort}"
-            @change="${this.handleSortChange}"
-          >
-            <option value="">Sort by</option>
-            <option value="name_asc">Name (A-Z)</option>
-            <option value="name_desc">Name (Z-A)</option>
-            <option value="price_asc">Price (Low to High)</option>
-            <option value="price_desc">Price (High to Low)</option>
-            <option value="created_at_desc">Newest First</option>
-            <option value="created_at_asc">Oldest First</option>
-          </select>
+          <div class="sr-field-group">
+            <select
+              id="sort"
+              class="sr-field-select peer has-value"
+              .value="${this.sort}"
+              @change="${this.handleSortChange}"
+            >
+              <option value="">Featured</option>
+              <option value="name_asc">Name (A-Z)</option>
+              <option value="name_desc">Name (Z-A)</option>
+              <option value="price_asc">Price (Low to High)</option>
+              <option value="price_desc">Price (High to Low)</option>
+              <option value="created_at_desc">Newest First</option>
+              <option value="created_at_asc">Oldest First</option>
+            </select>
+            <label class="sr-field-label" for="sort">Sort</label>
+          </div>
         </div>
 
         <!-- Category Filter (only show if we have categories) -->
         ${this.categories && this.categories.length > 0 ? html`
           <div class="sr-filter-group sr-filter-category">
-            <select
-              id="category"
-              class="sr-filter-select"
-              .value="${this.category}"
-              @change="${this.handleCategoryChange}"
-            >
-              <option value="">All</option>
-              ${this.categories.map(cat => html`
-                <option value="${cat.slug}" ?selected="${cat.slug === this.category}">
-                  ${cat.name}
-                </option>
-              `)}
-            </select>
+            <div class="sr-field-group">
+              <select
+                id="category"
+                class="sr-field-select peer has-value"
+                .value="${this.category}"
+                @change="${this.handleCategoryChange}"
+              >
+                <option value="">All</option>
+                ${this.categories.map(cat => html`
+                  <option value="${cat.slug}" ?selected="${cat.slug === this.category}">
+                    ${cat.name}
+                  </option>
+                `)}
+              </select>
+              <label class="sr-field-label" for="category">Category</label>
+            </div>
           </div>
         ` : ''}
 
