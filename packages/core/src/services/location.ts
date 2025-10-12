@@ -5,6 +5,7 @@ export interface Country {
   name: string;
   phone_code?: string;
   currency?: string;
+  requires_state?: boolean;
 }
 
 export interface State {

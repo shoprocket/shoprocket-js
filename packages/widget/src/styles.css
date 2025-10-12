@@ -1920,67 +1920,69 @@
   display: none;
 }
 
-/* Catalog Filters - Clean minimal style */
+/* Catalog Filters - Uses field system with floating labels */
 .sr-catalog-filters {
   @apply mb-6;
 }
 
 .sr-filters-horizontal {
-  @apply flex items-center gap-3;
+  @apply flex flex-col gap-3;
+  /* Stack vertically on mobile, horizontal on larger screens */
+  @media (min-width: 768px) {
+    @apply flex-row items-center;
+  }
 }
 
 .sr-filters-sidebar {
   @apply flex flex-col gap-4 mb-6;
 }
 
+/* Filter container sizing */
 .sr-filter-group {
-  @apply flex;
-}
-
-.sr-filter-input,
-.sr-filter-select {
-  @apply px-3 py-2 text-sm rounded-md;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  min-height: 40px;
-}
-
-.sr-filter-input:focus,
-.sr-filter-select:focus {
-  @apply outline-none;
-  border-color: var(--color-primary);
-}
-
-.sr-filter-select {
-  @apply cursor-pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1rem;
-  padding-right: 2.5rem;
+  @apply flex w-full;
+  /* Fixed width on desktop */
+  @media (min-width: 768px) {
+    @apply w-auto;
+  }
 }
 
 .sr-filter-search {
-  @apply flex-1 min-w-0;
+  @apply w-full; /* Full width on mobile */
+  /* Fixed width on desktop */
+  @media (min-width: 768px) {
+    @apply w-64;
+  }
 }
 
-.sr-search-input-wrapper {
-  @apply relative w-full;
+.sr-filter-sort,
+.sr-filter-category {
+  @apply w-full; /* Full width on mobile */
+  /* Auto width on desktop */
+  @media (min-width: 768px) {
+    @apply w-auto flex-shrink-0;
+  }
 }
 
-.sr-search-input {
-  @apply w-full pr-9 pl-9;
+/* Override field styles for filter toolbar context */
+.sr-catalog-filters .sr-field-input,
+.sr-catalog-filters .sr-field-select {
+  @apply text-sm;
+  min-height: 3rem; /* 48px for better touch targets */
 }
 
-.sr-search-icon {
-  @apply absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none;
-  color: var(--color-text-muted);
+/* Show empty value options in catalog filters (Featured, All, etc.) */
+.sr-catalog-filters .sr-field-select option[value=""] {
+  display: block;
 }
 
+/* Search field needs room for clear button */
+.sr-catalog-filters .sr-search-input {
+  @apply pr-9;
+}
+
+/* Clear button positioning */
 .sr-search-clear {
-  @apply absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 cursor-pointer;
+  @apply absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 cursor-pointer z-10;
   @apply flex items-center justify-center rounded-md;
   @apply transition-opacity hover:opacity-60;
   color: var(--color-text-muted);
@@ -1993,14 +1995,14 @@
   @apply w-4 h-4;
 }
 
-.sr-filter-sort,
-.sr-filter-category {
-  @apply flex-shrink-0;
-}
-
+/* Product count */
 .sr-product-count {
-  @apply text-sm flex-shrink-0 flex items-center ml-auto;
+  @apply text-sm flex-shrink-0 flex items-center;
   color: var(--color-text-muted);
+  /* Push to right on desktop only */
+  @media (min-width: 768px) {
+    @apply ml-auto;
+  }
 }
 
 /* Pagination */

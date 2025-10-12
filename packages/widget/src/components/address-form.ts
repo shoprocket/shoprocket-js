@@ -28,6 +28,7 @@ export interface Country {
   name: string;
   phone_code?: string;
   currency?: string;
+  requires_state?: boolean;
 }
 
 export interface State {
@@ -93,17 +94,26 @@ export class AddressForm extends BaseComponent {
   @state()
   private stateFieldType: 'text' | 'select' | 'hidden' = 'text';
 
+  @state()
+  private currentCountryRequiresState = true; // Default to true for backward compatibility
+
   // Track autofill to handle async state loading
   private pendingStateValue?: string;
 
   override connectedCallback(): void {
     super.connectedCallback();
-    
+
     // Use cached countries immediately if available
     if (cachedCountries.length > 0) {
       this.countries = cachedCountries;
+
+      // Set requires_state flag for current country
+      if (this.address.country) {
+        const selectedCountry = this.countries.find(c => c.code === this.address.country);
+        this.currentCountryRequiresState = selectedCountry?.requires_state !== false;
+      }
     }
-    
+
     // Use cached states immediately if available
     if (this.address.country) {
       if (cachedStates.has(this.address.country)) {
@@ -115,23 +125,29 @@ export class AddressForm extends BaseComponent {
         this.currentCountryCode = '';
       }
     }
-    
+
     // Load data asynchronously after component is rendered
     Promise.resolve().then(() => {
       // Load countries if not cached
       if (cachedCountries.length === 0) {
-        this.loadCountries();
+        this.loadCountries().then(() => {
+          // After loading countries, set requires_state flag
+          if (this.address.country) {
+            const selectedCountry = this.countries.find(c => c.code === this.address.country);
+            this.currentCountryRequiresState = selectedCountry?.requires_state !== false;
+          }
+        });
       }
-      
+
       // Load states if needed and not cached
       if (this.address.country && !cachedStates.has(this.address.country)) {
         this.loadStates(this.address.country);
       }
     });
-    
+
     // Listen for input events to detect autofill
     this.addEventListener('input', this.handleAutofillDetection);
-    
+
   }
 
   override disconnectedCallback(): void {
@@ -244,11 +260,15 @@ export class AddressForm extends BaseComponent {
     };
 
     if (field === 'country' && value && value !== this.currentCountryCode) {
+      // Update requires_state flag based on selected country
+      const selectedCountry = this.countries.find(c => c.code === value);
+      this.currentCountryRequiresState = selectedCountry?.requires_state !== false; // Default to true if undefined
+
       // Store current state value if autofill is happening
       if (isAutofill && this.address.state) {
         this.pendingStateValue = this.address.state;
       }
-      
+
       // Load states asynchronously
       this.loadStates(value).then(() => {
         // If we had a pending state value from autofill, try to set it now
@@ -257,9 +277,9 @@ export class AddressForm extends BaseComponent {
           this.pendingStateValue = undefined;
         }
       });
-      
-      // Only clear state if not autofilling
-      if (!isAutofill) {
+
+      // Clear state if country doesn't require it, or if not autofilling
+      if (!this.currentCountryRequiresState || !isAutofill) {
         updatedAddress.state = '';
       }
     }
@@ -410,9 +430,12 @@ export class AddressForm extends BaseComponent {
   }
 
   private renderLocationFields(): TemplateResult {
+    // Show state field if country requires it
+    const showStateField = this.currentCountryRequiresState;
+
     return html`
       <!-- City and State/Region Row -->
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid ${showStateField ? 'grid-cols-2' : 'grid-cols-1'} gap-3">
         <!-- City -->
         <div class="sr-field-group">
           <input
@@ -434,10 +457,12 @@ export class AddressForm extends BaseComponent {
           ` : ''}
         </div>
 
-        <!-- State/Region -->
-        <div class="sr-field-group">
-          ${this.renderStateSelectField()}
-        </div>
+        <!-- State/Region (only show if country requires it) -->
+        ${showStateField ? html`
+          <div class="sr-field-group">
+            ${this.renderStateSelectField()}
+          </div>
+        ` : ''}
       </div>
 
       <!-- Postal Code and Country Row -->
