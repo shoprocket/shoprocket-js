@@ -1926,10 +1926,10 @@
 }
 
 .sr-filters-horizontal {
-  @apply flex flex-col gap-3;
-  /* Stack vertically on mobile, horizontal on larger screens */
+  @apply flex flex-wrap gap-3;
+  /* Horizontal on larger screens */
   @media (min-width: 768px) {
-    @apply flex-row items-center;
+    @apply flex-nowrap items-center;
   }
 }
 
@@ -1939,28 +1939,37 @@
 
 /* Filter container sizing */
 .sr-filter-group {
-  @apply flex w-full;
-  /* Fixed width on desktop */
-  @media (min-width: 768px) {
-    @apply w-auto;
-  }
+  @apply flex;
 }
 
 .sr-filter-search {
-  @apply w-full; /* Full width on mobile */
+  flex: 1 1 100%; /* Force full width on mobile, push other items to next row */
   /* Fixed width on desktop */
   @media (min-width: 768px) {
+    flex: 0 0 auto;
     @apply w-64;
   }
 }
 
+/* Ensure field group inside search takes full width */
+.sr-filter-search .sr-field-group,
+.sr-filter-search .sr-field-group-with-icon {
+  @apply w-full;
+}
+
 .sr-filter-sort,
 .sr-filter-category {
-  @apply w-full; /* Full width on mobile */
+  @apply flex-1; /* 50% each on mobile (flex-1 in flex-wrap) */
   /* Auto width on desktop */
   @media (min-width: 768px) {
-    @apply w-auto flex-shrink-0;
+    @apply flex-initial w-auto flex-shrink-0;
   }
+}
+
+/* Ensure field groups inside sort/category take full width on mobile */
+.sr-filter-sort .sr-field-group,
+.sr-filter-category .sr-field-group {
+  @apply w-full;
 }
 
 /* Override field styles for filter toolbar context */
@@ -1997,11 +2006,11 @@
 
 /* Product count */
 .sr-product-count {
-  @apply text-sm flex-shrink-0 flex items-center;
+  @apply hidden; /* Hide on mobile */
   color: var(--color-text-muted);
-  /* Push to right on desktop only */
+  /* Show on desktop */
   @media (min-width: 768px) {
-    @apply ml-auto;
+    @apply flex text-sm flex-shrink-0 items-center ml-auto;
   }
 }
 
