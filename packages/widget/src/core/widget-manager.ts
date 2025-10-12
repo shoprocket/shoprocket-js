@@ -2,9 +2,10 @@ import { ShoprocketCore } from '@shoprocket/core';
 import type { BaseComponent } from './base-component';
 import type { LitElement } from 'lit';
 import { CookieManager } from '../utils/cookie-manager';
-import { AnalyticsManager } from './analytics-manager';
+import { AnalyticsManager, EVENTS } from './analytics-manager';
 import { internalState } from './internal-state';
 import { cartState } from './cart-state';
+import { SPATracker } from '../utils/spa-tracker';
 
 export interface WidgetConfig {
   publicKey?: string;
@@ -220,8 +221,14 @@ export class WidgetManager {
         console.warn('Failed to fetch store tracking config:', error);
       }
       
-      // Track widget loaded with actual store ID
-      AnalyticsManager.track('widget_loaded', { store_id: storeId || publicKey });
+      // Track initial page view
+      AnalyticsManager.track(EVENTS.PAGE_VIEW, { store_id: storeId || publicKey });
+
+      // Setup SPA tracking to detect client-side navigation
+      SPATracker.setup(() => {
+        // Fire page_view event on SPA navigation
+        AnalyticsManager.track(EVENTS.PAGE_VIEW, { store_id: storeId || publicKey });
+      });
 
       // Already marked as initialized at the start of init()
 
@@ -230,7 +237,7 @@ export class WidgetManager {
 
       // Auto-render floating cart button unless disabled
       this.autoRenderCart();
-      
+
       // Listen for order completion to regenerate cart token
       this.setupOrderCompletionListener();
     } catch (error) {
