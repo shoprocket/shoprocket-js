@@ -1,5 +1,5 @@
 import { html, type TemplateResult } from 'lit';
-import { property } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Category } from '@shoprocket/core';
 
@@ -33,6 +33,29 @@ export class CatalogFilters extends ShoprocketElement {
   @property({ type: Number, attribute: 'total-products' })
   totalProducts = 0;
 
+  @property({ type: Number, attribute: 'min-price' })
+  minPrice?: number;
+
+  @property({ type: Number, attribute: 'max-price' })
+  maxPrice?: number;
+
+  @property({ type: Number, attribute: 'price-range-min' })
+  priceRangeMin = 0;
+
+  @property({ type: Number, attribute: 'price-range-max' })
+  priceRangeMax = 1000;
+
+  @property({ type: Boolean, attribute: 'in-stock-only' })
+  inStockOnly = false;
+
+  @state()
+  private localMinPrice?: number;
+
+  @state()
+  private localMaxPrice?: number;
+
+  private priceDebounceTimer?: number;
+
   private handleSearchInput(e: InputEvent) {
     const value = (e.target as HTMLInputElement).value;
     this.dispatchFilterChange('search', value);
@@ -52,12 +75,122 @@ export class CatalogFilters extends ShoprocketElement {
     this.dispatchFilterChange('search', '');
   }
 
+  private handleMinPriceChange(e: InputEvent) {
+    const input = e.target as HTMLInputElement;
+    let value = parseFloat(input.value);
+
+    // Ensure min doesn't exceed max
+    const currentMax = this.localMaxPrice ?? this.maxPrice ?? this.priceRangeMax;
+    if (value > currentMax) {
+      value = currentMax;
+      input.value = value.toString();
+    }
+
+    // Update local state immediately for visual feedback
+    this.localMinPrice = value;
+    this.requestUpdate();
+
+    // Debounce the actual filter change
+    this.debouncePriceChange();
+  }
+
+  private handleMaxPriceChange(e: InputEvent) {
+    const input = e.target as HTMLInputElement;
+    let value = parseFloat(input.value);
+
+    // Ensure max doesn't go below min
+    const currentMin = this.localMinPrice ?? this.minPrice ?? this.priceRangeMin;
+    if (value < currentMin) {
+      value = currentMin;
+      input.value = value.toString();
+    }
+
+    // Update local state immediately for visual feedback
+    this.localMaxPrice = value;
+    this.requestUpdate();
+
+    // Debounce the actual filter change
+    this.debouncePriceChange();
+  }
+
+  private debouncePriceChange() {
+    // Clear existing timer
+    if (this.priceDebounceTimer) {
+      window.clearTimeout(this.priceDebounceTimer);
+    }
+
+    // Set new timer - dispatch after 500ms of no changes
+    this.priceDebounceTimer = window.setTimeout(() => {
+      const currentMin = this.localMinPrice ?? this.priceRangeMin;
+      const currentMax = this.localMaxPrice ?? this.priceRangeMax;
+
+      // Dispatch a single event with both min and max price to avoid race conditions
+      const minValue = currentMin > this.priceRangeMin ? currentMin.toString() : '';
+      const maxValue = currentMax < this.priceRangeMax ? currentMax.toString() : '';
+
+      this.dispatchFilterChange('priceRange', JSON.stringify({ min: minValue, max: maxValue }));
+    }, 500);
+  }
+
+  private handleInStockChange(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    this.dispatchFilterChange('inStockOnly', checked ? 'true' : 'false');
+  }
+
   private dispatchFilterChange(filterType: string, value: string) {
     this.dispatchEvent(new CustomEvent('filter-change', {
       detail: { filterType, value },
       bubbles: true,
       composed: true,
     }));
+  }
+
+  private formatPrice(value: number): string {
+    // Simple currency formatting - will use store locale/currency eventually
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  private renderPriceRangeSlider(): TemplateResult {
+    const currentMin = this.localMinPrice ?? this.minPrice ?? this.priceRangeMin;
+    const currentMax = this.localMaxPrice ?? this.maxPrice ?? this.priceRangeMax;
+
+    return html`
+      <div class="sr-field-group">
+        <div class="sr-price-range-field">
+          <div class="sr-price-range-header">
+            <span class="sr-price-range-label">Price Range</span>
+            <span class="sr-price-range-values">
+              ${this.formatPrice(currentMin)} - ${this.formatPrice(currentMax)}
+            </span>
+          </div>
+          <div class="sr-price-range-slider">
+            <input
+              type="range"
+              class="sr-range-min"
+              min="${this.priceRangeMin}"
+              max="${this.priceRangeMax}"
+              step="1"
+              .value="${currentMin.toString()}"
+              @input="${this.handleMinPriceChange}"
+            />
+            <input
+              type="range"
+              class="sr-range-max"
+              min="${this.priceRangeMin}"
+              max="${this.priceRangeMax}"
+              step="1"
+              .value="${currentMax.toString()}"
+              @input="${this.handleMaxPriceChange}"
+            />
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   protected override render(): TemplateResult {
@@ -137,6 +270,24 @@ export class CatalogFilters extends ShoprocketElement {
             </div>
           </div>
         ` : ''}
+
+        <!-- Price Range Slider -->
+        <div class="sr-filter-group sr-filter-price-range">
+          ${this.renderPriceRangeSlider()}
+        </div>
+
+        <!-- In Stock Only Checkbox -->
+        <div class="sr-filter-group sr-filter-stock">
+          <label class="sr-checkbox-label">
+            <input
+              type="checkbox"
+              class="sr-checkbox"
+              .checked="${this.inStockOnly}"
+              @change="${this.handleInStockChange}"
+            />
+            <span class="sr-checkbox-text">In stock</span>
+          </label>
+        </div>
 
         <!-- Product Count -->
         ${this.totalProducts > 0 ? html`

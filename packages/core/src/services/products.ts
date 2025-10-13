@@ -50,6 +50,7 @@ export interface ProductListParams {
   search?: string;
   min_price?: number;
   max_price?: number;
+  in_stock?: boolean;
 }
 
 export class ProductsService {
@@ -94,6 +95,9 @@ export class ProductsService {
           } else if (key === 'max_price') {
             // Price max uses filter[price_max] format (convert to cents)
             queryParams.append('filter[price_max]', (Number(value) * 100).toString());
+          } else if (key === 'in_stock') {
+            // In stock uses filter[in_stock] format
+            queryParams.append('filter[in_stock]', value ? 'true' : 'false');
           } else {
             // Standard params (page, per_page)
             queryParams.append(key, value.toString());
