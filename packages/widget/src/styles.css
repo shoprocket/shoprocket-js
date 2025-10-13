@@ -1977,6 +1977,7 @@
 .sr-catalog-filters .sr-field-select {
   @apply text-sm;
   min-height: 3rem; /* 48px for better touch targets */
+  background-color: var(--color-surface); /* Match product cards and pagination */
 }
 
 /* Show empty value options in catalog filters (Featured, All, etc.) */

@@ -393,6 +393,20 @@ export class CategoriesWidget extends ShoprocketElement {
   }
 
   /**
+   * Add image transformations to category image URL
+   */
+  private getCategoryImageUrl(url: string): string {
+    // Input: https://shoprocketv3.test/media/UUID/filename.webp
+    // Output: https://shoprocketv3.test/media/w=600,h=600,fit=cover/UUID/filename.webp
+    const mediaMatch = url.match(/^(.*\/media\/)(.+)$/);
+    if (mediaMatch) {
+      const [, baseUrl, pathAfterMedia] = mediaMatch;
+      return `${baseUrl}w=600,h=600,fit=cover/${pathAfterMedia}`;
+    }
+    return url;
+  }
+
+  /**
    * Render category card
    */
   private renderCategoryCard(category: Category): TemplateResult {
@@ -403,7 +417,7 @@ export class CategoriesWidget extends ShoprocketElement {
         ${this.showImages && category.image_url ? html`
           <img
             class="sr-category-image"
-            src="${category.image_url}"
+            src="${this.getCategoryImageUrl(category.image_url)}"
             alt="${category.name}"
             loading="lazy">
         ` : ''}
