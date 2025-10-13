@@ -158,6 +158,21 @@ export class ProductCatalog extends ShoprocketElement {
   @state()
   private allCategories: Category[] = [];
 
+  @state()
+  private minPrice?: number;
+
+  @state()
+  private maxPrice?: number;
+
+  @state()
+  private inStockOnly = false;
+
+  @state()
+  private priceRangeMin = 0;
+
+  @state()
+  private priceRangeMax = 500; // Reasonable default for most stores
+
   // Virtual pagination: Store all loaded products by their absolute position
   @state()
   private allProducts: Map<number, Product> = new Map();
@@ -279,7 +294,55 @@ export class ProductCatalog extends ShoprocketElement {
     this.currentPage = 1;
     await this.loadProducts(1);
   }
-  
+
+  /**
+   * Calculate price range from loaded products
+   */
+  private updatePriceRange(): void {
+    if (this.allProducts.size === 0) {
+      this.priceRangeMin = 0;
+      this.priceRangeMax = 100;
+      return;
+    }
+
+    let min = Infinity;
+    let max = 0;
+
+    for (const product of this.allProducts.values()) {
+      // Get price value - API returns prices in cents
+      let priceInCents: number;
+      if (typeof product.price === 'number') {
+        priceInCents = product.price;
+      } else if (product.price && typeof product.price === 'object' && 'amount' in product.price) {
+        // API returns amount in cents (e.g., 9800 = £98.00)
+        priceInCents = product.price.amount;
+      } else {
+        continue; // Skip products without valid price
+      }
+
+      if (priceInCents < min) min = priceInCents;
+      if (priceInCents > max) max = priceInCents;
+    }
+
+    // Convert cents to main currency units (pounds/dollars)
+    const minPrice = min / 100;
+    const maxPrice = max / 100;
+
+    // Round to nice numbers
+    this.priceRangeMin = Math.floor(minPrice);
+
+    // Pad the max by 20% to account for products not yet loaded, with min increment of 50
+    const paddedMax = Math.ceil(maxPrice * 1.2);
+    this.priceRangeMax = Math.max(paddedMax, this.priceRangeMin + 50);
+
+    // Round max to nearest nice number for better UX
+    if (this.priceRangeMax > 100) {
+      this.priceRangeMax = Math.ceil(this.priceRangeMax / 50) * 50; // Round to nearest 50
+    } else if (this.priceRangeMax > 20) {
+      this.priceRangeMax = Math.ceil(this.priceRangeMax / 10) * 10; // Round to nearest 10
+    }
+  }
+
   private async loadProducts(page: number = 1): Promise<void> {
     // Skip if we've already loaded this page
     if (this.loadedPages.has(page)) {
@@ -316,17 +379,26 @@ export class ProductCatalog extends ShoprocketElement {
           category: categoryParam,
           search: this.searchQuery || undefined,
           sort: this.sortBy || undefined,
+          min_price: this.minPrice,
+          max_price: this.maxPrice,
+          in_stock: this.inStockOnly || undefined,
         }) as ApiResponse<Product[]>;
 
         const products = response.data || [];
         const pageSize = this.limit || 12;
-        
+
         // Store products by their absolute position in the full list
         products.forEach((product, index) => {
           const absoluteIndex = (page - 1) * pageSize + index;
           this.allProducts.set(absoluteIndex, product);
         });
-        
+
+        // Only calculate price range on first load to get a reasonable estimate
+        // Don't update it afterward as it would only reflect loaded pages
+        if (page === 1 && this.priceRangeMax === 500) {
+          this.updatePriceRange();
+        }
+
         // Mark this page as loaded
         this.loadedPages.add(page);
         this.currentPage = page;
@@ -339,6 +411,7 @@ export class ProductCatalog extends ShoprocketElement {
             this.totalProducts = meta.total;
           } else if (response.meta?.pagination) {
             this.totalPages = response.meta.pagination.total_pages;
+            this.totalProducts = response.meta.pagination.total || 0;
           }
         }
         
@@ -472,6 +545,11 @@ export class ProductCatalog extends ShoprocketElement {
             .categories="${this.allCategories}"
             .filterPosition="${this.filterPosition}"
             .totalProducts="${this.totalProducts}"
+            .minPrice="${this.minPrice}"
+            .maxPrice="${this.maxPrice}"
+            .priceRangeMin="${this.priceRangeMin}"
+            .priceRangeMax="${this.priceRangeMax}"
+            .inStockOnly="${this.inStockOnly}"
             @filter-change="${this.handleFilterChange}"
           ></shoprocket-catalog-filters>
         ` : ''}
@@ -562,6 +640,22 @@ export class ProductCatalog extends ShoprocketElement {
         break;
       case 'category':
         this.selectedCategory = value;
+        break;
+      case 'priceRange': {
+        // Handle combined price range update (avoids race conditions from separate min/max events)
+        const priceRange = JSON.parse(value);
+        this.minPrice = priceRange.min ? parseFloat(priceRange.min) : undefined;
+        this.maxPrice = priceRange.max ? parseFloat(priceRange.max) : undefined;
+        break;
+      }
+      case 'minPrice':
+        this.minPrice = value ? parseFloat(value) : undefined;
+        break;
+      case 'maxPrice':
+        this.maxPrice = value ? parseFloat(value) : undefined;
+        break;
+      case 'inStockOnly':
+        this.inStockOnly = value === 'true';
         break;
     }
 

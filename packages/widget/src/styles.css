@@ -1928,7 +1928,7 @@
 .sr-filters-horizontal {
   @apply flex flex-wrap gap-3;
   /* Horizontal on larger screens */
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     @apply flex-nowrap items-center;
   }
 }
@@ -1943,9 +1943,9 @@
 }
 
 .sr-filter-search {
-  flex: 1 1 100%; /* Force full width on mobile, push other items to next row */
+  flex: 1 1 100%; /* Force full width on mobile/tablet, push other items to next row */
   /* Fixed width on desktop */
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     flex: 0 0 auto;
     @apply w-64;
   }
@@ -1959,9 +1959,9 @@
 
 .sr-filter-sort,
 .sr-filter-category {
-  @apply flex-1; /* 50% each on mobile (flex-1 in flex-wrap) */
+  @apply flex-1; /* 50% each on mobile/tablet (flex-1 in flex-wrap) */
   /* Auto width on desktop */
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     @apply flex-initial w-auto flex-shrink-0;
   }
 }
@@ -2013,6 +2013,168 @@
   @media (min-width: 768px) {
     @apply flex text-sm flex-shrink-0 items-center ml-auto;
   }
+}
+
+/* Price Range Slider */
+.sr-filter-price-range {
+  flex: 1 1 100%; /* Full width on mobile */
+  min-width: 0; /* Allow shrinking */
+
+  /* Share row with Sort/Category on tablet */
+  @media (min-width: 768px) {
+    @apply flex-1;
+  }
+
+  /* Fixed width on desktop */
+  @media (min-width: 1024px) {
+    @apply flex-initial w-auto flex-shrink-0;
+    flex: 0 0 auto;
+  }
+}
+
+.sr-filter-price-range .sr-field-group {
+  @apply w-full;
+}
+
+/* Price Range Field - matches field-select styling */
+.sr-price-range-field {
+  @apply w-full rounded-md px-4;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  min-height: 3rem; /* Match other filters: 48px */
+  transition: border-color 0.2s ease;
+
+  /* Only apply min-width on desktop */
+  @media (min-width: 1024px) {
+    min-width: 180px;
+  }
+}
+
+.sr-price-range-field:hover {
+  border-color: var(--color-primary);
+}
+
+.sr-price-range-header {
+  @apply flex justify-between items-center;
+}
+
+.sr-price-range-label {
+  @apply text-xs font-normal;
+  color: var(--color-text-muted);
+}
+
+.sr-price-range-values {
+  @apply text-xs font-normal tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.sr-price-range-slider {
+  @apply relative w-full;
+  height: 16px;
+}
+
+/* Background track - always visible */
+.sr-price-range-slider::before {
+  content: '';
+  @apply absolute w-full rounded-full;
+  height: 4px; /* Reduced from 6px */
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--color-border);
+  pointer-events: none;
+}
+
+/* Range inputs - stacked on top of each other */
+.sr-price-range-slider input[type="range"] {
+  @apply absolute w-full appearance-none bg-transparent;
+  -webkit-appearance: none;
+  height: 4px; /* Reduced from 6px */
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Make the thumbs interactive */
+.sr-price-range-slider input[type="range"]::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+}
+
+.sr-price-range-slider input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+}
+
+/* Hide default tracks - we use our own background */
+.sr-price-range-slider input[type="range"]::-webkit-slider-track {
+  background: transparent;
+  border: none;
+}
+
+.sr-price-range-slider input[type="range"]::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+/* Thumb styling */
+.sr-price-range-slider input[type="range"]::-webkit-slider-thumb {
+  @apply rounded-full cursor-grab;
+  -webkit-appearance: none;
+  width: 16px; /* Reduced from 20px */
+  height: 16px; /* Reduced from 20px */
+  background: #fff;
+  border-color: var(--color-primary);
+  border-width: 2px; /* Reduced from 3px */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  position: relative;
+  z-index: 4;
+  transition: all 0.15s ease;
+}
+
+.sr-price-range-slider input[type="range"]::-moz-range-thumb {
+  @apply rounded-full cursor-grab;
+  width: 16px; /* Reduced from 20px */
+  height: 16px; /* Reduced from 20px */
+  background: #fff;
+  border: 2px solid var(--color-primary); /* Reduced from 3px */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  position: relative;
+  z-index: 4;
+  transition: all 0.15s ease;
+}
+
+/* Hover states */
+.sr-price-range-slider input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.sr-price-range-slider input[type="range"]:hover::-moz-range-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Active/dragging state */
+.sr-price-range-slider input[type="range"]:active::-webkit-slider-thumb {
+  @apply cursor-grabbing;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  background: var(--color-primary);
+}
+
+.sr-price-range-slider input[type="range"]:active::-moz-range-thumb {
+  @apply cursor-grabbing;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  background: var(--color-primary);
+}
+
+/* Ensure max slider is above min slider */
+.sr-range-max {
+  z-index: 5;
 }
 
 /* Pagination */
