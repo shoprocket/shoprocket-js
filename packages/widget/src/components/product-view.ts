@@ -148,9 +148,9 @@ export class ProductView extends ShoprocketElement {
         console.error('Failed to load product:', err);
         this.hasLoadedProduct = true; // Still set to prevent retries
         if (err.response?.status === 404 || err.status === 404) {
-          this.showError('Product not found. This product may no longer be available.');
+          this.showError('Product not found. This product may no longer be available.', 0); // duration: 0 = don't auto-clear
         } else {
-          this.showError('Unable to load product. Please try again later.');
+          this.showError('Unable to load product. Please try again later.', 0);
         }
       }
     });
