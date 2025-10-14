@@ -2,7 +2,6 @@ import { html, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product } from '../types/api';
-import { loadingOverlay } from './loading-spinner';
 
 /**
  * Product View Component - Standalone widget for embedding a single product
@@ -63,6 +62,9 @@ export class ProductView extends ShoprocketElement {
   @state()
   private hasLoadedProduct = false;
 
+  @state()
+  private componentReady = false;
+
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
 
@@ -71,12 +73,16 @@ export class ProductView extends ShoprocketElement {
       try {
         const { ProductDetail } = await import('./product-detail');
         customElements.define('shoprocket-product', ProductDetail);
+        this.componentReady = true;
       } catch (err) {
         // Element may have been defined by another component in a race condition
         if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
           throw err;
         }
+        this.componentReady = true;
       }
+    } else {
+      this.componentReady = true;
     }
   }
 
@@ -167,11 +173,6 @@ export class ProductView extends ShoprocketElement {
       `;
     }
 
-    // Show loading state ONLY if we're loading AND don't have product data yet
-    if (this.isLoading('product') && !this.productData) {
-      return loadingOverlay();
-    }
-
     // Show empty state if no product AND no way to load one
     if (!this.productData && !this.product) {
       return html`
@@ -183,8 +184,28 @@ export class ProductView extends ShoprocketElement {
       `;
     }
 
-    // Always render product-detail if we have data OR are loading
-    // The product-detail component handles its own empty/loading states
+    // Show skeleton while component is loading
+    if (!this.componentReady) {
+      return html`
+        <div class="sr-product-view-container sr-product-view-loading">
+          <div class="sr-product-detail" data-loading>
+            <div class="sr-product-detail-grid">
+              <div class="sr-product-detail-media">
+                <div class="sr-media-container sr-product-detail-image-main"></div>
+              </div>
+              <div class="sr-product-detail-info">
+                <h1 class="sr-product-detail-title"></h1>
+                <div class="sr-product-detail-price"></div>
+                <p class="sr-product-detail-summary"></p>
+                <button class="sr-button" disabled></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render product-detail component (it will show skeleton when productData is undefined)
     return html`
       <div class="sr-product-view-container">
         <shoprocket-product
