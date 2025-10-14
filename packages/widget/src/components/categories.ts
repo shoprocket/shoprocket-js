@@ -221,6 +221,21 @@ export class CategoriesWidget extends ShoprocketElement {
         this.currentView = 'categories';
       } else {
         // Leaf category - show products (catalog component will load them)
+        // Lazy load catalog component if not already registered
+        if (!customElements.get('shoprocket-catalog')) {
+          try {
+            const { ProductCatalog } = await import('./product-catalog');
+            customElements.define('shoprocket-catalog', ProductCatalog);
+          } catch (err) {
+            // Ignore if element was already defined by another component (race condition)
+            if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+              throw err;
+            }
+          }
+        }
+
+        await customElements.whenDefined('shoprocket-catalog');
+
         this.currentCategories = [];
         this.currentView = 'products';
       }
@@ -371,8 +386,9 @@ export class CategoriesWidget extends ShoprocketElement {
     if (!previous) return;
 
     if (previous.type === 'root') {
-      // Back to root - clear URL and reload initial categories
-      window.location.hash = '';
+      // Back to root - clear URL properly (without leaving trailing #)
+      const cleanUrl = window.location.pathname + window.location.search;
+      history.replaceState(null, '', cleanUrl);
       this.loadInitialCategories();
     } else if (previous.category) {
       // Back to parent category

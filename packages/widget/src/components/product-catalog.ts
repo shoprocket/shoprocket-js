@@ -482,7 +482,8 @@ export class ProductCatalog extends ShoprocketElement {
     }
     
     // Load categories for filter (if filters feature enabled)
-    if (this.hasFeature('filters')) {
+    // Skip if using light DOM - parent widget manages categories
+    if (this.hasFeature('filters') && !this.useLightDom) {
       await this.loadCategories();
     }
 
