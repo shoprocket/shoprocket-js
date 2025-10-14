@@ -1,4 +1,5 @@
 import { html, type TemplateResult } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Cart, ApiResponse, Money } from '../types/api';

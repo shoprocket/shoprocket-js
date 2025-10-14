@@ -58,12 +58,44 @@
       color: #444;
     }
 
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+    }
+    li {
+      margin-right: 1rem;
+      margin-bottom: 1rem;
+    }
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
     /* Shoprocket widget styles are in styles.css - these are just test page styles */
   </style>
 </head>
 <body>
+
+  <div class="container">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/page.html">Blank Page</a></li>
+      <li><a href="/test-categories.html">Categories</a></li>
+      <li><a href="/test-buy-button.html">Buy Button</a></li>
+      <li><a href="/test-semantic-theming.html">Semantic Theming</a></li>
+    </ul>
+  </div>
+
+
   <h1>Buy Button Component Tests</h1>
   <p>Testing all buy button variations and behaviors</p>
+
+  
 
   <!-- Test 1: Simple Products (No Variants) -->
   <div class="test-section">
@@ -72,7 +104,7 @@
     <div class="button-grid">
       <div class="button-demo">
         <label>Aromatic Hair Spray</label>
-        <div data-shoprocket="buy-button" data-product="aromatic-hair-spray"></div>
+        <div data-shoprocket="buy-button" data-product="aromatic-hair-spray-1"></div>
       </div>
 
       <div class="button-demo">

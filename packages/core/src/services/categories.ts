@@ -28,8 +28,9 @@ export interface CategoryListParams {
   filter?: {
     id?: string | string[];
     parent_id?: string;
-    root?: boolean;
+    is_root?: boolean;
     status?: string;
+    slug?: string | string[];
   };
   include?: string; // 'children,parent'
   sort?: string;
@@ -58,9 +59,9 @@ export class CategoriesService {
               value.forEach(val => {
                 queryParams.append(`filter[${key}][]`, val);
               });
-            } else if (key === 'root' && typeof value === 'boolean') {
-              // Boolean: filter[root]=true
-              queryParams.append('filter[root]', value.toString());
+            } else if (key === 'is_root' && typeof value === 'boolean') {
+              // Boolean: filter[is_root]=true
+              queryParams.append('filter[is_root]', value.toString());
             } else {
               // Single value: filter[key]=value
               queryParams.append(`filter[${key}]`, value.toString());

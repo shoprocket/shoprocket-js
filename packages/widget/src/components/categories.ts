@@ -36,6 +36,9 @@ interface NavigationItem {
  * </div>
  */
 export class CategoriesWidget extends ShoprocketElement {
+  // Track active widget for routing (only the active widget responds to hash changes)
+  private static activeWidget: CategoriesWidget | null = null;
+
   // Configuration
   @property({ type: String, attribute: 'data-categories' }) categories?: string;
   @property({ type: Number, attribute: 'data-columns' }) columns = 3;
@@ -74,6 +77,11 @@ export class CategoriesWidget extends ShoprocketElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('hashchange', this.handleHashChange);
+
+    // Clear active widget reference if this widget is being removed
+    if (CategoriesWidget.activeWidget === this) {
+      CategoriesWidget.activeWidget = null;
+    }
   }
 
   /**
@@ -86,11 +94,26 @@ export class CategoriesWidget extends ShoprocketElement {
 
     // Only handle hashes that start with #!/categories/
     // Ignore everything else - it's for another widget (catalog, payment, etc.)
-    if (hash.startsWith('#!/categories/')) {
-      this.syncWithUrl();
+    if (!hash.startsWith('#!/categories/')) {
+      return;
     }
-    // Note: We also ignore empty hash - the widget should maintain its current state
-    // rather than resetting when user navigates elsewhere on the page
+
+    // Check if there's an active widget and if it's not us, ignore this change
+    // This allows multiple category widgets on the same page to work independently
+    const activeWidget = CategoriesWidget.activeWidget;
+
+    if (activeWidget && activeWidget !== this) {
+      // Another widget is active - ignore this hash change
+      return;
+    }
+
+    // No active widget yet (page load) - become the active widget
+    if (!activeWidget) {
+      CategoriesWidget.activeWidget = this;
+    }
+
+    // We're the active widget, so sync with the URL
+    this.syncWithUrl();
   };
 
   /**
@@ -160,7 +183,7 @@ export class CategoriesWidget extends ShoprocketElement {
       } else {
         // Load root categories
         response = await this.sdk.categories.list({
-          filter: { root: true },
+          filter: { is_root: true },
           include: 'children',
         });
       }
@@ -313,7 +336,10 @@ export class CategoriesWidget extends ShoprocketElement {
    * Handle category click
    */
   private async handleCategoryClick(category: Category) {
-    // Just update the URL - the hash change handler will do the rest
+    // Mark this widget as the active one (it initiated this navigation)
+    CategoriesWidget.activeWidget = this;
+
+    // Update the URL - the hash change handler will do the rest
     // (load category data, update navigation stack, load products if needed)
     const identifier = category.slug || category.id;
     window.location.hash = `#!/categories/${identifier}`;
@@ -323,6 +349,9 @@ export class CategoriesWidget extends ShoprocketElement {
    * Handle back button click
    */
   private handleBack() {
+    // Mark this widget as the active one (it initiated this navigation)
+    CategoriesWidget.activeWidget = this;
+
     // If viewing product detail, go back to category products
     if (this.currentView === 'product-detail') {
       const currentCategory = this.getCurrentCategory();
@@ -474,6 +503,9 @@ export class CategoriesWidget extends ShoprocketElement {
       console.error('Cannot navigate to product: no current category');
       return;
     }
+
+    // Mark this widget as the active one (it initiated this navigation)
+    CategoriesWidget.activeWidget = this;
 
     // Navigate to product using category-scoped hash
     const categoryIdentifier = currentCategory.slug || currentCategory.id;
