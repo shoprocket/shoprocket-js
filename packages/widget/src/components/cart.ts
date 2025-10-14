@@ -2414,8 +2414,10 @@ export class CartWidget extends ShoprocketElement {
   private renderTriggerContent(itemCount: number): TemplateResult {
     if (!this.cartModules.cartTrigger) {
       this.ensureModule('cartTrigger').then(() => this.requestUpdate());
-      // Minimal fallback for trigger (must always render something)
-      return html`<span>${itemCount}</span>`;
+      // Show icon immediately while module loads (don't show count until styled properly)
+      return html`
+        <span class="sr-cart-icon" aria-hidden="true">${unsafeHTML(shoppingBasketIcon)}</span>
+      `;
     }
 
     return this.cartModules.cartTrigger.renderTriggerContent(itemCount, this.position, shoppingBasketIcon);
