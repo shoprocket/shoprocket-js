@@ -21,7 +21,7 @@ export class ProductDetail extends ShoprocketElement {
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate);
     window.addEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate);
-    
+
     // Listen for successful add to cart
     this.handleProductAdded = this.handleProductAdded.bind(this);
     window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
@@ -62,11 +62,9 @@ export class ProductDetail extends ShoprocketElement {
 
   @property({ type: Object })
   prevProduct?: Product | null;
-  
+
   @property({ type: Object })
   nextProduct?: Product | null;
-  
-
 
   @state()
   private selectedOptions: { [optionId: string]: string } = {};
@@ -702,7 +700,7 @@ export class ProductDetail extends ShoprocketElement {
 
   private navigateToProduct(product: Product | null | undefined): void {
     if (!product) return;
-    
+
     // Dispatch event to parent catalog to handle navigation
     this.dispatchEvent(new CustomEvent(WIDGET_EVENTS.NAVIGATE_PRODUCT, {
       detail: { product },
@@ -711,37 +709,38 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private renderBackButton(): TemplateResult {
-    // Check if navigation feature is enabled
-    if (!this.hasFeature('navigation')) {
-      return html``;
-    }
-    
+    // Back button hidden via CSS when inside categories widget (it provides its own navigation)
+    const showPrevNext = this.prevProduct || this.nextProduct;
+
     return html`
       <div class="sr-product-navigation">
-        <button 
-          class="sr-back-button" 
+        <!-- Back button (hidden via CSS when inside categories widget) -->
+        <button
+          class="sr-back-button"
           @click="${() => this.dispatchEvent(new CustomEvent(WIDGET_EVENTS.BACK_TO_LIST, { bubbles: true }))}"
         >
           ←
           Back
         </button>
-        
-        <div class="sr-product-nav-buttons">
-          <button 
-            class="sr-nav-button sr-nav-prev ${!this.prevProduct ? 'disabled' : ''}"
-            ?disabled="${!this.prevProduct}"
-            @click="${() => this.navigateToProduct(this.prevProduct)}"
-          >
-            ← Previous
-          </button>
-          <button 
-            class="sr-nav-button sr-nav-next ${!this.nextProduct ? 'disabled' : ''}"
-            ?disabled="${!this.nextProduct}"
-            @click="${() => this.navigateToProduct(this.nextProduct)}"
-          >
-            Next →
-          </button>
-        </div>
+
+        ${showPrevNext ? html`
+          <div class="sr-product-nav-buttons">
+            <button
+              class="sr-nav-button sr-nav-prev ${!this.prevProduct ? 'disabled' : ''}"
+              ?disabled="${!this.prevProduct}"
+              @click="${() => this.navigateToProduct(this.prevProduct)}"
+            >
+              ← Previous
+            </button>
+            <button
+              class="sr-nav-button sr-nav-next ${!this.nextProduct ? 'disabled' : ''}"
+              ?disabled="${!this.nextProduct}"
+              @click="${() => this.navigateToProduct(this.nextProduct)}"
+            >
+              Next →
+            </button>
+          </div>
+        ` : ''}
       </div>
     `;
   }

@@ -593,11 +593,22 @@ export class ProductCatalog extends ShoprocketElement {
       category: this.categories
     });
 
+    // Find the product index for prev/next calculation
+    const targetIndex = this.findProductIndex(product.slug || product.id);
+    if (targetIndex === -1) {
+      console.error('Product not found in loaded products');
+      return;
+    }
+
     // If not the primary instance (embedded in another widget), dispatch event
     // so parent can handle everything (URL routing + product display)
     if (!this.isPrimary) {
+      // Calculate prev/next products for parent widget to use
+      const prevProduct = targetIndex > 0 ? this.allProducts.get(targetIndex - 1) || null : null;
+      const nextProduct = targetIndex < this.totalProducts - 1 ? this.allProducts.get(targetIndex + 1) || null : null;
+
       this.dispatchEvent(new CustomEvent('product-click', {
-        detail: { product },
+        detail: { product, prevProduct, nextProduct },
         bubbles: true,
         composed: true,
       }));
@@ -605,12 +616,6 @@ export class ProductCatalog extends ShoprocketElement {
     }
 
     // Primary instance handles product display directly
-    const targetIndex = this.findProductIndex(product.slug || product.id);
-    if (targetIndex === -1) {
-      console.error('Product not found in loaded products');
-      return;
-    }
-
     this.currentProductIndex = targetIndex;
     await this.showProductDetail(product);
   }
@@ -815,7 +820,7 @@ export class ProductCatalog extends ShoprocketElement {
   private async handleProductNavigation(event: CustomEvent): Promise<void> {
     const { product } = event.detail;
     if (!product) return;
-    
+
     // Find the index of the target product
     const targetIndex = this.findProductIndex(product.slug || product.id);
     if (targetIndex === -1) {
@@ -823,25 +828,32 @@ export class ProductCatalog extends ShoprocketElement {
       await this.loadFullProduct(product.slug || product.id);
       return;
     }
-    
+
     // Update our position
     this.currentProductIndex = targetIndex;
-    
+
     // Calculate which page this product is on
     const pageSize = this.limit || 12;
     const targetPage = Math.floor(targetIndex / pageSize) + 1;
-    
+
     // Update URL with product and page
     if (this.isPrimary) {
       // The hash change will trigger updateViewFromState -> showProductBySlug -> loadFullProduct
       this.hashRouter.navigateToProduct(product.slug || product.id, false, { page: targetPage });
     } else {
-      // Non-primary instances need to load the product directly
-      this.currentView = 'product';
-      this.currentProductSlug = product.slug || product.id;
-      await this.loadFullProduct(product.slug || product.id);
+      // Non-primary instances (embedded in other widgets) dispatch event
+      // Calculate prev/next for the new product
+      const prevProduct = targetIndex > 0 ? this.allProducts.get(targetIndex - 1) || null : null;
+      const nextProduct = targetIndex < this.totalProducts - 1 ? this.allProducts.get(targetIndex + 1) || null : null;
+
+      this.dispatchEvent(new CustomEvent('product-click', {
+        detail: { product, prevProduct, nextProduct },
+        bubbles: true,
+        composed: true,
+      }));
+      return; // Parent handles navigation
     }
-    
+
     // Ensure adjacent products are loaded for smooth navigation
     await this.ensureProductLoaded(targetIndex);
   }

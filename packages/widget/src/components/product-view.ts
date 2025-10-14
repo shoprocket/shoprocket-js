@@ -207,6 +207,12 @@ export class ProductView extends ShoprocketElement {
 
     // Render product-detail component (it will show skeleton when productData is undefined)
     return html`
+      <style>
+        /* Hide back button in product-view - no list to go back to */
+        shoprocket-product .sr-back-button {
+          display: none !important;
+        }
+      </style>
       <div class="sr-product-view-container">
         <shoprocket-product
           .sdk="${this.sdk}"

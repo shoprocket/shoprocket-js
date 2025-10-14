@@ -1024,7 +1024,7 @@
   .sr-product-navigation {
     @apply flex justify-between items-center mb-6;
   }
-  
+
   .sr-back-button {
     @apply bg-transparent border-none cursor-pointer text-sm font-medium inline-flex items-center gap-2 transition-colors;
     color: var(--color-on-surface);

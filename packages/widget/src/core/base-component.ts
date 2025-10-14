@@ -66,23 +66,23 @@ export class BaseComponent extends LitElement {
   protected hasFeature(feature: FeatureKey): boolean {
     return this.features.has(feature);
   }
-  
+
   /**
    * Enable a feature programmatically
    */
-  protected enableFeature(feature: FeatureKey): void {
+  public enableFeature(feature: FeatureKey): void {
     this.features.add(feature);
     this.requestUpdate();
   }
-  
+
   /**
    * Disable a feature programmatically
    */
-  protected disableFeature(feature: FeatureKey): void {
+  public disableFeature(feature: FeatureKey): void {
     this.features.delete(feature);
     this.requestUpdate();
   }
-  
+
   /**
    * Get all enabled features
    */

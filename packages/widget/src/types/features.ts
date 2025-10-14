@@ -3,9 +3,11 @@
  */
 
 // All possible features across all widgets
-export type FeatureKey = 
+export type FeatureKey =
   // Navigation
-  | 'navigation'      // Back/prev/next buttons
+  | 'navigation'      // Back/prev/next buttons (parent feature)
+  | 'back-button'     // Just the back button
+  | 'prev-next'       // Just prev/next navigation
   | 'breadcrumbs'     // Breadcrumb trail
   
   // Media
@@ -73,13 +75,13 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
     'media', 'title', 'price', 'add-to-cart'
   ],
   'product-detail': [
-    'navigation', 'media', 'gallery', 'zoom', 'title', 'price',
+    'navigation', 'back-button', 'prev-next', 'media', 'gallery', 'zoom', 'title', 'price',
     'stock', 'sku', 'variants', 'quantity', 'add-to-cart',
     'description', 'reviews', 'share', 'scroll'
   ],
   // shoprocket-product element (used in catalog)
   'product': [
-    'navigation', 'media', 'gallery', 'zoom', 'title', 'price',
+    'navigation', 'back-button', 'prev-next', 'media', 'gallery', 'zoom', 'title', 'price',
     'stock', 'sku', 'variants', 'quantity', 'add-to-cart',
     'description', 'reviews', 'share', 'scroll'
   ],
