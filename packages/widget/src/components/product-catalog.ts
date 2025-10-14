@@ -535,9 +535,11 @@ export class ProductCatalog extends ShoprocketElement {
 
   protected override render(): TemplateResult {
     const pageProducts = this.getPageProducts();
+    const layoutMode = this.filterPosition === 'left' ? 'sidebar' : 'horizontal';
 
     return html`
-      <div class="sr-catalog-list-view ${this.currentView === 'list' ? 'visible' : 'hidden'}">
+      <div class="sr-catalog-list-view ${this.currentView === 'list' ? 'visible' : 'hidden'}"
+           data-layout="${layoutMode}">
         ${this.hasFeature('filters') ? html`
           <shoprocket-catalog-filters
             .search="${this.searchQuery}"
@@ -554,23 +556,25 @@ export class ProductCatalog extends ShoprocketElement {
             @filter-change="${this.handleFilterChange}"
           ></shoprocket-catalog-filters>
         ` : ''}
-        ${ProductListTemplates.renderProductList(
-          pageProducts,
-          this.isLoading('products'),
-          this.limit || 12,
-          this.errorMessage,
-          this.successMessage,
-          this.addedToCartProducts,
-          {
-            handleProductClick: (product) => this.handleProductClick(product),
-            handleAddToCart: (product) => this.handleAddToCart(product),
-            formatPrice: (price) => this.formatPrice(price),
-            getMediaUrl: (media) => this.getMediaUrl(media),
-            handleImageError: (e) => this.handleImageError(e),
-            isLoadingItem: (key) => this.isLoading(key)
-          }
-        )}
-        ${this.currentView === 'list' && this.totalPages > 1 ? this.renderPagination() : ''}
+        <div class="sr-catalog-content">
+          ${ProductListTemplates.renderProductList(
+            pageProducts,
+            this.isLoading('products'),
+            this.limit || 12,
+            this.errorMessage,
+            this.successMessage,
+            this.addedToCartProducts,
+            {
+              handleProductClick: (product) => this.handleProductClick(product),
+              handleAddToCart: (product) => this.handleAddToCart(product),
+              formatPrice: (price) => this.formatPrice(price),
+              getMediaUrl: (media) => this.getMediaUrl(media),
+              handleImageError: (e) => this.handleImageError(e),
+              isLoadingItem: (key) => this.isLoading(key)
+            }
+          )}
+          ${this.currentView === 'list' && this.totalPages > 1 ? this.renderPagination() : ''}
+        </div>
       </div>
       ${this.currentView === 'product' ? html`
         <shoprocket-product

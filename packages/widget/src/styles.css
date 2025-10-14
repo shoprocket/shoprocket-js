@@ -1927,12 +1927,8 @@
   @apply md:opacity-0 md:animate-[fadeOut_50ms_ease-out_forwards];
 }
 
-.sr-catalog-list-view.visible {
-  display: block;
-}
-
 .sr-catalog-list-view.hidden {
-  display: none;
+  display: none !important;
 }
 
 /* Catalog Filters - Uses field system with floating labels */
@@ -1949,7 +1945,39 @@
 }
 
 .sr-filters-sidebar {
-  @apply flex flex-col gap-4 mb-6;
+  /* Use horizontal layout on mobile/tablet (same as horizontal filters) */
+  @apply flex flex-wrap gap-3;
+
+  /* Switch to vertical sidebar layout on desktop only */
+  @media (min-width: 1024px) {
+    @apply flex-col gap-4;
+  }
+}
+
+/* Sidebar layout grid: filters left, products right */
+.sr-catalog-list-view[data-layout="sidebar"] {
+  @apply grid gap-6;
+  grid-template-columns: 1fr; /* Mobile/tablet: stacked */
+}
+
+@media (min-width: 1024px) {
+  .sr-catalog-list-view[data-layout="sidebar"] {
+    grid-template-columns: 280px 1fr; /* Desktop: 280px sidebar + flex products */
+  }
+
+  /* Make filters sticky on scroll for better UX */
+  .sr-catalog-list-view[data-layout="sidebar"] .sr-catalog-filters {
+    @apply sticky top-4;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+}
+
+/* Adjust filter widths for sidebar - only full width on desktop when vertical */
+@media (min-width: 1024px) {
+  .sr-filters-sidebar .sr-filter-group {
+    @apply w-full;
+  }
 }
 
 /* Filter container sizing */
