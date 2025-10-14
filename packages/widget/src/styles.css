@@ -235,6 +235,16 @@
     100% { background-position: 200% 0; }
   }
 
+  /* Smooth fade-in transition for all loading containers */
+  [data-loading] {
+    animation: fadeIn 0.2s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   /* Apply skeleton effect to all text elements when loading */
   [data-loading] .sr-product-title,
   [data-loading] .sr-product-price,
@@ -997,6 +1007,11 @@
   }
 
   /* Product Detail Components */
+
+  /* Product View Container - reserve space during load */
+  .sr-product-view-container {
+    min-height: 500px;
+  }
 
   /* Product Detail Container */
   .sr-product-detail {
