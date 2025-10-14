@@ -523,7 +523,11 @@ export class CategoriesWidget extends ShoprocketElement {
     // Mark this widget as the active one (it initiated this navigation)
     CategoriesWidget.activeWidget = this;
 
-    // Navigate to product using category-scoped hash
+    // Show product immediately with data from list (instant display)
+    this.currentProduct = product;
+    this.currentView = 'product-detail';
+
+    // Navigate to product using category-scoped hash (will load full details in background)
     const categoryIdentifier = currentCategory.slug || currentCategory.id;
     const productIdentifier = product.slug || product.id;
     window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
@@ -559,7 +563,8 @@ export class CategoriesWidget extends ShoprocketElement {
    * Render product detail view
    */
   private renderProductDetail(): TemplateResult {
-    if (this.loadingProduct) {
+    // Only show loading spinner if we don't have any product data yet
+    if (this.loadingProduct && !this.currentProduct) {
       return html`<div class="sr-loading-spinner"></div>`;
     }
 
