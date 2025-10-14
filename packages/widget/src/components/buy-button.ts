@@ -13,13 +13,20 @@ import { HashRouter } from '../core/hash-router';
  *
  * Automatically handles:
  * - Simple products: Direct add to cart (or modal if action="view")
- * - Products with variants: Opens modal for selection
+ * - Products with variants: Opens modal for selection (unless variant specified)
+ * - Specific variants: Direct add to cart when data-variant provided
  * - Out of stock: Disables button
  * - Success states: Shows confirmation
  *
  * @example
  * <!-- Basic buy button -->
  * <div data-shoprocket="buy-button" data-product="prod_123"></div>
+ *
+ * @example
+ * <!-- Add specific variant to cart (bypasses modal) -->
+ * <div data-shoprocket="buy-button"
+ *      data-product="awesome-tshirt"
+ *      data-variant="var_456"></div>
  *
  * @example
  * <!-- View product button (always opens modal) -->
@@ -34,9 +41,10 @@ import { HashRouter } from '../core/hash-router';
  *      data-show-price="true"></div>
  *
  * @example
- * <!-- With name and price -->
+ * <!-- Specific variant with name and price -->
  * <div data-shoprocket="buy-button"
  *      data-product="prod_123"
+ *      data-variant="var_large_blue"
  *      data-show-name="true"
  *      data-show-price="true"></div>
  */
@@ -44,6 +52,7 @@ export class BuyButton extends ShoprocketElement {
   // Use Shadow DOM - this is a top-level widget component
 
   @property({ type: String, attribute: 'data-product' }) product?: string;
+  @property({ type: String, attribute: 'data-variant' }) variant?: string;
   @property({ type: String, attribute: 'data-action' }) action: 'buy' | 'view' = 'buy';
   @property({ type: Boolean, attribute: 'data-show-price' }) showPrice = false;
   @property({ type: Boolean, attribute: 'data-show-name' }) showName = false;
@@ -168,6 +177,12 @@ export class BuyButton extends ShoprocketElement {
     try {
       this.loading = true;
       this.productData = await this.sdk.products.get(this.product);
+
+      // Validate specified variant if provided
+      if (this.variant) {
+        this.validateVariant();
+      }
+
       this.clearError();
     } catch (err: any) {
       // Show user-friendly error message
@@ -184,12 +199,37 @@ export class BuyButton extends ShoprocketElement {
     }
   }
 
+  private validateVariant(): void {
+    if (!this.productData || !this.variant) return;
+
+    // Check if product has variants
+    if (!this.productData.variants || this.productData.variants.length === 0) {
+      console.warn(`Product ${this.product} has no variants, but data-variant="${this.variant}" was specified`);
+      this.showError('Invalid variant', 0);
+      return;
+    }
+
+    // Check if specified variant exists
+    const variantExists = this.productData.variants.some(v => v.id === this.variant);
+    if (!variantExists) {
+      console.warn(`Variant ${this.variant} not found for product ${this.product}`);
+      this.showError('Variant not found', 0);
+      return;
+    }
+  }
+
   private async handleClick(): Promise<void> {
     if (!this.productData || this.adding || this.success) return;
 
     // If action is "view", always open modal
     if (this.action === 'view') {
       this.openProductModal();
+      return;
+    }
+
+    // For "buy" action with specific variant: skip modal and add to cart directly
+    if (this.variant) {
+      this.addToCart();
       return;
     }
 
@@ -204,14 +244,30 @@ export class BuyButton extends ShoprocketElement {
   private addToCart(): void {
     if (!this.productData) return;
 
+    // Use specified variant if provided, otherwise use default
+    const variantId = this.variant || this.productData.default_variant_id;
+
+    // Get variant details if a specific variant was selected
+    let variantName: string | undefined = undefined;
+    let variantPrice = this.productData.price;
+    let variantInventory = this.productData.inventory_count ?? 0;
+    if (this.variant && this.productData.variants) {
+      const selectedVariant = this.productData.variants.find(v => v.id === this.variant);
+      if (selectedVariant) {
+        variantName = this.getVariantText(selectedVariant);
+        variantPrice = selectedVariant.price;
+        variantInventory = selectedVariant.inventory_count ?? 0;
+      }
+    }
+
     // Prepare cart item data for optimistic update (matching catalog pattern)
     const cartItemData = {
       product_id: this.productData.id,
       product_name: this.productData.name,
-      variant_id: this.productData.default_variant_id,
-      variant_name: undefined, // No variant text for default variant
+      variant_id: variantId,
+      variant_name: variantName,
       quantity: this.quantity,
-      price: this.productData.price,
+      price: variantPrice,
       media: this.productData.media?.[0] ? [this.productData.media[0]] : undefined,
       source_url: window.location.href
     };
@@ -219,7 +275,7 @@ export class BuyButton extends ShoprocketElement {
     // Include stock info for validation
     const stockInfo = {
       track_inventory: this.productData.track_inventory ?? true,
-      available_quantity: this.productData.inventory_count ?? 0
+      available_quantity: variantInventory
     };
 
     // Dispatch event to cart component - it will handle optimistic update and API call
@@ -234,6 +290,28 @@ export class BuyButton extends ShoprocketElement {
     this.successTimeout = window.setTimeout(() => {
       this.success = false;
     }, TIMEOUTS.SUCCESS_MESSAGE);
+  }
+
+  private getVariantText(variant: any): string | undefined {
+    // Try to use variant name if available
+    if (variant.name) return variant.name;
+
+    // Otherwise construct from option values
+    if (!this.productData?.options || !variant.option_values) return undefined;
+
+    const variantParts: string[] = [];
+    const variantOptionValues = variant.option_values || variant.option_value_ids || [];
+
+    this.productData.options.forEach((option: any) => {
+      const matchingValue = option.values?.find((v: any) =>
+        variantOptionValues.includes(v.id)
+      );
+      if (matchingValue) {
+        variantParts.push(matchingValue.value);
+      }
+    });
+
+    return variantParts.length > 0 ? variantParts.join(' / ') : undefined;
   }
 
   private handleHashChange(): void {
@@ -338,11 +416,21 @@ export class BuyButton extends ShoprocketElement {
     const isOutOfStock = !this.productData.in_stock;
     const needsOptions = this.productData.has_variants || this.productData.has_required_options;
 
+    // Get the variant we'll be adding (specified or default)
+    const targetVariantId = this.variant || this.productData.default_variant_id;
+
+    // Get inventory count for the target variant
+    let inventoryCount = this.productData.inventory_count;
+    if (this.variant && this.productData.variants) {
+      const targetVariant = this.productData.variants.find(v => v.id === this.variant);
+      inventoryCount = targetVariant?.inventory_count;
+    }
+
     // Check if all available stock is already in cart (same as product list)
     const stockStatus = isAllStockInCart(
       this.productData.id,
-      this.productData.default_variant_id,
-      this.productData.inventory_count
+      targetVariantId,
+      inventoryCount
     );
     const allStockInCart = stockStatus.allInCart;
 
@@ -360,11 +448,11 @@ export class BuyButton extends ShoprocketElement {
         ?disabled=${isOutOfStock || allStockInCart || !this.canAddToCart()}
       >
         <div class="flex items-center justify-center gap-x-2 w-full px-2 min-w-0">
-          ${this.showName ? html`
+          ${this.showName && !this.adding && !this.success ? html`
             <span class="truncate min-w-0">${this.productData.name}</span>
           ` : ''}
 
-          ${this.showPrice ? html`
+          ${this.showPrice && !this.adding && !this.success ? html`
             <span class="shrink-0 whitespace-nowrap">
               ${formatProductPrice(this.productData)}
             </span>
@@ -380,9 +468,9 @@ export class BuyButton extends ShoprocketElement {
               Added
             </span>
           ` : isOutOfStock ? html`<span class="shrink-0">Out of Stock</span>` :
-            allStockInCart ? html`<span class="shrink-0">Max (${this.productData.inventory_count}) in cart</span>` :
+            allStockInCart ? html`<span class="shrink-0">Max (${inventoryCount}) in cart</span>` :
             this.action === 'view' ? html`<span class="shrink-0">View Product</span>` :
-            needsOptions ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">Add to Cart</span>`}
+            needsOptions && !this.variant ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">Add to Cart</span>`}
         </div>
       </button>
 
@@ -403,7 +491,7 @@ export class BuyButton extends ShoprocketElement {
           <button class="sr-modal-close" @click=${this.closeModal}>×</button>
           <shoprocket-product-view
             .sdk=${this.sdk}
-            .product=${this.modalProduct}
+            .productData=${this.modalProduct}
           ></shoprocket-product-view>
         </div>
       </div>
