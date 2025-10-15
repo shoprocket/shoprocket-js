@@ -2236,11 +2236,12 @@
   color: var(--color-on-surface);
 }
 
-.sr-pagination-button:hover:not(:disabled) {
+.sr-pagination-button:hover:not(:disabled):not(.disabled) {
   background: var(--color-hover);
 }
 
-.sr-pagination-button:disabled {
+.sr-pagination-button:disabled,
+.sr-pagination-button.disabled {
   @apply cursor-not-allowed opacity-40;
 }
 
