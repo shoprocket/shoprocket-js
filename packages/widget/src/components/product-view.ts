@@ -167,7 +167,7 @@ export class ProductView extends ShoprocketElement {
         this.hasLoadedProduct = true;
 
         // Inject JSON-LD structured data for SEO
-        injectProductSchema(this.productData, this.sdk!.store);
+        injectProductSchema(this.productData, this.sdk!, this.sdk!.store);
         this.schemaInjected = true;
 
         // Track view

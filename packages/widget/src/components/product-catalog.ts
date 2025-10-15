@@ -441,7 +441,7 @@ export class ProductCatalog extends ShoprocketElement {
 
         // Inject JSON-LD structured data for current page products
         products.forEach(product => {
-          injectProductSchema(product, this.sdk.store);
+          injectProductSchema(product, this.sdk, this.sdk.store);
           this.productsWithSchemas.add(product.id);
         });
         
