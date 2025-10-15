@@ -18,8 +18,8 @@ interface ProductSchema {
   '@context': 'https://schema.org';
   '@type': 'Product';
   name: string;
+  image: string[]; // Required by Google - must have at least one URL
   description?: string;
-  image?: string[];
   sku?: string;
   brand?: {
     '@type': 'Brand';
@@ -120,13 +120,22 @@ export function generateProductSchema(product: Product, store?: Store): ProductS
     schema.description = product.description;
   }
 
-  // Add images if available
-  if (product.media && product.media.length > 0) {
-    schema.image = product.media
-      .filter(m => m.type === 'image')
-      .slice(0, 5) // Google recommends max 5 images
-      .map(m => m.url);
-  }
+  // Add images - REQUIRED by Google (must have at least one URL)
+  const images = product.media && product.media.length > 0
+    ? product.media
+        // Be lenient: include media if it has a URL and isn't explicitly a video
+        // Some APIs don't set type='image' consistently
+        .filter(m => m.url && (!m.type || m.type === 'image' || m.type === 'photo'))
+        .slice(0, 5) // Google recommends max 5 images
+        .map(m => m.url)
+        .filter(url => url) // Remove any null/undefined URLs
+    : [];
+
+  // Always include image field with at least one URL
+  // Use 1x1 transparent GIF placeholder if no images (minimal 43 bytes)
+  schema.image = images.length > 0
+    ? images
+    : ['data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'];
 
   // Add SKU if available
   if (product.sku) {
