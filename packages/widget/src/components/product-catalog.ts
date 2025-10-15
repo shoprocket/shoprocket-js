@@ -6,6 +6,7 @@ import type { Category } from '@shoprocket/core';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { ProductListTemplates } from './product-list';
 import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
+import { injectProductSchema, removeProductSchema } from '../utils/structured-data';
 import './catalog-filters'; // Register filter component
 
 /**
@@ -211,6 +212,9 @@ export class ProductCatalog extends ShoprocketElement {
   private savedScrollPosition = 0;
   private hashRouter!: HashRouter;
 
+  // Track products with injected schemas for cleanup
+  private productsWithSchemas: Set<string> = new Set();
+
   private handleHashStateChange = async (event: Event): Promise<void> => {
     const customEvent = event as CustomEvent<HashState>;
     await this.updateViewFromState(customEvent.detail);
@@ -287,12 +291,36 @@ export class ProductCatalog extends ShoprocketElement {
    * Clears all cached pages and reloads from page 1
    */
   public async reload(): Promise<void> {
+    // Clean up all schemas before reloading
+    this.productsWithSchemas.forEach(productId => {
+      removeProductSchema(productId);
+    });
+    this.productsWithSchemas.clear();
+
     this.loadedPages.clear();
     this.loadingPages.clear();
     this.allProducts.clear();
     this.individualProducts.clear();
     this.currentPage = 1;
     await this.loadProducts(1);
+  }
+
+  /**
+   * Clean up schemas from a specific page
+   */
+  private cleanupOldPageSchemas(page: number): void {
+    const pageSize = this.limit || 12;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    // Find products on the old page
+    for (let i = startIndex; i < endIndex; i++) {
+      const product = this.allProducts.get(i);
+      if (product && this.productsWithSchemas.has(product.id)) {
+        removeProductSchema(product.id);
+        this.productsWithSchemas.delete(product.id);
+      }
+    }
   }
 
   /**
@@ -401,7 +429,21 @@ export class ProductCatalog extends ShoprocketElement {
 
         // Mark this page as loaded
         this.loadedPages.add(page);
+
+        // Update page BEFORE injecting schemas
+        const previousPage = this.currentPage;
         this.currentPage = page;
+
+        // Clean up schemas from previous page if changing pages
+        if (previousPage !== page && previousPage > 0) {
+          this.cleanupOldPageSchemas(previousPage);
+        }
+
+        // Inject JSON-LD structured data for current page products
+        products.forEach(product => {
+          injectProductSchema(product, this.sdk.store);
+          this.productsWithSchemas.add(product.id);
+        });
         
         // Update pagination info from API response
         if (response.meta) {
@@ -516,16 +558,22 @@ export class ProductCatalog extends ShoprocketElement {
   
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    
+
     // Cancel any in-flight product loading
     if (this.productLoadAbortController) {
       this.productLoadAbortController.abort();
     }
-    
+
+    // Clean up JSON-LD schemas
+    this.productsWithSchemas.forEach(productId => {
+      removeProductSchema(productId);
+    });
+    this.productsWithSchemas.clear();
+
     window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
-    
+
     // Clean up primary instance reference if this was primary
     if (this.isPrimary && ProductCatalog.primaryInstance === this) {
       ProductCatalog.primaryInstance = null;
@@ -864,59 +912,90 @@ export class ProductCatalog extends ShoprocketElement {
 
   private renderPagination(): TemplateResult {
     const maxVisible = LIMITS.MAX_PAGINATION_BUTTONS; // Max number of page buttons to show
-    
+
     // Calculate range of pages to show
     let startPage = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
     let endPage = Math.min(this.totalPages, startPage + maxVisible - 1);
-    
+
     // Adjust if we're near the end
     if (endPage - startPage < maxVisible - 1) {
       startPage = Math.max(1, endPage - maxVisible + 1);
     }
-    
+
+    const isDisabled = (page: number) => {
+      return this.isLoading('products') || page === this.currentPage;
+    };
+
     return html`
       <div class="sr-pagination">
-        <button 
-          class="sr-pagination-button sr-pagination-prev"
-          ?disabled="${this.currentPage === 1 || this.isLoading('products')}"
-          @click="${() => this.goToPage(this.currentPage - 1)}"
+        <a
+          href="#?page=${this.currentPage - 1}"
+          class="sr-pagination-button sr-pagination-prev ${this.currentPage === 1 || this.isLoading('products') ? 'disabled' : ''}"
+          aria-disabled="${this.currentPage === 1 || this.isLoading('products')}"
+          @click="${(e: MouseEvent) => {
+            e.preventDefault();
+            if (this.currentPage > 1 && !this.isLoading('products')) {
+              this.goToPage(this.currentPage - 1);
+            }
+          }}"
         >
           ← Previous
-        </button>
-        
+        </a>
+
         <div class="sr-pagination-pages">
           ${startPage > 1 ? html`
-            <button 
+            <a
+              href="#?page=1"
               class="sr-pagination-button sr-pagination-page"
-              @click="${() => this.goToPage(1)}"
-            >1</button>
+              @click="${(e: MouseEvent) => {
+                e.preventDefault();
+                this.goToPage(1);
+              }}"
+            >1</a>
             ${startPage > 2 ? html`<span class="sr-pagination-ellipsis">...</span>` : ''}
           ` : ''}
-          
+
           ${Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map(page => html`
-            <button 
-              class="sr-pagination-button sr-pagination-page ${page === this.currentPage ? 'active' : ''}"
-              ?disabled="${this.isLoading('products')}"
-              @click="${() => page !== this.currentPage && this.goToPage(page)}"
-            >${page}</button>
+            <a
+              href="#?page=${page}"
+              class="sr-pagination-button sr-pagination-page ${page === this.currentPage ? 'active' : ''} ${isDisabled(page) ? 'disabled' : ''}"
+              aria-disabled="${isDisabled(page)}"
+              aria-current="${page === this.currentPage ? 'page' : 'false'}"
+              @click="${(e: MouseEvent) => {
+                e.preventDefault();
+                if (page !== this.currentPage && !this.isLoading('products')) {
+                  this.goToPage(page);
+                }
+              }}"
+            >${page}</a>
           `)}
-          
+
           ${endPage < this.totalPages ? html`
             ${endPage < this.totalPages - 1 ? html`<span class="sr-pagination-ellipsis">...</span>` : ''}
-            <button 
+            <a
+              href="#?page=${this.totalPages}"
               class="sr-pagination-button sr-pagination-page"
-              @click="${() => this.goToPage(this.totalPages)}"
-            >${this.totalPages}</button>
+              @click="${(e: MouseEvent) => {
+                e.preventDefault();
+                this.goToPage(this.totalPages);
+              }}"
+            >${this.totalPages}</a>
           ` : ''}
         </div>
-        
-        <button 
-          class="sr-pagination-button sr-pagination-next"
-          ?disabled="${this.currentPage === this.totalPages || this.isLoading('products')}"
-          @click="${() => this.goToPage(this.currentPage + 1)}"
+
+        <a
+          href="#?page=${this.currentPage + 1}"
+          class="sr-pagination-button sr-pagination-next ${this.currentPage === this.totalPages || this.isLoading('products') ? 'disabled' : ''}"
+          aria-disabled="${this.currentPage === this.totalPages || this.isLoading('products')}"
+          @click="${(e: MouseEvent) => {
+            e.preventDefault();
+            if (this.currentPage < this.totalPages && !this.isLoading('products')) {
+              this.goToPage(this.currentPage + 1);
+            }
+          }}"
         >
           Next →
-        </button>
+        </a>
       </div>
     `;
   }

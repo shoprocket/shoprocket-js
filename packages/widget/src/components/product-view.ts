@@ -2,6 +2,7 @@ import { html, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product } from '../types/api';
+import { injectProductSchema, removeProductSchema } from '../utils/structured-data';
 
 /**
  * Product View Component - Standalone widget for embedding a single product
@@ -64,6 +65,9 @@ export class ProductView extends ShoprocketElement {
 
   @state()
   private componentReady = false;
+
+  // Track if schema is injected for cleanup
+  private schemaInjected = false;
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -132,6 +136,16 @@ export class ProductView extends ShoprocketElement {
     }
   }
   
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+
+    // Clean up JSON-LD schema
+    if (this.schemaInjected && this.productData) {
+      removeProductSchema(this.productData.id);
+      this.schemaInjected = false;
+    }
+  }
+
   private async loadProductByIdentifier(identifier: string): Promise<void> {
     if (!this.sdk) {
       console.error('SDK not available');
@@ -141,10 +155,20 @@ export class ProductView extends ShoprocketElement {
 
     await this.withLoading('product', async () => {
       try {
+        // Clean up old schema if changing products
+        if (this.schemaInjected && this.productData) {
+          removeProductSchema(this.productData.id);
+          this.schemaInjected = false;
+        }
+
         // Load basic product data to pass to detail component
         const data = await this.sdk!.products.get(identifier);
         this.productData = data;
         this.hasLoadedProduct = true;
+
+        // Inject JSON-LD structured data for SEO
+        injectProductSchema(this.productData, this.sdk!.store);
+        this.schemaInjected = true;
 
         // Track view
         this.track(EVENTS.VIEW_ITEM, this.productData);
