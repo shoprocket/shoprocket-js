@@ -9,7 +9,8 @@
  * @see https://schema.org/Product
  */
 
-import type { Product, Store } from '@shoprocket/core';
+import type { Product, Store, ShoprocketCore } from '@shoprocket/core';
+import { getMediaUrl } from './formatters';
 
 /**
  * Schema.org Product type
@@ -101,7 +102,7 @@ function getCurrency(product: Product): string {
 /**
  * Generate Schema.org Product JSON-LD
  */
-export function generateProductSchema(product: Product, store?: Store): ProductSchema {
+export function generateProductSchema(product: Product, sdk: ShoprocketCore, store?: Store): ProductSchema {
   const schema: ProductSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -121,14 +122,12 @@ export function generateProductSchema(product: Product, store?: Store): ProductS
   }
 
   // Add images - REQUIRED by Google (must have at least one URL)
+  // Use getMediaUrl() helper to properly extract image URLs (same logic as widget rendering)
   const images = product.media && product.media.length > 0
     ? product.media
-        // Be lenient: include media if it has a URL and isn't explicitly a video
-        // Some APIs don't set type='image' consistently
-        .filter(m => m.url && (!m.type || m.type === 'image' || m.type === 'photo'))
         .slice(0, 5) // Google recommends max 5 images
-        .map(m => m.url)
-        .filter(url => url) // Remove any null/undefined URLs
+        .map(m => getMediaUrl(sdk, m))
+        .filter(url => url && !url.includes('placeholder.svg')) // Exclude placeholders
     : [];
 
   // Always include image field with at least one URL
@@ -167,16 +166,17 @@ export function generateProductSchema(product: Product, store?: Store): ProductS
  * Inject Product schema into document head
  *
  * @param product - Product data
+ * @param sdk - Shoprocket SDK instance for media URL construction
  * @param store - Optional store data for brand info
  */
-export function injectProductSchema(product: Product, store?: Store): void {
+export function injectProductSchema(product: Product, sdk: ShoprocketCore, store?: Store): void {
   // Check if schema already exists for this product
   const existingSchema = document.querySelector(`script[data-shoprocket-schema="${product.id}"]`);
   if (existingSchema) {
     return; // Already injected
   }
 
-  const schema = generateProductSchema(product, store);
+  const schema = generateProductSchema(product, sdk, store);
 
   const script = document.createElement('script');
   script.type = 'application/ld+json';
@@ -204,11 +204,12 @@ export function removeProductSchema(productId: string): void {
  * Update existing product schema
  *
  * @param product - Updated product data
+ * @param sdk - Shoprocket SDK instance for media URL construction
  * @param store - Optional store data
  */
-export function updateProductSchema(product: Product, store?: Store): void {
+export function updateProductSchema(product: Product, sdk: ShoprocketCore, store?: Store): void {
   removeProductSchema(product.id);
-  injectProductSchema(product, store);
+  injectProductSchema(product, sdk, store);
 }
 
 /**
