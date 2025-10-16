@@ -101,25 +101,36 @@ export class ProductListTemplates {
     
     return html`
       <article class="sr-product-card">
-        <div class="sr-product-image-container"
+        <div class="sr-product-image-container ${!isSkeleton ? 'sr-image-loading' : ''}"
              @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">
           ${!isSkeleton ? html`
             <!-- Always render img tag to ensure placeholder shows on error -->
-            <img 
-              src="${product.media?.[0] ? handlers.getMediaUrl(product.media[0]) : '/placeholder-not-found.jpg'}" 
-              alt="${product.name}" 
+            <img
+              src="${product.media?.[0] ? handlers.getMediaUrl(product.media[0]) : '/placeholder-not-found.jpg'}"
+              alt="${product.name}"
               class="sr-product-image sr-product-image-primary ${product.media?.[1] ? 'has-hover' : ''}"
               @load="${(e: Event) => {
                 const img = e.target as HTMLImageElement;
+                const container = img.closest('.sr-product-image-container');
+                if (container) {
+                  container.classList.remove('sr-image-loading');
+                }
                 img.classList.add('loaded');
               }}"
-              @error="${(e: Event) => handlers.handleImageError(e)}"
+              @error="${(e: Event) => {
+                const img = e.target as HTMLImageElement;
+                const container = img.closest('.sr-product-image-container');
+                if (container) {
+                  container.classList.remove('sr-image-loading');
+                }
+                handlers.handleImageError(e);
+              }}"
             >
             <!-- Second image (shown on hover if available) -->
             ${product.media?.[1] ? html`
-              <img 
-                src="${handlers.getMediaUrl(product.media[1])}" 
-                alt="${product.name} - Image 2" 
+              <img
+                src="${handlers.getMediaUrl(product.media[1])}"
+                alt="${product.name} - Image 2"
                 class="sr-product-image sr-product-image-hover"
                 @error="${(e: Event) => handlers.handleImageError(e)}"
               >

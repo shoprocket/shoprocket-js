@@ -57,14 +57,9 @@ export class ProductCatalog extends ShoprocketElement {
     /* Apply skeleton to empty elements when parent has data-loading */
     [data-loading] :where(h1, h2, h3, p, span):empty {
       display: block;
-      background: linear-gradient(
-        90deg,
-        rgb(229, 231, 235) 25%,
-        rgb(243, 244, 246) 50%,
-        rgb(229, 231, 235) 75%
-      );
+      background: var(--skeleton-shimmer-gradient);
       background-size: 200% 100%;
-      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
       border-radius: 0.25rem;
     }
 
@@ -84,14 +79,9 @@ export class ProductCatalog extends ShoprocketElement {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(
-        90deg,
-        rgb(229, 231, 235) 25%,
-        rgb(243, 244, 246) 50%,
-        rgb(229, 231, 235) 75%
-      );
+      background: var(--skeleton-shimmer-gradient);
       background-size: 200% 100%;
-      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
       border-radius: inherit;
     }
 
@@ -100,14 +90,9 @@ export class ProductCatalog extends ShoprocketElement {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(
-        90deg,
-        rgb(229, 231, 235) 25%,
-        rgb(243, 244, 246) 50%,
-        rgb(229, 231, 235) 75%
-      );
+      background: var(--skeleton-shimmer-gradient);
       background-size: 200% 100%;
-      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
       z-index: 1;
     }
   `;
@@ -665,8 +650,11 @@ export class ProductCatalog extends ShoprocketElement {
       const prevProduct = targetIndex > 0 ? this.allProducts.get(targetIndex - 1) || null : null;
       const nextProduct = targetIndex < this.totalProducts - 1 ? this.allProducts.get(targetIndex + 1) || null : null;
 
+      // Convert Map to array for caching in parent widget
+      const allProducts = Array.from(this.allProducts.values());
+
       this.dispatchEvent(new CustomEvent('product-click', {
-        detail: { product, prevProduct, nextProduct },
+        detail: { product, prevProduct, nextProduct, allProducts },
         bubbles: true,
         composed: true,
       }));
@@ -904,8 +892,11 @@ export class ProductCatalog extends ShoprocketElement {
       const prevProduct = targetIndex > 0 ? this.allProducts.get(targetIndex - 1) || null : null;
       const nextProduct = targetIndex < this.totalProducts - 1 ? this.allProducts.get(targetIndex + 1) || null : null;
 
+      // Convert Map to array for caching in parent widget
+      const allProducts = Array.from(this.allProducts.values());
+
       this.dispatchEvent(new CustomEvent('product-click', {
-        detail: { product, prevProduct, nextProduct },
+        detail: { product, prevProduct, nextProduct, allProducts },
         bubbles: true,
         composed: true,
       }));
