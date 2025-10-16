@@ -17,11 +17,21 @@ export const STOCK_THRESHOLDS = {
 } as const;
 
 // Image transformation sizes
+// Default aspect ratio is 3:4 (portrait) to match --sr-product-image-aspect-ratio
 export const IMAGE_SIZES = {
-  THUMBNAIL: 'w=150,h=150,fit=cover',
-  MAIN: 'w=800,h=800,fit=cover',
-  ZOOM: 'w=1600,h=1600,fit=cover',
+  THUMBNAIL: 'w=150,h=200,fit=cover', // 3:4 aspect ratio
+  MAIN: 'w=600,h=800,fit=cover', // 3:4 aspect ratio
+  ZOOM: 'w=1200,h=1600,fit=cover', // 3:4 aspect ratio
   PLACEHOLDER: 'w=600,h=800,fit=cover', // Default when no size specified
+} as const;
+
+// Responsive image sizes for srcset generation (3:4 portrait aspect ratio)
+// Used for mobile-optimized image loading
+export const RESPONSIVE_SIZES = {
+  MOBILE_SM: { width: 375, transform: 'w=281,h=375,fit=cover' }, // 3:4 ratio
+  MOBILE_LG: { width: 576, transform: 'w=576,h=768,fit=cover' }, // 3:4 ratio
+  DESKTOP_SM: { width: 768, transform: 'w=768,h=1024,fit=cover' }, // 3:4 ratio
+  DESKTOP_MD: { width: 960, transform: 'w=960,h=1280,fit=cover' }, // 3:4 ratio
 } as const;
 
 // UI spacing and layout constants

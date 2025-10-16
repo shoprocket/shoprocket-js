@@ -1852,6 +1852,7 @@ export class CartWidget extends ShoprocketElement {
         <button
           class="sr-cart-toggle-button ${this.isOpen ? 'hidden' : ''}"
           @click="${this.toggleCart}"
+          aria-label="Open shopping cart"
         >
           ${this.renderTriggerContent(totalQuantity)}
         </button>
@@ -1874,7 +1875,7 @@ export class CartWidget extends ShoprocketElement {
           <h2 class="sr-cart-title">
             ${this.isCheckingOut ? this.getCheckoutStepTitle() : 'Cart'}
           </h2>
-          <button class="sr-cart-close" @click="${() => this.closeCart()}">
+          <button class="sr-cart-close" @click="${() => this.closeCart()}" aria-label="Close cart">
             <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>

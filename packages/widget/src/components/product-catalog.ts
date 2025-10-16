@@ -608,8 +608,10 @@ export class ProductCatalog extends ShoprocketElement {
               handleAddToCart: (product) => this.handleAddToCart(product),
               formatPrice: (price) => this.formatPrice(price),
               getMediaUrl: (media) => this.getMediaUrl(media),
+              getMediaSrcSet: (media) => this.getMediaSrcSet(media),
               handleImageError: (e) => this.handleImageError(e),
-              isLoadingItem: (key) => this.isLoading(key)
+              isLoadingItem: (key) => this.isLoading(key),
+              sdk: this.sdk
             }
           )}
           ${this.currentView === 'list' && this.totalPages > 1 ? this.renderPagination() : ''}

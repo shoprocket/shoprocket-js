@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Shoprocket Widget demo page - embeddable e-commerce components for product catalogs, categories, cart, and checkout">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
   <title>Shoprocket Widget - Modern Embed</title>
   <style>
 
@@ -43,11 +45,12 @@
       margin-bottom: 1rem;
     }
     a {
-      color: #007bff;
+      color: #0056b3;
       text-decoration: none;
     }
     a:hover {
       text-decoration: underline;
+      color: #003d82;
     }
 
     /* Minimal theme */
@@ -67,9 +70,7 @@
   </style>
 </head>
 <body>
-  
-  
-  <div class="container">
+  <nav class="container">
     <ul>
       <li><a href="/">Home</a></li>
       <li><a href="/page.html">Blank Page</a></li>
@@ -77,8 +78,9 @@
       <li><a href="/test-buy-button.html">Buy Button</a></li>
       <li><a href="/test-semantic-theming.html">Semantic Theming</a></li>
     </ul>
-  </div>
-  
+  </nav>
+
+  <main>
   <div class="container intro">
     <h2>Simple One-Line Embed</h2>
     <div class="example">
@@ -125,10 +127,10 @@
        data-position="middle-right"
        data-style="sidebar">
   </div>
-
+  </main>
 
   <!-- Single script tag with public key in data attribute -->
   <script src="shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>
-  
+
 </body>
 </html>

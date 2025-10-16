@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Test page for Shoprocket Categories Widget - demonstrates various category widget configurations and features">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
   <title>Categories Widget Test</title>
   <style>
     body {
@@ -40,11 +42,12 @@
       margin-bottom: 1rem;
     }
     a {
-      color: #007bff;
+      color: #0056b3;
       text-decoration: none;
     }
     a:hover {
       text-decoration: underline;
+      color: #003d82;
     }
 
     /* Theme the categories widget */
@@ -60,8 +63,7 @@
   </style>
 </head>
 <body>
-
-  <div class="container">
+  <nav class="container">
     <ul>
       <li><a href="/">Home</a></li>
       <li><a href="/page.html">Blank Page</a></li>
@@ -69,35 +71,35 @@
       <li><a href="/test-buy-button.html">Buy Button</a></li>
       <li><a href="/test-semantic-theming.html">Semantic Theming</a></li>
     </ul>
-  </div>
+  </nav>
 
-  <h1>Categories Widget Test</h1>
+  <main>
+    <h1>Categories Widget Test</h1>
 
-  
-
-  <div class="test-section">
-    <h2>Test 1: All Root Categories (with routing)</h2>
-    <div data-shoprocket="categories"
-      data-columns="4">
+    <div class="test-section">
+      <h2>Test 1: All Root Categories (with routing)</h2>
+      <div data-shoprocket="categories"
+        data-columns="4">
+      </div>
     </div>
-  </div>
 
-  <div class="test-section">
-    <h2>Test 2: 4 Columns, No Routing</h2>
-    <div data-shoprocket="categories"
-         data-columns="4"
-         data-routable="false">
+    <div class="test-section">
+      <h2>Test 2: 4 Columns, No Routing</h2>
+      <div data-shoprocket="categories"
+           data-columns="4"
+           data-routable="false">
+      </div>
     </div>
-  </div>
 
-  <div class="test-section">
-    <h2>Test 3: Hide Images & Descriptions</h2>
-    <div data-shoprocket="categories"
-         data-show-images="false"
-         data-show-description="false"
-         data-routable="false">
+    <div class="test-section">
+      <h2>Test 3: Hide Images & Descriptions</h2>
+      <div data-shoprocket="categories"
+           data-show-images="false"
+           data-show-description="false"
+           data-routable="false">
+      </div>
     </div>
-  </div>
+  </main>
 
   <!-- Load widget -->
   <script src="shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>

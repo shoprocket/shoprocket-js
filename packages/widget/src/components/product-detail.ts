@@ -366,7 +366,7 @@ export class ProductDetail extends ShoprocketElement {
 
     return html`
       <div class="sr-product-description">
-        <h3 class="sr-product-description-title">Description</h3>
+        <h2 class="sr-product-description-title">Description</h2>
         <div class="sr-product-description-content">
           ${unsafeHTML(product.description)}
         </div>
@@ -596,10 +596,16 @@ export class ProductDetail extends ShoprocketElement {
     const url = this.getMediaUrl(media, size);
     const isLoaded = this.loadedImages.has(url);
     const isMainImage = className.includes('sr-product-detail-image-main');
-    
+    const isThumbnail = className.includes('thumbnail');
+
+    // Thumbnails display at ~25% viewport width in 4-column grid
+    const sizes = isThumbnail
+      ? '25vw'
+      : '(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 600px';
+
     return html`
-      <div 
-        class="sr-media-container ${className}" 
+      <div
+        class="sr-media-container ${className}"
         data-loaded="${isLoaded}"
         data-zoom-active="${isMainImage ? this.zoomActive : false}"
         @mouseenter="${isMainImage ? () => this.handleMouseEnterZoom() : null}"
@@ -607,11 +613,16 @@ export class ProductDetail extends ShoprocketElement {
         @mousemove="${isMainImage ? (e: MouseEvent) => this.handleMouseMoveZoom(e) : null}"
       >
         ${!isLoaded ? html`<div class="sr-media-loading"></div>` : ''}
-        <img 
+        <img
           src="${url}"
+          srcset="${this.getMediaSrcSet(media)}"
+          sizes="${sizes}"
           alt="${alt}"
+          width="600"
+          height="800"
           class="sr-media-image"
           loading="${size.includes('1600') ? 'lazy' : 'eager'}"
+          fetchpriority="${isMainImage ? 'high' : 'auto'}"
           @load="${() => this.handleImageLoad(url)}"
           @error="${(e: Event) => this.handleImageError(e)}"
         >
