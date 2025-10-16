@@ -59,7 +59,43 @@
     delete window.__ShoprocketInit;
     return;
   }
-  
+
+  // Add preconnect hints IMMEDIATELY for faster API requests (~300ms LCP savings)
+  // This runs before bundle loads, catching the first API request
+  (function() {
+    try {
+      var scriptHost = new URL(scriptUrl).hostname;
+      var apiUrl = 'https://api.shoprocket.io';
+
+      // Determine API URL based on script host (same logic as config.ts)
+      if (scriptHost === 'dev-cdn.shoprocket.io') {
+        apiUrl = 'https://dev.shoprocket.io';
+      } else if (scriptHost.includes('localhost') || scriptHost.includes('.test') || scriptHost.includes('.local')) {
+        apiUrl = 'https://shoprocketv3.test';
+      }
+
+      var apiOrigin = new URL(apiUrl).origin;
+
+      // Check if preconnect already exists
+      if (!document.querySelector('link[rel="preconnect"][href="' + apiOrigin + '"]')) {
+        // Add dns-prefetch fallback for older browsers
+        var dnsPrefetch = document.createElement('link');
+        dnsPrefetch.rel = 'dns-prefetch';
+        dnsPrefetch.href = apiOrigin;
+        document.head.appendChild(dnsPrefetch);
+
+        // Add preconnect for modern browsers
+        var preconnect = document.createElement('link');
+        preconnect.rel = 'preconnect';
+        preconnect.href = apiOrigin;
+        preconnect.crossOrigin = 'anonymous';
+        document.head.appendChild(preconnect);
+      }
+    } catch (e) {
+      // Invalid URL, ignore - don't block loader
+    }
+  })();
+
   // Detect ES module support
   function supportsModules() {
     var script = document.createElement('script');

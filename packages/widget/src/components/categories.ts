@@ -637,7 +637,13 @@ export class CategoriesWidget extends ShoprocketElement {
           <img
             class="sr-category-image"
             src="${this.getCategoryImageUrl(category.image_url)}"
+            srcset="${this.getCategoryImageUrl(category.image_url)} 600w,
+                    ${this.getCategoryImageUrl(category.image_url).replace('w=600', 'w=400')} 400w,
+                    ${this.getCategoryImageUrl(category.image_url).replace('w=600', 'w=300')} 300w"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             alt="${category.name}"
+            width="600"
+            height="600"
             loading="lazy">
         ` : ''}
 

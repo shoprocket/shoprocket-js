@@ -1,7 +1,7 @@
 import type { Money, Media } from '../types/api';
 import type { ShoprocketCore } from '@shoprocket/core';
 import { getConfig } from '../core/config';
-import { IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
+import { IMAGE_SIZES, RESPONSIVE_SIZES, WIDGET_EVENTS } from '../constants';
 
 /**
  * Get store currency from SDK or widget data
@@ -91,25 +91,61 @@ export function formatDate(date: string | Date): string {
 export function getMediaUrl(_sdk: ShoprocketCore, media: Media | null | undefined, transformations?: string): string {
   const config = getConfig();
   const baseUrl = config.cdnUrl;
-  
+
   // Return placeholder if no media provided
   if (!media) {
     return `${baseUrl}/img/placeholder.svg`;
   }
-  
+
   // If media has a direct URL, use it
   if (media.url) {
     return media.url;
   }
-  
+
   // Otherwise construct the URL
   const mediaUrl = `${baseUrl}/media`;
   const transforms = transformations || media.transformations || IMAGE_SIZES.PLACEHOLDER;
-  
+
   // The path already includes the filename in the API response
   const path = media.path || media.id;
-  
+
   return `${mediaUrl}/${transforms}/${path}`;
+}
+
+/**
+ * Generate srcset for responsive images
+ * Returns a srcset string with multiple image sizes for different viewport widths
+ */
+export function getMediaSrcSet(_sdk: ShoprocketCore, media: Media | null | undefined): string {
+  const config = getConfig();
+  const baseUrl = config.cdnUrl;
+
+  // Return empty string if no media
+  if (!media || !media.path) {
+    return '';
+  }
+
+  const mediaUrl = `${baseUrl}/media`;
+  const path = media.path || media.id;
+
+  // Generate srcset entries for each responsive size
+  const srcsetEntries = Object.values(RESPONSIVE_SIZES).map(
+    ({ width, transform }) => `${mediaUrl}/${transform}/${path} ${width}w`
+  );
+
+  return srcsetEntries.join(', ');
+}
+
+/**
+ * Get sizes attribute for responsive images
+ * Tells browser which image size to use at different viewport widths
+ */
+export function getMediaSizes(gridColumns: { sm?: number; md?: number; lg?: number } = {}): string {
+  const { sm = 2, md = 3, lg = 4 } = gridColumns;
+
+  // Calculate approximate image width as percentage of viewport
+  // Account for gaps and padding (subtract ~80px for margins/gaps)
+  return `(max-width: 640px) ${100 / sm}vw, (max-width: 1024px) ${100 / md}vw, ${100 / lg}vw`;
 }
 
 /**

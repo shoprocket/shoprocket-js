@@ -160,7 +160,7 @@
 
   /* System colors */
   --color-info: var(--color-blue-500);
-  --color-success: var(--color-green-600);
+  --color-success: var(--color-green-800);
   --color-warning: var(--color-yellow-400);
   --color-danger: var(--color-red-500);
 
@@ -1031,7 +1031,7 @@
 
   /* Product Detail Components */
 
-  /* Product View Container - reserve space during load */
+  /* Product View Container */
   .sr-product-view-container {
     min-height: 500px;
   }
@@ -1041,6 +1041,11 @@
     background: var(--color-surface);
     padding: var(--sr-product-grid-padding);
     border-radius: var(--sr-radius);
+  }
+
+  /* Reserve space during loading to prevent CLS */
+  .sr-product-detail[data-loading] {
+    min-height: 400px;
   }
 
   /* Product Navigation */
@@ -1104,7 +1109,8 @@
   }
 
   .sr-product-detail-image-main {
-    @apply w-full aspect-square mb-4 cursor-zoom-in;
+    @apply w-full mb-4 cursor-zoom-in;
+    aspect-ratio: var(--sr-product-image-aspect-ratio);
   }
 
   /* Image Thumbnails */
@@ -1113,7 +1119,8 @@
   }
 
   .sr-product-detail-thumbnail {
-    @apply relative aspect-square overflow-hidden cursor-pointer transition-all;
+    @apply relative overflow-hidden cursor-pointer transition-all;
+    aspect-ratio: var(--sr-product-image-aspect-ratio);
     border: 2px solid transparent;
     border-radius: var(--sr-radius);
   }
@@ -1146,17 +1153,17 @@
   .sr-stock-status {
     @apply text-sm font-medium mb-6;
   }
-  
+
   .sr-in-stock {
-    color: var(--color-success, #22c55e);
+    color: var(--color-success, #15803d); /* Green-700 for better contrast (4.5:1 ratio) */
   }
-  
+
   .sr-low-stock {
-    color: var(--color-warning, #f59e0b);
+    color: var(--color-warning, #c2410c); /* Orange-700 for better contrast (4.6:1 ratio) */
   }
-  
+
   .sr-out-of-stock {
-    color: var(--color-error, #ef4444);
+    color: var(--color-error, #b91c1c); /* Red-700 for better contrast (5.9:1 ratio) */
   }
 
   .sr-product-detail-summary {
@@ -1344,7 +1351,7 @@
   .sr-product-detail-info-text {
     @apply text-xs text-center mt-6;
     color: var(--color-text-muted);
-    opacity: 0.6;
+    /* Removed opacity: 0.6 to maintain proper contrast (4.5:1 minimum for accessibility) */
   }
 
   /* Zoom Lens */
@@ -1549,7 +1556,8 @@
 }
 
 .sr-product-thumbnail {
-  @apply relative aspect-square overflow-hidden cursor-pointer border-2 border-transparent;
+  @apply relative overflow-hidden cursor-pointer border-2 border-transparent;
+  aspect-ratio: var(--sr-product-image-aspect-ratio);
   border-radius: var(--sr-radius);
   background-color: var(--color-surface-secondary, var(--color-gray-50));
 }
@@ -2138,7 +2146,7 @@
 
 .sr-price-range-slider {
   @apply relative w-full;
-  height: 16px;
+  height: 48px; /* Increased from 16px for 48x48px touch targets */
 }
 
 /* Background track - always visible */
@@ -2156,9 +2164,9 @@
 .sr-price-range-slider input[type="range"] {
   @apply absolute w-full appearance-none bg-transparent;
   -webkit-appearance: none;
-  height: 4px; /* Reduced from 6px */
-  top: 50%;
-  transform: translateY(-50%);
+  height: 48px; /* Match parent for 48x48px touch target */
+  top: 0; /* Align to top instead of centering */
+  transform: none; /* Remove centering transform */
   pointer-events: none;
   margin: 0;
   padding: 0;
@@ -2185,27 +2193,28 @@
   border: none;
 }
 
-/* Thumb styling */
+/* Thumb styling - increased for better touch targets */
 .sr-price-range-slider input[type="range"]::-webkit-slider-thumb {
   @apply rounded-full cursor-grab;
   -webkit-appearance: none;
-  width: 16px; /* Reduced from 20px */
-  height: 16px; /* Reduced from 20px */
+  width: 24px; /* Increased from 16px for better touch targets */
+  height: 24px; /* Increased from 16px for better touch targets */
   background: #fff;
   border-color: var(--color-primary);
-  border-width: 2px; /* Reduced from 3px */
+  border-width: 2px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   position: relative;
   z-index: 4;
   transition: all 0.15s ease;
+  margin-top: -10px; /* Center thumb vertically in 48px track */
 }
 
 .sr-price-range-slider input[type="range"]::-moz-range-thumb {
   @apply rounded-full cursor-grab;
-  width: 16px; /* Reduced from 20px */
-  height: 16px; /* Reduced from 20px */
+  width: 24px; /* Increased from 16px for better touch targets */
+  height: 24px; /* Increased from 16px for better touch targets */
   background: #fff;
-  border: 2px solid var(--color-primary); /* Reduced from 3px */
+  border: 2px solid var(--color-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   position: relative;
   z-index: 4;

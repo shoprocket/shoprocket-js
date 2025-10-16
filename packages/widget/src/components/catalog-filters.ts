@@ -177,6 +177,7 @@ export class CatalogFilters extends ShoprocketElement {
               step="1"
               .value="${currentMin.toString()}"
               @input="${this.handleMinPriceChange}"
+              aria-label="Minimum price"
             />
             <input
               type="range"
@@ -186,6 +187,7 @@ export class CatalogFilters extends ShoprocketElement {
               step="1"
               .value="${currentMax.toString()}"
               @input="${this.handleMaxPriceChange}"
+              aria-label="Maximum price"
             />
           </div>
         </div>

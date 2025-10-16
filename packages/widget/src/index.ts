@@ -193,22 +193,25 @@ function autoInit(): void {
     return;
   }
   (window as any).__shoprocketAutoInitRan = true;
-  
+
   const publicKey = getPublicKey();
-  
+
   if (!publicKey) {
     // No public key found - widget won't initialize
     return;
   }
-  
+
   // Initialize config based on script URL
   // For ES modules, we need to get the URL from the bundle script tag
   const configUrl = scriptUrl || (document.querySelector('script[data-shoprocket-bundle="true"]') as HTMLScriptElement)?.src || '';
   initializeConfig(configUrl);
-  
+
   // Get the config to pass API URL
   const { apiUrl } = getConfig();
-  
+
+  // Note: Preconnect hints are now added in loader.js (before bundle loads)
+  // This catches the first API request much earlier for better LCP
+
   shoprocket.init(publicKey, { apiUrl }).catch(console.error);
 }
 

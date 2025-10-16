@@ -1,6 +1,6 @@
 import { html, type TemplateResult } from 'lit';
 import type { Product } from '../types/api';
-import { formatProductPrice } from '../utils/formatters';
+import { formatProductPrice, getMediaSrcSet, getMediaSizes } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
 
@@ -60,8 +60,8 @@ export class ProductListTemplates {
         </div>
       ` : ''}
       <div class="sr-product-grid" data-shoprocket="product-list" ?data-loading="${isLoading}">
-        ${displayProducts.length > 0 
-          ? displayProducts.map(product => ProductListTemplates.renderProduct(product, addedToCartProducts, handlers))
+        ${displayProducts.length > 0
+          ? displayProducts.map((product, index) => ProductListTemplates.renderProduct(product, index, addedToCartProducts, handlers))
           : emptyContent
         }
       </div>
@@ -71,30 +71,38 @@ export class ProductListTemplates {
 
   static renderProduct(
     product: Product,
+    index: number,
     addedToCartProducts: Set<string>,
     handlers: {
       handleProductClick: (product: Product) => void;
       handleAddToCart: (product: Product) => Promise<void>;
       formatPrice: (price: number | string) => string;
       getMediaUrl: (media: any) => string;
+      getMediaSrcSet: (media: any) => string;
       handleImageError: (e: Event) => void;
       isLoadingItem: (key: string) => boolean;
+      sdk: any;
     }
   ): TemplateResult {
     // Check if this is a skeleton product
     const isSkeleton = product.id.startsWith('skeleton-');
-    
+
+    // Performance: Only first image loads eagerly (LCP candidate)
+    // All others use native lazy loading (browser detects viewport automatically)
+    const loadingStrategy = index === 0 ? 'eager' : 'lazy';
+    const fetchPriority = index === 0 ? 'high' : undefined;
+
     // Let the API determine if quick add is eligible - it knows about variants, options, etc.
     const needsOptions = !isSkeleton && product.quick_add_eligible === false;
     const loadingKey = needsOptions ? `viewProduct-${product.id}` : `addToCart-${product.id}`;
     const isLoading = !isSkeleton && handlers.isLoadingItem(loadingKey);
     const isAdded = !isSkeleton && addedToCartProducts.has(product.id);
     const isOutOfStock = !isSkeleton && product.in_stock === false;
-    
+
     // Check if all available stock is already in cart
     const stockStatus = !isSkeleton ? isAllStockInCart(
-      product.id, 
-      product.default_variant_id, 
+      product.id,
+      product.default_variant_id,
       product.inventory_count
     ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
@@ -107,7 +115,13 @@ export class ProductListTemplates {
             <!-- Always render img tag to ensure placeholder shows on error -->
             <img
               src="${product.media?.[0] ? handlers.getMediaUrl(product.media[0]) : '/placeholder-not-found.jpg'}"
+              srcset="${product.media?.[0] ? handlers.getMediaSrcSet(product.media[0]) : ''}"
+              sizes="${getMediaSizes()}"
               alt="${product.name}"
+              width="600"
+              height="800"
+              loading="${loadingStrategy}"
+              fetchpriority="${fetchPriority || 'auto'}"
               class="sr-product-image sr-product-image-primary ${product.media?.[1] ? 'has-hover' : ''}"
               @load="${(e: Event) => {
                 const img = e.target as HTMLImageElement;
@@ -130,7 +144,12 @@ export class ProductListTemplates {
             ${product.media?.[1] ? html`
               <img
                 src="${handlers.getMediaUrl(product.media[1])}"
+                srcset="${handlers.getMediaSrcSet(product.media[1])}"
+                sizes="${getMediaSizes()}"
                 alt="${product.name} - Image 2"
+                width="600"
+                height="800"
+                loading="lazy"
                 class="sr-product-image sr-product-image-hover"
                 @error="${(e: Event) => handlers.handleImageError(e)}"
               >
