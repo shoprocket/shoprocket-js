@@ -1119,8 +1119,7 @@
   }
 
   .sr-product-detail-thumbnail {
-    @apply relative overflow-hidden cursor-pointer transition-all;
-    aspect-ratio: var(--sr-product-image-aspect-ratio);
+    @apply relative aspect-square overflow-hidden cursor-pointer transition-all;
     border: 2px solid transparent;
     border-radius: var(--sr-radius);
   }
@@ -1556,8 +1555,7 @@
 }
 
 .sr-product-thumbnail {
-  @apply relative overflow-hidden cursor-pointer border-2 border-transparent;
-  aspect-ratio: var(--sr-product-image-aspect-ratio);
+  @apply relative aspect-square overflow-hidden cursor-pointer border-2 border-transparent;
   border-radius: var(--sr-radius);
   background-color: var(--color-surface-secondary, var(--color-gray-50));
 }

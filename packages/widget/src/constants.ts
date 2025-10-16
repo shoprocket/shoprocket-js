@@ -17,21 +17,23 @@ export const STOCK_THRESHOLDS = {
 } as const;
 
 // Image transformation sizes
-// Default aspect ratio is 3:4 (portrait) to match --sr-product-image-aspect-ratio
+// Main images use 3:4 (portrait) to match --sr-product-image-aspect-ratio
+// Thumbnails use 1:1 (square) for cleaner grid appearance
 export const IMAGE_SIZES = {
-  THUMBNAIL: 'w=150,h=200,fit=cover', // 3:4 aspect ratio
-  MAIN: 'w=600,h=800,fit=cover', // 3:4 aspect ratio
-  ZOOM: 'w=1200,h=1600,fit=cover', // 3:4 aspect ratio
+  THUMBNAIL: 'w=150,h=150,fit=cover', // 1:1 square aspect ratio
+  MAIN: 'w=600,h=800,fit=cover', // 3:4 portrait aspect ratio
+  ZOOM: 'w=1200,h=1600,fit=cover', // 3:4 portrait aspect ratio
   PLACEHOLDER: 'w=600,h=800,fit=cover', // Default when no size specified
 } as const;
 
 // Responsive image sizes for srcset generation (3:4 portrait aspect ratio)
-// Used for mobile-optimized image loading
+// Browser automatically handles DPR - just provide the physical image sizes
 export const RESPONSIVE_SIZES = {
-  MOBILE_SM: { width: 375, transform: 'w=281,h=375,fit=cover' }, // 3:4 ratio
-  MOBILE_LG: { width: 576, transform: 'w=576,h=768,fit=cover' }, // 3:4 ratio
-  DESKTOP_SM: { width: 768, transform: 'w=768,h=1024,fit=cover' }, // 3:4 ratio
-  DESKTOP_MD: { width: 960, transform: 'w=960,h=1280,fit=cover' }, // 3:4 ratio
+  XS: { width: 400, transform: 'w=400,h=533,fit=cover' }, // 3:4 ratio
+  SM: { width: 600, transform: 'w=600,h=800,fit=cover' }, // 3:4 ratio
+  MD: { width: 800, transform: 'w=800,h=1067,fit=cover' }, // 3:4 ratio
+  LG: { width: 1000, transform: 'w=1000,h=1333,fit=cover' }, // 3:4 ratio
+  XL: { width: 1200, transform: 'w=1200,h=1600,fit=cover' }, // 3:4 ratio
 } as const;
 
 // UI spacing and layout constants

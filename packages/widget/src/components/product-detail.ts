@@ -598,10 +598,28 @@ export class ProductDetail extends ShoprocketElement {
     const isMainImage = className.includes('sr-product-detail-image-main');
     const isThumbnail = className.includes('thumbnail');
 
-    // Thumbnails display at ~25% viewport width in 4-column grid
-    const sizes = isThumbnail
-      ? '25vw'
-      : '(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 600px';
+    // Thumbnails use simple src (no srcset needed for small images)
+    // Main images use responsive srcset for optimal loading across devices
+    if (isThumbnail) {
+      return html`
+        <div
+          class="sr-media-container ${className}"
+          data-loaded="${isLoaded}"
+        >
+          ${!isLoaded ? html`<div class="sr-media-loading"></div>` : ''}
+          <img
+            src="${url}"
+            alt="${alt}"
+            width="150"
+            height="200"
+            class="sr-media-image"
+            loading="lazy"
+            @load="${() => this.handleImageLoad(url)}"
+            @error="${(e: Event) => this.handleImageError(e)}"
+          >
+        </div>
+      `;
+    }
 
     return html`
       <div
@@ -616,7 +634,7 @@ export class ProductDetail extends ShoprocketElement {
         <img
           src="${url}"
           srcset="${this.getMediaSrcSet(media)}"
-          sizes="${sizes}"
+          sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 1024px) 45vw, 600px"
           alt="${alt}"
           width="600"
           height="800"
