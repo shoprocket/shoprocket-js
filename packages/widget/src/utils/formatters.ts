@@ -139,13 +139,27 @@ export function getMediaSrcSet(_sdk: ShoprocketCore, media: Media | null | undef
 /**
  * Get sizes attribute for responsive images
  * Tells browser which image size to use at different viewport widths
+ *
+ * Uses conservative percentage-based estimates that work even if users
+ * customize padding/gaps via CSS variables. Browser will select the closest
+ * srcset image, so slightly overestimating is better than underestimating.
+ *
+ * Grid layout defaults (customizable by users):
+ * - Mobile (<640px): 2 columns → ~45% viewport (allows for padding/gaps)
+ * - Tablet (640-1024px): 3 columns → ~30% viewport
+ * - Desktop (>1024px): 4 columns → ~23% viewport
  */
 export function getMediaSizes(gridColumns: { sm?: number; md?: number; lg?: number } = {}): string {
   const { sm = 2, md = 3, lg = 4 } = gridColumns;
 
-  // Calculate approximate image width as percentage of viewport
-  // Account for gaps and padding (subtract ~80px for margins/gaps)
-  return `(max-width: 640px) ${100 / sm}vw, (max-width: 1024px) ${100 / md}vw, ${100 / lg}vw`;
+  // Conservative estimates that account for padding/gaps
+  // These work even if users customize --sr-product-grid-padding or grid gaps
+  // Formula: roughly (100 / columns) - 5-8% buffer for padding/gaps
+  const smSize = Math.floor(100 / sm - 5); // 2 cols = 45vw
+  const mdSize = Math.floor(100 / md - 3); // 3 cols = 30vw
+  const lgSize = Math.floor(100 / lg - 2); // 4 cols = 23vw
+
+  return `(max-width: 640px) ${smSize}vw, (max-width: 1024px) ${mdSize}vw, ${lgSize}vw`;
 }
 
 /**

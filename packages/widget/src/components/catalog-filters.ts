@@ -293,8 +293,10 @@ export class CatalogFilters extends ShoprocketElement {
 
         <!-- Product Count -->
         ${this.totalProducts > 0 ? html`
-          <div class="sr-product-count">
-            ${this.totalProducts} ${this.totalProducts === 1 ? 'product' : 'products'}
+          <div class="sr-filter-group sr-filter-product-count">
+            <div class="sr-product-count">
+              ${this.totalProducts} ${this.totalProducts === 1 ? 'product' : 'products'}
+            </div>
           </div>
         ` : ''}
       </div>
