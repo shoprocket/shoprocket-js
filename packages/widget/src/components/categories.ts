@@ -65,6 +65,7 @@ export class CategoriesWidget extends ShoprocketElement {
   @state() private navigationStack: NavigationItem[] = [{ type: 'root' }];
   @state() private loading = false;
   @state() private loadingProduct = false;
+  @state() private cachedProducts: Product[] = []; // Cache products list for navigation
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -330,26 +331,53 @@ export class CategoriesWidget extends ShoprocketElement {
 
   /**
    * Load a product with prev/next navigation context
-   * Fetches category products to calculate adjacent products for navigation
+   * Only fetches products list if we don't already have prev/next data from catalog
    */
   private async loadProductWithNavigation(productSlug: string, categoryIdOrSlug: string) {
+    // Lazy load product-detail component FIRST (needed for both paths)
+    if (!customElements.get('shoprocket-product')) {
+      try {
+        const { ProductDetail } = await import('./product-detail');
+        customElements.define('shoprocket-product', ProductDetail);
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+          throw err;
+        }
+      }
+    }
+
+    await customElements.whenDefined('shoprocket-product');
+
+    // If we already have prev/next data (from catalog click), just load the product
+    const alreadyHaveNavigation = this.currentProduct &&
+      ((this.currentProduct.slug && this.currentProduct.slug === productSlug) ||
+       this.currentProduct.id === productSlug) &&
+      (this.prevProduct !== undefined && this.nextProduct !== undefined);
+
+    if (alreadyHaveNavigation) {
+      // We already have everything we need from the catalog
+      // Just ensure we have full product details if needed
+      const hasFullDetails = this.currentProduct.description !== undefined;
+      if (!hasFullDetails) {
+        // Load full details in background while showing the product
+        this.loadingProduct = true;
+        try {
+          const fullProduct = await this.sdk.products.get(productSlug);
+          this.currentProduct = fullProduct;
+        } catch (error) {
+          console.error('[Categories] Failed to load full product:', error);
+        } finally {
+          this.loadingProduct = false;
+        }
+      }
+      this.currentView = 'product-detail';
+      return;
+    }
+
+    // We don't have prev/next data, need to calculate them
     this.loadingProduct = true;
 
     try {
-      // Lazy load product-detail component if not already loaded
-      if (!customElements.get('shoprocket-product')) {
-        try {
-          const { ProductDetail } = await import('./product-detail');
-          customElements.define('shoprocket-product', ProductDetail);
-        } catch (err) {
-          if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
-            throw err;
-          }
-        }
-      }
-
-      await customElements.whenDefined('shoprocket-product');
-
       // Check if we already have the product (from catalog click)
       const hasCurrentProduct = this.currentProduct &&
         ((this.currentProduct.slug && this.currentProduct.slug === productSlug) ||
@@ -357,18 +385,23 @@ export class CategoriesWidget extends ShoprocketElement {
 
       const hasFullDetails = hasCurrentProduct && this.currentProduct.description !== undefined;
 
+      // Use cached products if available, otherwise fetch them
+      const productsPromise = this.cachedProducts.length > 0
+        ? Promise.resolve({ data: this.cachedProducts })
+        : this.sdk.products.list({
+            category: categoryIdOrSlug,
+            per_page: 1000, // Load enough products to find neighbors
+          });
+
       // Only fetch product if we don't have full details
       const productPromise = hasFullDetails ?
         Promise.resolve(this.currentProduct) :
         this.sdk.products.get(productSlug);
 
-      // Load the product and category products in parallel
+      // Load the product (and products list if not cached) in parallel
       const [product, productsResponse] = await Promise.all([
         productPromise,
-        this.sdk.products.list({
-          category: categoryIdOrSlug,
-          per_page: 1000, // Load enough products to find neighbors
-        })
+        productsPromise
       ]);
 
       // Find current product index in the list
@@ -385,6 +418,11 @@ export class CategoriesWidget extends ShoprocketElement {
         // Product not found in list (shouldn't happen, but handle gracefully)
         this.prevProduct = null;
         this.nextProduct = null;
+      }
+
+      // Cache products list for future navigation (only if we fetched it)
+      if (this.cachedProducts.length === 0) {
+        this.cachedProducts = products;
       }
 
       this.currentProduct = product;
@@ -599,7 +637,7 @@ export class CategoriesWidget extends ShoprocketElement {
    * Handle product click from embedded catalog
    */
   private handleCatalogProductClick = (event: CustomEvent) => {
-    const { product, prevProduct, nextProduct } = event.detail;
+    const { product, prevProduct, nextProduct, allProducts } = event.detail;
     const currentCategory = this.getCurrentCategory();
 
     if (!currentCategory) {
@@ -609,6 +647,11 @@ export class CategoriesWidget extends ShoprocketElement {
 
     // Mark this widget as the active one (it initiated this navigation)
     CategoriesWidget.activeWidget = this;
+
+    // Cache the products list from catalog for navigation
+    if (allProducts && allProducts.length > 0) {
+      this.cachedProducts = allProducts;
+    }
 
     // Show product immediately with data from list (instant display)
     this.currentProduct = product;
@@ -650,9 +693,9 @@ export class CategoriesWidget extends ShoprocketElement {
 
   /**
    * Handle product navigation (prev/next) from product detail view
-   * Navigate via URL to trigger fresh load with correct prev/next context
+   * Use cached products list for instant navigation
    */
-  private handleProductNavigation = (event: CustomEvent) => {
+  private handleProductNavigation = async (event: CustomEvent) => {
     const { product } = event.detail;
     if (!product) return;
 
@@ -662,8 +705,31 @@ export class CategoriesWidget extends ShoprocketElement {
     // Mark this widget as active
     CategoriesWidget.activeWidget = this;
 
-    // Navigate to URL - this will trigger loadCategoryAndProduct which loads
-    // the product with fresh prev/next calculated from the category's product list
+    // If we have cached products, use them for instant navigation
+    if (this.cachedProducts.length > 0) {
+      const currentIndex = this.cachedProducts.findIndex(
+        p => (p.slug && p.slug === product.slug) || p.id === product.id
+      );
+
+      if (currentIndex !== -1) {
+        // Found in cache - instant navigation!
+        this.currentProduct = product;
+        this.prevProduct = currentIndex > 0 ? this.cachedProducts[currentIndex - 1] : null;
+        this.nextProduct = currentIndex < this.cachedProducts.length - 1 ? this.cachedProducts[currentIndex + 1] : null;
+        this.currentView = 'product-detail';
+
+        // Update URL for bookmarking (hash change will trigger but use cached data)
+        const categoryIdentifier = currentCategory.slug || currentCategory.id;
+        const productIdentifier = product.slug || product.id;
+        window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
+
+        // Note: hash change will call loadProductWithNavigation, which will use cached data
+        // and load full product details if needed
+        return;
+      }
+    }
+
+    // Fallback: Navigate via URL (will trigger loadCategoryAndProduct)
     const categoryIdentifier = currentCategory.slug || currentCategory.id;
     const productIdentifier = product.slug || product.id;
     window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
