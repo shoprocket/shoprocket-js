@@ -120,7 +120,29 @@
     delete window.__ShoprocketInit;
     console.error('Shoprocket: Failed to load widget bundle from', bundleUrl);
   };
-  
+
+  // Reserve space for widgets to prevent Cumulative Layout Shift (CLS)
+  // This runs immediately before bundle loads, reserving approximate heights
+  var MIN_HEIGHTS = {
+    'product-view': '650px',
+    'catalog': '800px',
+    'categories': '400px',
+    'buy-button': '50px'
+    // cart is omitted (fixed/floating position, doesn't affect CLS)
+  };
+
+  var widgets = document.querySelectorAll('[data-shoprocket]');
+  for (var i = 0; i < widgets.length; i++) {
+    var widget = widgets[i];
+    var widgetType = widget.getAttribute('data-shoprocket');
+    var minHeight = MIN_HEIGHTS[widgetType];
+
+    if (minHeight) {
+      widget.style.minHeight = minHeight;
+      widget.setAttribute('data-sr-reserve', 'true');
+    }
+  }
+
   // Insert the script
   var firstScript = document.getElementsByTagName('script')[0];
   if (firstScript && firstScript.parentNode) {

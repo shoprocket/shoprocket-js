@@ -582,6 +582,12 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   protected override render(): TemplateResult {
+    // Remove min-height reservation once products load
+    if (this.loadedPages.size > 0 && this.hasAttribute('data-sr-reserve')) {
+      this.style.minHeight = '';
+      this.removeAttribute('data-sr-reserve');
+    }
+
     const pageProducts = this.getPageProducts();
     const layoutMode = this.filterPosition === 'left' ? 'sidebar' : 'horizontal';
 
@@ -607,7 +613,7 @@ export class ProductCatalog extends ShoprocketElement {
         <div class="sr-catalog-content">
           ${ProductListTemplates.renderProductList(
             pageProducts,
-            this.isLoading('products'),
+            this.loadedPages.size === 0 || this.isLoading('products'),
             this.limit || 12,
             this.errorMessage,
             this.successMessage,

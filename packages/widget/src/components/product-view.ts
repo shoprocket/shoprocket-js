@@ -187,6 +187,12 @@ export class ProductView extends ShoprocketElement {
   }
   
   protected override render(): TemplateResult {
+    // Remove min-height reservation once product loads
+    if (this.productData && this.hasAttribute('data-sr-reserve')) {
+      this.style.minHeight = '';
+      this.removeAttribute('data-sr-reserve');
+    }
+
     // Show error state
     if (this.errorMessage) {
       return html`
