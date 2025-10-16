@@ -206,6 +206,13 @@ export class CategoriesWidget extends ShoprocketElement {
    * Load a specific category by ID or slug
    */
   private async loadCategory(idOrSlug: string) {
+    // Check if we're already viewing this category - if so, skip loading
+    const currentCategory = this.getCurrentCategory();
+    if (currentCategory && (currentCategory.id === idOrSlug || currentCategory.slug === idOrSlug)) {
+      // Already viewing this category - no need to reload
+      return;
+    }
+
     this.loading = true;
 
     try {
@@ -280,8 +287,19 @@ export class CategoriesWidget extends ShoprocketElement {
    * Load category and specific product within it
    */
   private async loadCategoryAndProduct(categoryId: string, productSlug: string) {
-    // Check if we're already viewing this category - if so, just load the product with navigation
+    // Check if we're already viewing this exact product with navigation data
     const currentCategory = this.getCurrentCategory();
+    const alreadyViewingProduct = this.currentProduct &&
+      ((this.currentProduct.slug && this.currentProduct.slug === productSlug) ||
+       this.currentProduct.id === productSlug) &&
+      this.prevProduct !== undefined &&
+      this.nextProduct !== undefined &&
+      this.currentView === 'product-detail';
+
+    if (alreadyViewingProduct) {
+      // We're already viewing this exact product with nav data - nothing to do
+      return;
+    }
 
     // Match by either ID or slug
     if (currentCategory && (currentCategory.id === categoryId || currentCategory.slug === categoryId)) {
@@ -479,8 +497,34 @@ export class CategoriesWidget extends ShoprocketElement {
     // Mark this widget as the active one (it initiated this navigation)
     CategoriesWidget.activeWidget = this;
 
-    // Update the URL - the hash change handler will do the rest
-    // (load category data, update navigation stack, load products if needed)
+    // Optimization: Since we already have the category data (we just clicked it),
+    // navigate instantly without showing loading state or refetching data
+    this.buildNavigationStack(category);
+
+    // Show either subcategories or products
+    if (this.hasChildren(category)) {
+      this.currentCategories = category.children || [];
+      this.currentView = 'categories';
+    } else {
+      // Leaf category - lazy load catalog component and show products
+      if (!customElements.get('shoprocket-catalog')) {
+        try {
+          const { ProductCatalog } = await import('./product-catalog');
+          customElements.define('shoprocket-catalog', ProductCatalog);
+        } catch (err) {
+          if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+            throw err;
+          }
+        }
+      }
+
+      await customElements.whenDefined('shoprocket-catalog');
+
+      this.currentCategories = [];
+      this.currentView = 'products';
+    }
+
+    // Update URL for bookmarking (don't trigger another load via hash change)
     const identifier = category.slug || category.id;
     window.location.hash = `#!/categories/${identifier}`;
   }
@@ -496,6 +540,11 @@ export class CategoriesWidget extends ShoprocketElement {
     if (this.currentView === 'product-detail') {
       const currentCategory = this.getCurrentCategory();
       if (currentCategory) {
+        // Directly transition to products view (don't wait for URL routing)
+        this.currentCategories = [];
+        this.currentView = 'products';
+
+        // Update URL for bookmarking
         const identifier = currentCategory.slug || currentCategory.id;
         window.location.hash = `#!/categories/${identifier}`;
       }
@@ -622,6 +671,31 @@ export class CategoriesWidget extends ShoprocketElement {
    * Render loading state
    */
   private renderLoadingState(): TemplateResult {
+    // If showing products view, render product grid skeleton instead
+    if (this.currentView === 'products') {
+      const skeletonProducts = Array(this.limit || 12).fill(null);
+
+      return html`
+        <div class="sr-product-grid" data-loading="true">
+          ${skeletonProducts.map(() => html`
+            <article class="sr-product-card">
+              <div class="sr-product-image-container sr-image-loading"></div>
+              <div class="sr-card-content">
+                <div class="sr-product-info">
+                  <h3 class="sr-product-title"></h3>
+                  <div><span class="sr-product-price"></span></div>
+                </div>
+                <div class="sr-product-actions">
+                  <button class="sr-button sr-button-primary" disabled></button>
+                </div>
+              </div>
+            </article>
+          `)}
+        </div>
+      `;
+    }
+
+    // Otherwise show category grid skeleton
     const skeletonCount = this.columns * 2; // Show 2 rows
 
     return html`
@@ -659,10 +733,35 @@ export class CategoriesWidget extends ShoprocketElement {
     this.nextProduct = nextProduct;
     this.currentView = 'product-detail';
 
-    // Navigate to product using category-scoped hash (will load full details in background)
+    // Update URL using replaceState to avoid triggering hashchange
+    // This prevents redundant API calls since we already have all the data we need
     const categoryIdentifier = currentCategory.slug || currentCategory.id;
     const productIdentifier = product.slug || product.id;
-    window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
+    const newHash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
+    history.replaceState(null, '', newHash);
+
+    // Check if we have full product details (description, variants, etc.)
+    // Products from list API only have basic data
+    const hasFullDetails = product.description !== undefined;
+
+    if (!hasFullDetails) {
+      // Load full details in background while showing the product
+      this.loadingProduct = true;
+      this.sdk.products.get(productIdentifier).then(fullProduct => {
+        this.currentProduct = fullProduct;
+        // Update cache with full product details
+        const cacheIndex = this.cachedProducts.findIndex(
+          p => (p.slug && p.slug === product.slug) || p.id === product.id
+        );
+        if (cacheIndex !== -1) {
+          this.cachedProducts[cacheIndex] = fullProduct;
+        }
+      }).catch(error => {
+        console.error('[Categories] Failed to load full product:', error);
+      }).finally(() => {
+        this.loadingProduct = false;
+      });
+    }
   };
 
   /**
@@ -718,13 +817,31 @@ export class CategoriesWidget extends ShoprocketElement {
         this.nextProduct = currentIndex < this.cachedProducts.length - 1 ? this.cachedProducts[currentIndex + 1] : null;
         this.currentView = 'product-detail';
 
-        // Update URL for bookmarking (hash change will trigger but use cached data)
+        // Update URL for bookmarking using replaceState to avoid triggering hashchange
+        // This prevents redundant API calls since we've already handled the navigation
         const categoryIdentifier = currentCategory.slug || currentCategory.id;
         const productIdentifier = product.slug || product.id;
-        window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
+        const newHash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
+        history.replaceState(null, '', newHash);
 
-        // Note: hash change will call loadProductWithNavigation, which will use cached data
-        // and load full product details if needed
+        // Check if we have full product details (description, variants, etc.)
+        // Products from list API only have basic data
+        const hasFullDetails = product.description !== undefined;
+
+        if (!hasFullDetails) {
+          // Load full details in background while showing the product
+          this.loadingProduct = true;
+          this.sdk.products.get(productIdentifier).then(fullProduct => {
+            this.currentProduct = fullProduct;
+            // Update cache with full product details
+            this.cachedProducts[currentIndex] = fullProduct;
+          }).catch(error => {
+            console.error('[Categories] Failed to load full product:', error);
+          }).finally(() => {
+            this.loadingProduct = false;
+          });
+        }
+
         return;
       }
     }

@@ -174,6 +174,10 @@
   /* Shadow - ONE value for consistency, users can customize via CSS */
   --sr-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 
+  /* Skeleton shimmer - ONE gradient and duration for all loading states */
+  --skeleton-shimmer-gradient: linear-gradient(90deg, rgb(243, 244, 246) 0%, rgb(249, 250, 251) 50%, rgb(243, 244, 246) 100%);
+  --skeleton-shimmer-duration: 2.5s;
+
   /* Grid columns */
   --cols: 4;
   --cols-md: 3;
@@ -266,7 +270,9 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    background: var(--skeleton-shimmer-gradient);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
     border-radius: var(--sr-radius);
     z-index: 1;
   }
@@ -316,15 +322,28 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    background: var(--skeleton-shimmer-gradient);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
     border-radius: inherit;
     z-index: 1;
   }
 
-  /* Image container skeleton - always show when loading */
+  /* Image container skeleton - show shimmer while image is loading */
+  .sr-image-loading {
+    position: relative;
+    background: var(--skeleton-shimmer-gradient);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
+    overflow: hidden;
+  }
+
+  /* Also show shimmer during data loading state (initial page load) */
   [data-loading] .sr-product-image-container {
     position: relative;
-    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    background: var(--skeleton-shimmer-gradient);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
     overflow: hidden;
   }
 
@@ -332,11 +351,13 @@
   [data-loading] .sr-media-container {
     position: relative;
     min-height: 400px;
-    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    background: var(--skeleton-shimmer-gradient);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
     overflow: hidden;
   }
 
-  /* Hide actual images during loading */
+  /* Hide actual images during initial data loading */
   [data-loading] img {
     opacity: 0;
   }
@@ -369,10 +390,12 @@
   /* Product Image */
   .sr-product-image {
     @apply absolute inset-0 w-full h-full object-cover transition-all duration-500;
+    z-index: 2; /* Layer above shimmer */
   }
 
   .sr-product-image-primary {
     @apply opacity-0;
+    transition: opacity 0.3s ease-in;
   }
 
   .sr-product-image-primary.loaded {
@@ -838,9 +861,9 @@
   .sr-cart-item-image {
     @apply w-16 h-16 flex-shrink-0 overflow-hidden cursor-pointer relative;
     border-radius: var(--sr-radius);
-    background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%);
+    background: var(--skeleton-shimmer-gradient);
     background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
   }
 
   .sr-cart-item-image img {
@@ -1484,9 +1507,9 @@
 
 .sr-media-loading {
   @apply absolute inset-0;
-  background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%);
+  background: var(--skeleton-shimmer-gradient);
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
 }
 
 .sr-media-image {
@@ -2716,9 +2739,9 @@
 
 .sr-order-item-image-container {
   @apply w-10 h-10 rounded relative overflow-hidden;
-  background: linear-gradient(90deg, rgb(229, 231, 235) 25%, rgb(243, 244, 246) 50%, rgb(229, 231, 235) 75%);
+  background: var(--skeleton-shimmer-gradient);
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
 }
 
 .sr-order-item-image {
