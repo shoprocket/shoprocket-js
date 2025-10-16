@@ -170,8 +170,8 @@ export class ProductView extends ShoprocketElement {
         injectProductSchema(this.productData, this.sdk!, this.sdk!.store);
         this.schemaInjected = true;
 
-        // Track view
-        this.track(EVENTS.VIEW_ITEM, this.productData);
+        // Note: view_item tracking is handled by product-detail component
+        // to avoid duplicate events (product-view renders product-detail)
 
         this.clearError();
       } catch (err: any) {
