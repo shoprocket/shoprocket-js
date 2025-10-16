@@ -2094,13 +2094,14 @@
 
 /* Price Range Slider */
 .sr-filter-price-range {
-  flex: 1 1 100%; /* Full width on mobile and tablet */
-  min-width: 0; /* Allow shrinking */
+  flex: 1 1 100%; /* Full width on mobile */
+  min-width: 0;
 
-  /* Fixed reasonable width on desktop - don't let it grow too much */
+  /* Auto width on desktop like Sort/Category */
   @media (min-width: 1024px) {
-    flex: 0 0 auto;
-    width: 260px; /* Slightly smaller to fit better */
+    flex: 0 1 auto;
+    min-width: 240px;
+    max-width: 280px;
   }
 }
 
@@ -2113,10 +2114,11 @@
   @apply w-full rounded-md;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
-  height: 48px; /* Fixed height to match other filters */
+  height: 48px; /* Match other filters exactly */
   transition: border-color 0.2s ease;
-  padding: 0 12px;
+  padding: 6px 12px;
   position: relative;
+  overflow: visible; /* Allow thumbs to overflow */
 
   /* Only apply min-width on desktop */
   @media (min-width: 1024px) {
@@ -2130,7 +2132,6 @@
 
 .sr-price-range-header {
   @apply flex justify-between items-center;
-  padding-top: 4px; /* Match .sr-field-label top: 0.25rem */
   margin-bottom: 2px;
 }
 
@@ -2148,8 +2149,8 @@
 
 .sr-price-range-slider {
   @apply relative w-full;
-  height: 18px; /* Slider track height */
-  margin-top: 4px; /* Push slider down to avoid overlap */
+  height: 20px; /* Visual height - compact */
+  /* margin: 12px 0; Vertical spacing to create touch target area */
 }
 
 /* Background track - always visible */
@@ -2167,12 +2168,12 @@
 .sr-price-range-slider input[type="range"] {
   @apply absolute w-full appearance-none bg-transparent;
   -webkit-appearance: none;
-  height: 18px; /* Match parent */
-  top: 0;
-  transform: none;
+  height: 20px; /* Match container visual height */
+  top: 50%;
+  transform: translateY(-50%);
   pointer-events: none;
   margin: 0;
-  padding: 0;
+  padding: 14px 0; /* Expand touch target vertically (20 + 14*2 = 48px total) */
 }
 
 /* Make the thumbs interactive */
@@ -2196,27 +2197,26 @@
   border: none;
 }
 
-/* Thumb styling - good size for touch targets with visible border */
+/* Thumb styling - balanced size for touch targets and visual appeal */
 .sr-price-range-slider input[type="range"]::-webkit-slider-thumb {
   @apply rounded-full cursor-grab;
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   background: #fff;
-  border: 1px solid var(--color-primary);
+  border: 2px solid var(--color-primary);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
   position: relative;
   z-index: 4;
   transition: all 0.15s ease;
-  margin-top: -3px; /* Center thumb vertically on 5px track */
 }
 
 .sr-price-range-slider input[type="range"]::-moz-range-thumb {
   @apply rounded-full cursor-grab;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   background: #fff;
-  border: 1px solid var(--color-primary);
+  border: 2px solid var(--color-primary);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
   position: relative;
   z-index: 4;
