@@ -350,9 +350,21 @@ export class CategoriesWidget extends ShoprocketElement {
 
       await customElements.whenDefined('shoprocket-product');
 
+      // Check if we already have the product (from catalog click)
+      const hasCurrentProduct = this.currentProduct &&
+        ((this.currentProduct.slug && this.currentProduct.slug === productSlug) ||
+         this.currentProduct.id === productSlug);
+
+      const hasFullDetails = hasCurrentProduct && this.currentProduct.description !== undefined;
+
+      // Only fetch product if we don't have full details
+      const productPromise = hasFullDetails ?
+        Promise.resolve(this.currentProduct) :
+        this.sdk.products.get(productSlug);
+
       // Load the product and category products in parallel
       const [product, productsResponse] = await Promise.all([
-        this.sdk.products.get(productSlug),
+        productPromise,
         this.sdk.products.list({
           category: categoryIdOrSlug,
           per_page: 1000, // Load enough products to find neighbors
