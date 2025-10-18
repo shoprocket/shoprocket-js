@@ -567,10 +567,9 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   protected override render(): TemplateResult {
-    // Remove min-height reservation once products load
-    if (this.loadedPages.size > 0 && this.hasAttribute('data-sr-reserve')) {
-      this.style.minHeight = '';
-      this.removeAttribute('data-sr-reserve');
+    // Mark as loaded once products are loaded (removes min-height CLS reservation)
+    if (this.loadedPages.size > 0 && !this.hasAttribute('data-loaded')) {
+      this.setAttribute('data-loaded', 'true');
     }
 
     const pageProducts = this.getPageProducts();

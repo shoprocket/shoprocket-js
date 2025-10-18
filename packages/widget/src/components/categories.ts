@@ -895,10 +895,9 @@ export class CategoriesWidget extends ShoprocketElement {
       return this.renderLoadingState();
     }
 
-    // Remove min-height reservation once content loads
-    if (this.hasAttribute('data-sr-reserve')) {
-      this.style.minHeight = '';
-      this.removeAttribute('data-sr-reserve');
+    // Mark as loaded once content loads (removes min-height CLS reservation)
+    if (!this.hasAttribute('data-loaded')) {
+      this.setAttribute('data-loaded', 'true');
     }
 
     const currentCategory = this.getCurrentCategory();
