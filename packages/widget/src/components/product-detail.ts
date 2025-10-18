@@ -4,7 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ProductVariant, ProductOption } from '../types/api';
 import { loadingSpinner } from './loading-spinner';
-import { formatProductPrice } from '../utils/formatters';
+import { formatProductPrice, getMediaSizes } from '../utils/formatters';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { TIMEOUTS, STOCK_THRESHOLDS, IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 import './tooltip'; // Register tooltip component
@@ -598,8 +598,7 @@ export class ProductDetail extends ShoprocketElement {
     const isMainImage = className.includes('sr-product-detail-image-main');
     const isThumbnail = className.includes('thumbnail');
 
-    // Thumbnails use simple src (no srcset needed for small images)
-    // Main images use responsive srcset for optimal loading across devices
+    // All images use responsive srcset for optimal loading
     if (isThumbnail) {
       return html`
         <div
@@ -609,6 +608,8 @@ export class ProductDetail extends ShoprocketElement {
           ${!isLoaded ? html`<div class="sr-media-loading"></div>` : ''}
           <img
             src="${url}"
+            srcset="${this.getMediaSrcSet(media)}"
+            sizes="150px"
             alt="${alt}"
             width="150"
             height="200"
@@ -634,7 +635,7 @@ export class ProductDetail extends ShoprocketElement {
         <img
           src="${url}"
           srcset="${this.getMediaSrcSet(media)}"
-          sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 1024px) 45vw, 600px"
+          sizes="${getMediaSizes({ sm: 1, md: 2, lg: 2 })}"
           alt="${alt}"
           width="600"
           height="800"
