@@ -30,45 +30,8 @@ declare global {
 }
 
 // The loader ensures this script only runs once, so we can proceed directly
-
-// Inject CSS to reserve space for widgets to prevent CLS
-// Uses attribute selector to persist until content is loaded
-const reserveSpaceCSS = `
-/* Reserve space for Shoprocket widgets to prevent CLS */
-/* Applied until component sets [data-loaded="true"] */
-shoprocket-product-view:not([data-loaded="true"]) {
-  display: block !important;
-  min-height: 600px !important;
-  background: #f5f5f5 !important;
-}
-
-shoprocket-catalog:not([data-loaded="true"]) {
-  display: block !important;
-  min-height: 800px !important;
-  background: #f5f5f5 !important;
-}
-
-shoprocket-categories:not([data-loaded="true"]) {
-  display: block !important;
-  min-height: 300px !important;
-  background: #f5f5f5 !important;
-}
-
-shoprocket-buy-button:not([data-loaded="true"]) {
-  display: inline-block !important;
-  min-width: 120px !important;
-  min-height: 44px !important;
-  background: #f5f5f5 !important;
-}
-`;
-
-// Inject the CSS immediately (before any widgets render)
-if (!document.getElementById('shoprocket-reserve-space')) {
-  const style = document.createElement('style');
-  style.id = 'shoprocket-reserve-space';
-  style.textContent = reserveSpaceCSS;
-  document.head.appendChild(style);
-}
+// Note: CLS prevention is handled by loader.js (sets inline min-height before bundle loads)
+// Components clear these inline styles when content is ready (see product-catalog.ts, etc.)
 
 // Capture script info immediately while currentScript is available
 // For ES modules, currentScript is null, so we look for our bundle script tag
