@@ -50,7 +50,12 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
              @click="${() => context.navigateToProduct(item)}">
           <img
             src="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=128,h=128,fit=cover')}"
+            srcset="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=128,h=128,fit=cover')} 1x,
+                    ${context.getMediaUrl((item as any).image || item.media?.[0], 'w=256,h=256,fit=cover')} 2x,
+                    ${context.getMediaUrl((item as any).image || item.media?.[0], 'w=384,h=384,fit=cover')} 3x"
             alt="${item.product_name}"
+            width="128"
+            height="128"
             @load="${(e: Event) => {
               const img = e.target as HTMLImageElement;
               img.classList.add('loaded');

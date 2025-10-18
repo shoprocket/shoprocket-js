@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Product } from '../types/api';
 import { TIMEOUTS } from '../constants';
+import { getMediaSizes } from '../utils/formatters';
 
 // Import Category type from core
 import type { Category } from '@shoprocket/core';
@@ -640,7 +641,7 @@ export class CategoriesWidget extends ShoprocketElement {
             srcset="${this.getCategoryImageUrl(category.image_url)} 600w,
                     ${this.getCategoryImageUrl(category.image_url).replace('w=600', 'w=400')} 400w,
                     ${this.getCategoryImageUrl(category.image_url).replace('w=600', 'w=300')} 300w"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes="${getMediaSizes({ sm: Math.min(this.columns, 2), md: Math.min(this.columns, 3), lg: this.columns })}"
             alt="${category.name}"
             width="600"
             height="600"
