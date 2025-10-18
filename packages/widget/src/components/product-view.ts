@@ -187,8 +187,9 @@ export class ProductView extends ShoprocketElement {
   }
   
   protected override render(): TemplateResult {
-    // Mark as loaded once product loads (removes min-height CLS reservation)
+    // Clear reserved min-height once product loads (prevents CLS)
     if (this.productData && !this.hasAttribute('data-loaded')) {
+      this.style.minHeight = ''; // Clear inline style from loader
       this.setAttribute('data-loaded', 'true');
     }
 
