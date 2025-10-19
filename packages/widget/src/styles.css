@@ -132,7 +132,7 @@
   --color-primary: #111827;
   --color-text: #111827;
   --color-border: #e5e7eb;
-  --color-error: #ef4444;
+  --color-error: #c10007;
 
   /* =====================================================
    * AUTO-DERIVED COLORS - Calculated Automatically
@@ -162,7 +162,7 @@
   --color-info: var(--color-blue-500);
   --color-success: var(--color-green-600);
   --color-warning: var(--color-yellow-700);
-  --color-danger: var(--color-red-500);
+  --color-danger: var(--color-red-700);
 
   /* Spacing - Tailwind v4 uses its own spacing scale internally */
   /* We only define custom spacing for non-Tailwind use cases */
@@ -1157,19 +1157,19 @@
   }
 
   .sr-in-stock {
-    color: var(--color-success, #15803d); /* Green-700 for better contrast (4.5:1 ratio) */
+    color: var(--color-success); /* Green-700 for better contrast (4.5:1 ratio) */
     border-color: var(--color-green-200);
     background-color: var(--color-green-100);
   }
 
   .sr-low-stock {
-    color: var(--color-warning, #c2410c); /* Orange-700 for better contrast (4.6:1 ratio) */
+    color: var(--color-warning); /* Orange-700 for better contrast (4.6:1 ratio) */
     border-color: var(--color-yellow-200);
     background-color: var(--color-yellow-100);
   }
 
   .sr-out-of-stock {
-    color: var(--color-error, #b91c1c); /* Red-700 for better contrast (5.9:1 ratio) */
+    color: var(--color-error); /* Red-700 for better contrast (5.9:1 ratio) */
     border-color: var(--color-red-200);
     background-color: var(--color-red-100);
   }
