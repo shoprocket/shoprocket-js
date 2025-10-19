@@ -86,10 +86,16 @@ export function formatDate(date: string | Date): string {
 }
 
 /**
- * Format number with thousands separators (e.g., 1,000)
+ * Format number with thousands separators using user's locale
+ * Examples:
+ * - US/UK: 1,000
+ * - French: 1 000 (space)
+ * - German: 1.000 (dot)
  */
 export function formatNumber(value: number): string {
-  return new Intl.NumberFormat('en-US').format(value);
+  // Use browser locale, fallback to en-US
+  const locale = navigator.language || 'en-US';
+  return new Intl.NumberFormat(locale).format(value);
 }
 
 /**
