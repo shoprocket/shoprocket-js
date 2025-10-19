@@ -160,8 +160,8 @@
 
   /* System colors */
   --color-info: var(--color-blue-500);
-  --color-success: var(--color-green-800);
-  --color-warning: var(--color-yellow-400);
+  --color-success: var(--color-green-600);
+  --color-warning: var(--color-yellow-700);
   --color-danger: var(--color-red-500);
 
   /* Spacing - Tailwind v4 uses its own spacing scale internally */
@@ -1150,19 +1150,28 @@
   
   /* Stock Status Styles */
   .sr-stock-status {
-    @apply text-sm font-medium mb-6;
+    @apply text-xs mb-4 p-1;
+    display: inline-flex;
+    width: fit-content;
+    border-radius: var(--sr-radius);
   }
 
   .sr-in-stock {
     color: var(--color-success, #15803d); /* Green-700 for better contrast (4.5:1 ratio) */
+    border-color: var(--color-green-200);
+    background-color: var(--color-green-100);
   }
 
   .sr-low-stock {
     color: var(--color-warning, #c2410c); /* Orange-700 for better contrast (4.6:1 ratio) */
+    border-color: var(--color-yellow-200);
+    background-color: var(--color-yellow-100);
   }
 
   .sr-out-of-stock {
     color: var(--color-error, #b91c1c); /* Red-700 for better contrast (5.9:1 ratio) */
+    border-color: var(--color-red-200);
+    background-color: var(--color-red-100);
   }
 
   .sr-product-detail-summary {

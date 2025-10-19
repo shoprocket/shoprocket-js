@@ -4,7 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ProductVariant, ProductOption } from '../types/api';
 import { loadingSpinner } from './loading-spinner';
-import { formatProductPrice, getMediaSizes } from '../utils/formatters';
+import { formatProductPrice, getMediaSizes, formatNumber } from '../utils/formatters';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { TIMEOUTS, STOCK_THRESHOLDS, IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 import './tooltip'; // Register tooltip component
@@ -556,9 +556,9 @@ export class ProductDetail extends ShoprocketElement {
       <div class="sr-stock-status ${isLowStock ? 'sr-low-stock' : 'sr-in-stock'}">
         ${isLowStock ? html`
           <sr-tooltip text="Limited availability - order soon to avoid disappointment">
-            Only ${stockQuantity} left in stock
+            Only ${formatNumber(stockQuantity)} left in stock
           </sr-tooltip>
-        ` : `${stockQuantity} in stock`}
+        ` : `${formatNumber(stockQuantity)} in stock`}
       </div>
     `;
   }

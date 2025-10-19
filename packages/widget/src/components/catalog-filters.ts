@@ -2,6 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Category } from '@shoprocket/core';
+import { formatNumber } from '../utils/formatters';
 
 /**
  * Catalog Filters Component - Filter toolbar for product catalog
@@ -295,7 +296,7 @@ export class CatalogFilters extends ShoprocketElement {
         ${this.totalProducts > 0 ? html`
           <div class="sr-filter-group sr-filter-product-count">
             <div class="sr-product-count">
-              ${this.totalProducts} ${this.totalProducts === 1 ? 'product' : 'products'}
+              ${formatNumber(this.totalProducts)} ${this.totalProducts === 1 ? 'product' : 'products'}
             </div>
           </div>
         ` : ''}
