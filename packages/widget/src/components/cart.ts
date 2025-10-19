@@ -514,10 +514,11 @@ export class CartWidget extends ShoprocketElement {
     if (!this.cart) {
       // Use store currency when creating new cart
       const currency = this.getStoreCurrency();
+      const locale = navigator.language || 'en-US';
       const zeroPriceObj: Money = {
         amount: 0,
         currency,
-        formatted: new Intl.NumberFormat('en-US', {
+        formatted: new Intl.NumberFormat(locale, {
           style: 'currency',
           currency
         }).format(0)
@@ -2241,6 +2242,7 @@ export class CartWidget extends ShoprocketElement {
     this.cart.item_count = this.cart.items?.reduce((count, item) => count + item.quantity, 0) || 0;
 
     const currency = this.cart.currency || this.getStoreCurrency();
+    const locale = navigator.language || 'en-US';
 
     // Update each line item's subtotal (for optimistic updates)
     this.cart.items?.forEach((item: any) => {
@@ -2251,7 +2253,7 @@ export class CartWidget extends ShoprocketElement {
       item.subtotal = {
         amount: lineTotal,
         currency,
-        formatted: new Intl.NumberFormat('en-US', {
+        formatted: new Intl.NumberFormat(locale, {
           style: 'currency',
           currency
         }).format(lineTotal / 100)
@@ -2266,7 +2268,7 @@ export class CartWidget extends ShoprocketElement {
     const subtotalObj: Money = {
       amount: newSubtotalAmount,
       currency,
-      formatted: new Intl.NumberFormat('en-US', {
+      formatted: new Intl.NumberFormat(locale, {
         style: 'currency',
         currency
       }).format(newSubtotalAmount / 100)

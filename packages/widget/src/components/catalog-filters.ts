@@ -147,10 +147,14 @@ export class CatalogFilters extends ShoprocketElement {
   }
 
   private formatPrice(value: number): string {
-    // Simple currency formatting - will use store locale/currency eventually
-    return new Intl.NumberFormat('en-GB', {
+    // Get store currency and user locale for proper formatting
+    const store = (window as any).Shoprocket?.store?.get?.();
+    const currency = store?.base_currency_code || 'USD';
+    const locale = navigator.language || 'en-US';
+
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: 'GBP',
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     }).format(value);

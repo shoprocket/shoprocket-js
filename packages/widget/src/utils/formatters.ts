@@ -13,35 +13,43 @@ function getStoreCurrency(): string {
 }
 
 /**
+ * Get user's locale for formatting
+ * Uses browser locale to respect user's regional preferences
+ */
+function getUserLocale(): string {
+  return navigator.language || 'en-US';
+}
+
+/**
  * Format price for display
  */
 export function formatPrice(price: Money | undefined | null | number): string {
   if (!price && price !== 0) {
     const currency = getStoreCurrency();
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(getUserLocale(), {
       style: 'currency',
       currency: currency
     }).format(0);
   }
-  
+
   // If it's just a number (subtotal), format it
   if (typeof price === 'number') {
     const currency = getStoreCurrency();
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(getUserLocale(), {
       style: 'currency',
       currency: currency
     }).format(price / 100); // Assuming amounts are in cents
   }
-  
+
   // API always returns formatted price - use it directly
   if ((price as Money).formatted) {
     return (price as Money).formatted;
   }
-  
+
   // Format if API didn't provide formatted string
   const priceObj = price as Money;
   const currency = priceObj.currency || getStoreCurrency();
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(getUserLocale(), {
     style: 'currency',
     currency: currency
   }).format(priceObj.amount / 100);
@@ -78,11 +86,15 @@ export function formatProductPrice(
 }
 
 /**
- * Format date for display
+ * Format date for display using user's locale
+ * Examples:
+ * - US: 10/19/2025
+ * - UK: 19/10/2025
+ * - German: 19.10.2025
  */
 export function formatDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('en-US').format(d);
+  return new Intl.DateTimeFormat(getUserLocale()).format(d);
 }
 
 /**
@@ -93,9 +105,7 @@ export function formatDate(date: string | Date): string {
  * - German: 1.000 (dot)
  */
 export function formatNumber(value: number): string {
-  // Use browser locale, fallback to en-US
-  const locale = navigator.language || 'en-US';
-  return new Intl.NumberFormat(locale).format(value);
+  return new Intl.NumberFormat(getUserLocale()).format(value);
 }
 
 /**
