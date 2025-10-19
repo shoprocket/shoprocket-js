@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Product } from '../types/api';
 import { TIMEOUTS } from '../constants';
-import { getMediaSizes } from '../utils/formatters';
+import { getMediaSizes, formatNumber } from '../utils/formatters';
 
 // Import Category type from core
 import type { Category } from '@shoprocket/core';
@@ -656,7 +656,7 @@ export class CategoriesWidget extends ShoprocketElement {
 
         ${this.showCounts ? html`
           <div class="sr-category-count">
-            ${category.products_count} ${category.products_count === 1 ? 'product' : 'products'}
+            ${formatNumber(category.products_count)} ${category.products_count === 1 ? 'product' : 'products'}
           </div>
         ` : ''}
       </div>

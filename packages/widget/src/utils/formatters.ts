@@ -86,6 +86,13 @@ export function formatDate(date: string | Date): string {
 }
 
 /**
+ * Format number with thousands separators (e.g., 1,000)
+ */
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value);
+}
+
+/**
  * Build media URL with transformations
  */
 export function getMediaUrl(_sdk: ShoprocketCore, media: Media | null | undefined, transformations?: string): string {
