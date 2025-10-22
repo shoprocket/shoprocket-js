@@ -11,6 +11,7 @@ import { StoreService } from './services/store';
 import { AuthService } from './services/auth';
 import { LocationService } from './services/location';
 import { CategoriesService } from './services/categories';
+import { EmbedsService } from './services/embeds';
 
 export interface ShoprocketConfig {
   publicKey: string;
@@ -22,7 +23,7 @@ export interface ShoprocketConfig {
 export class ShoprocketCore {
   private config: ShoprocketConfig;
   private api: ApiClient;
-  
+
   public session: SessionService;
   public products: ProductsService;
   public cart: CartService;
@@ -30,6 +31,7 @@ export class ShoprocketCore {
   public auth: AuthService;
   public location: LocationService;
   public categories: CategoriesService;
+  public embeds: EmbedsService;
 
   constructor(config: ShoprocketConfig) {
     this.config = {
@@ -54,6 +56,7 @@ export class ShoprocketCore {
     this.auth = new AuthService(this.api);
     this.location = new LocationService(this.api);
     this.categories = new CategoriesService(this.api);
+    this.embeds = new EmbedsService(this.api);
   }
 
   /**
@@ -124,6 +127,7 @@ export * from './services/store';
 export * from './services/auth';
 export * from './services/location';
 export * from './services/categories';
+export * from './services/embeds';
 
 // Default export for convenience
 export default ShoprocketCore;

@@ -396,10 +396,10 @@ export class WidgetManager {
    * Auto-mount widgets based on data attributes
    */
   private autoMount(): void {
-    // Find all elements with data-shoprocket attribute
-    const elements = document.querySelectorAll('[data-shoprocket]');
+    // Find all elements with data-shoprocket attribute (inline config)
+    const inlineElements = document.querySelectorAll('[data-shoprocket]');
 
-    elements.forEach(element => {
+    inlineElements.forEach(element => {
       const widgetType = element.getAttribute('data-shoprocket');
       if (!widgetType) return;
 
@@ -414,6 +414,17 @@ export class WidgetManager {
 
       // Mount appropriate component
       this.mount(element, widgetType, options);
+    });
+
+    // Find all elements with data-shoprocket-embed attribute (dashboard-managed)
+    const embedElements = document.querySelectorAll('[data-shoprocket-embed]');
+
+    embedElements.forEach(element => {
+      const embedId = element.getAttribute('data-shoprocket-embed');
+      if (!embedId) return;
+
+      // Mount with embed ID (will fetch config from API)
+      this.mountEmbed(element, embedId);
     });
   }
 
@@ -486,5 +497,54 @@ export class WidgetManager {
     // Replace the element with our component
     element.replaceWith(component);
     this.mountedWidgets.set(component, component);
+  }
+
+  /**
+   * Mount a widget from an embed ID (fetches config from API)
+   * Supports preview mode via window.SHOPROCKET_PREVIEW_CONFIG
+   */
+  async mountEmbed(element: Element, embedId: string): Promise<void> {
+    if (!this.initialized || !this.sdk) {
+      throw new Error('Shoprocket: Not initialized. Call init() first.');
+    }
+
+    try {
+      // Check for preview override first (for dashboard live editing)
+      const previewConfig = (window as any).SHOPROCKET_PREVIEW_CONFIG?.[embedId];
+
+      let embedConfig;
+      if (previewConfig) {
+        // Use preview config (no API call)
+        embedConfig = previewConfig;
+      } else {
+        // Normal flow: Fetch embed configuration from API
+        embedConfig = await this.sdk.embeds.getConfig(embedId);
+      }
+
+      // Extract widget type and configuration
+      const widgetType = embedConfig.widget_type;
+      const options = embedConfig.configuration || {};
+
+      // TODO: Apply theme CSS if theme_css_url is provided
+      if (embedConfig.theme_css_url) {
+        // We could inject theme CSS here, but for now we'll skip it
+        // Theme application will be handled separately
+      }
+
+      // Mount the widget with the fetched configuration
+      await this.mount(element, widgetType, options);
+    } catch (error) {
+      console.error(`Shoprocket: Failed to load embed ${embedId}:`, error);
+
+      // Show error state in the embed element
+      if (element instanceof HTMLElement) {
+        element.innerHTML = `
+          <div style="padding: 20px; text-align: center; color: #666;">
+            <p>Unable to load widget</p>
+            <p style="font-size: 12px; color: #999;">Embed ID: ${embedId}</p>
+          </div>
+        `;
+      }
+    }
   }
 }
