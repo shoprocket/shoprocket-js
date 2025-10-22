@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Embed (Dashboard Simulation)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #1a1a1a;
+      color: white;
+    }
+    .preview-container {
+      background: #2a2a2a;
+      border-radius: 8px;
+      padding: 2rem;
+      margin-top: 2rem;
+    }
+    .debug-panel {
+      background: #333;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .debug-panel h3 {
+      margin-top: 0;
+      color: #4ade80;
+    }
+    .debug-item {
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      background: #1a1a1a;
+      border-radius: 4px;
+    }
+    .debug-item strong {
+      color: #60a5fa;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dashboard Embed Test</h1>
+
+  <div class="debug-panel">
+    <h3>Debug Info</h3>
+    <div id="debug-output"></div>
+    <button onclick="checkStatus()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #4ade80; border: none; border-radius: 4px; cursor: pointer;">
+      Refresh Status
+    </button>
+  </div>
+
+  <div class="preview-container">
+    <h2>Live Preview</h2>
+
+    <!-- Set preview config BEFORE widget loads -->
+    <script>
+      window.SHOPROCKET_PREVIEW_CONFIG = {
+        'preview-embed': {
+          widget_type: 'catalog',
+          configuration: {
+            limit: 12,
+            columns: 3,
+            style: 'grid'
+          }
+        }
+      };
+    </script>
+
+    <!-- Widget Embed (mimics dashboard) -->
+    <div data-shoprocket-embed="preview-embed"></div>
+
+    <!-- Load widget script -->
+    <script src="https://shoprocket-widget.test/shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>
+  </div>
+
+  <script>
+    function checkStatus() {
+      const output = document.getElementById('debug-output');
+
+      if (!window.Shoprocket) {
+        output.innerHTML = '<div class="debug-item" style="color: #ef4444;"><strong>ERROR:</strong> window.Shoprocket is undefined</div>';
+        return;
+      }
+
+      const status = {
+        initialized: window.Shoprocket.initialized,
+        hasSdk: window.Shoprocket.sdk !== null,
+        mountedCount: window.Shoprocket.mountedWidgets?.size || 0,
+        autoInitRan: window.__shoprocketAutoInitRan,
+        hasPreviewConfig: !!window.SHOPROCKET_PREVIEW_CONFIG?.['preview-embed']
+      };
+
+      output.innerHTML = Object.entries(status).map(([key, value]) => {
+        const color = value ? '#4ade80' : '#ef4444';
+        return `<div class="debug-item"><strong>${key}:</strong> <span style="color: ${color}">${value}</span></div>`;
+      }).join('');
+    }
+
+    // Auto-check status after a delay
+    setTimeout(checkStatus, 2000);
+
+    // Also check on load
+    window.addEventListener('load', () => {
+      setTimeout(checkStatus, 500);
+    });
+  </script>
+</body>
+</html>

@@ -124,6 +124,12 @@ function getPublicKey(): string | null {
     return bundleScript.getAttribute('data-pk');
   }
 
+  // Fallback: Check for any script with data-pk (direct bundle load without loader)
+  const directScript = document.querySelector('script[data-pk][src*="shoprocket"]');
+  if (directScript) {
+    return directScript.getAttribute('data-pk');
+  }
+
   return null;
 }
 

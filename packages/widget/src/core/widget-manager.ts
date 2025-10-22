@@ -170,7 +170,7 @@ export class WidgetManager {
       console.warn('Shoprocket: Already initialized');
       return;
     }
-    
+
     // Set flag immediately to prevent concurrent initialization
     this.initialized = true;
 

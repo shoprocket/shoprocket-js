@@ -126,13 +126,18 @@
     var versionedUrl = bundleUrl + versionParam;
 
     // Create import map to alias main.shoprocket.js to versioned URL
+    // Must alias ALL possible import paths that chunks might use
+    var baseUrl = bundleUrl.replace(/\?.*$/, ''); // Remove query params
+    var imports = {
+      './main.shoprocket.js': versionedUrl,        // Relative import from same dir
+      '/main.shoprocket.js': versionedUrl,         // Absolute path import
+      'main.shoprocket.js': versionedUrl           // Bare specifier
+    };
+    imports[baseUrl] = versionedUrl;               // Full URL without version (ES5 compat)
+
     var importMap = document.createElement('script');
     importMap.type = 'importmap';
-    importMap.textContent = JSON.stringify({
-      imports: {
-        './main.shoprocket.js': versionedUrl
-      }
-    });
+    importMap.textContent = JSON.stringify({ imports: imports });
     document.head.appendChild(importMap);
 
     bundleScript.src = versionedUrl;
