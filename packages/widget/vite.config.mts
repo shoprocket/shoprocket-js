@@ -64,7 +64,14 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    open: '/index.html'
+    open: '/index.html',
+    // Enable CORS for embeddable widget (must be accessible from any domain)
+    cors: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+      'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization'
+    }
   },
   // Optimize dependencies
   optimizeDeps: {

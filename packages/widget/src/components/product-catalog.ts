@@ -472,7 +472,7 @@ export class ProductCatalog extends ShoprocketElement {
       } else {
         // Load all root categories if no categories specified
         const response = await this.sdk.categories.list({
-          filter: { root: true },
+          filter: { is_root: true },
         });
         this.allCategories = response.data || [];
       }
