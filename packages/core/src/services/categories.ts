@@ -6,13 +6,13 @@ export interface Category {
   name: string;
   description: string | null;
   status: string;
-  parent_id: string | null;
+  parentId: string | null;
   level: number;
-  sort_order: number;
-  products_count: number;
-  image_url: string | null;
-  meta_title: string | null;
-  meta_description: string | null;
+  sortOrder: number;
+  productsCount: number;
+  imageUrl: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
   children?: Category[];
   parent?: {
     id: string;
@@ -20,22 +20,22 @@ export interface Category {
     slug: string;
     level: number;
   };
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CategoryListParams {
   filter?: {
     id?: string | string[];
-    parent_id?: string;
-    is_root?: boolean;
+    parentId?: string;
+    isRoot?: boolean;
     status?: string;
     slug?: string | string[];
   };
   include?: string; // 'children,parent'
   sort?: string;
   page?: number;
-  per_page?: number;
+  perPage?: number;
   lang?: string;
 }
 
@@ -59,9 +59,12 @@ export class CategoriesService {
               value.forEach(val => {
                 queryParams.append(`filter[${key}][]`, val);
               });
-            } else if (key === 'is_root' && typeof value === 'boolean') {
-              // Boolean: filter[is_root]=true
-              queryParams.append('filter[is_root]', value.toString());
+            } else if (key === 'isRoot' && typeof value === 'boolean') {
+              // Boolean: filter[isRoot]=true
+              queryParams.append('filter[isRoot]', value.toString());
+            } else if (key === 'parentId') {
+              // Parent ID filter
+              queryParams.append('filter[parentId]', value.toString());
             } else {
               // Single value: filter[key]=value
               queryParams.append(`filter[${key}]`, value.toString());
@@ -74,7 +77,7 @@ export class CategoriesService {
       if (params.include) queryParams.append('include', params.include);
       if (params.sort) queryParams.append('sort', params.sort);
       if (params.page) queryParams.append('page', params.page.toString());
-      if (params.per_page) queryParams.append('per_page', params.per_page.toString());
+      if (params.perPage) queryParams.append('perPage', params.perPage.toString());
       if (params.lang) queryParams.append('lang', params.lang);
     }
 

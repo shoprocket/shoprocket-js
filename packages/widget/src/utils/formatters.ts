@@ -58,14 +58,14 @@ export function formatPrice(price: Money | undefined | null | number): string {
 /**
  * Format price with range support
  */
-export function formatPriceRange(product: { price: Money; price_min?: number; price_max?: number }): string {
+export function formatPriceRange(product: { price: Money; priceMin?: number; priceMax?: number }): string {
   const basePrice = product.price.amount;
-  const hasRange = product.price_max && product.price_max > basePrice;
-  
+  const hasRange = product.priceMax && product.priceMax > basePrice;
+
   if (hasRange) {
     return `From ${formatPrice(product.price)}`;
   }
-  
+
   return formatPrice(product.price);
 }
 
@@ -73,14 +73,14 @@ export function formatPriceRange(product: { price: Money; price_min?: number; pr
  * Format product price with variant support
  */
 export function formatProductPrice(
-  product: { price: Money; price_min?: number; price_max?: number },
+  product: { price: Money; priceMin?: number; priceMax?: number },
   selectedVariantPrice?: Money
 ): string {
   // If a specific variant is selected, show its price
   if (selectedVariantPrice) {
     return formatPrice(selectedVariantPrice);
   }
-  
+
   // Otherwise show price range if applicable
   return formatPriceRange(product);
 }

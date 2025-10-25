@@ -93,12 +93,12 @@ export class CartWidget extends ShoprocketElement {
   floating = false;
 
   /**
-   * Get the effective widget style - forces 'sidebar' for middle positions
+   * Get the effective widget style - forces 'drawer' for middle positions
    */
   private get effectiveWidgetStyle(): string {
-    // Middle positions only work with sidebar style
+    // Middle positions only work with drawer style
     if (this.position === 'middle-left' || this.position === 'middle-right') {
-      return 'sidebar';
+      return 'drawer';
     }
     return this.widgetStyle;
   }
@@ -533,7 +533,7 @@ export class CartWidget extends ShoprocketElement {
           total: zeroPriceObj
         },
         currency,
-        item_count: 0
+        itemCount: 0
       };
       cartState.setCart(newCart as any);
       this.cart = newCart;
@@ -545,14 +545,14 @@ export class CartWidget extends ShoprocketElement {
     }
     
     // Find existing item (do this once)
-    const existingItem = this.cart.items.find((cartItem: any) => 
-      cartItem.product_id === item.product_id && 
-      cartItem.variant_id === item.variant_id
+    const existingItem = this.cart.items.find((cartItem: any) =>
+      cartItem.productId === item.productId &&
+      cartItem.variantId === item.variantId
     );
     
     // Validate stock if tracking inventory
-    if (stockInfo?.track_inventory || stockInfo?.inventory_policy === 'deny') {
-      const availableQuantity = stockInfo.available_quantity ?? stockInfo.inventory_count ?? 0;
+    if (stockInfo?.track_inventory || stockInfo?.inventoryPolicy === 'deny') {
+      const availableQuantity = stockInfo.available_quantity ?? stockInfo.inventoryCount ?? 0;
       
       // Check if out of stock
       if (availableQuantity === 0) {
@@ -590,8 +590,8 @@ export class CartWidget extends ShoprocketElement {
       existingItem.quantity += item.quantity;
       // Update stock info if provided
       if (stockInfo) {
-        existingItem.inventory_policy = stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue');
-        existingItem.inventory_count = stockInfo.inventory_count ?? stockInfo.available_quantity;
+        existingItem.inventoryPolicy = stockInfo.inventoryPolicy || (stockInfo.track_inventory ? 'deny' : 'continue');
+        existingItem.inventoryCount = stockInfo.inventoryCount ?? stockInfo.available_quantity;
       }
     } else {
       // Add new item with a temporary ID and stock info
@@ -599,8 +599,8 @@ export class CartWidget extends ShoprocketElement {
         ...item,
         id: 'temp-' + Date.now() + '-' + Math.random(),
         ...(stockInfo && {
-          inventory_policy: stockInfo.inventory_policy || (stockInfo.track_inventory ? 'deny' : 'continue'),
-          inventory_count: stockInfo.inventory_count ?? stockInfo.available_quantity
+          inventoryPolicy: stockInfo.inventoryPolicy || (stockInfo.track_inventory ? 'deny' : 'continue'),
+          inventoryCount: stockInfo.inventoryCount ?? stockInfo.available_quantity
         })
       };
       this.cart.items.push(newItem);
@@ -615,13 +615,13 @@ export class CartWidget extends ShoprocketElement {
     
     // Dispatch product added event for UI feedback
     window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.PRODUCT_ADDED, {
-      detail: { 
+      detail: {
         product: {
-          id: item.product_id,
-          name: item.product_name,
+          id: item.productId,
+          name: item.productName,
           price: item.price,
           media: (item as any).image || item.media?.[0],
-          variantText: item.variant_name
+          variantText: item.variantName
         }
       }
     }));
@@ -631,8 +631,8 @@ export class CartWidget extends ShoprocketElement {
     
     // Make API call and refresh cart with real data
     this.sdk.cart.addItem({
-      product_id: item.product_id,
-      variant_id: item.variant_id,
+      product_id: item.productId,
+      variant_id: item.variantId,
       quantity: item.quantity,
       source_url: item.source_url
     }).then(response => {
@@ -775,11 +775,11 @@ export class CartWidget extends ShoprocketElement {
           cartState.setCart(cart);
           loadedCart = cart;
           
-          // Don't auto-set visitor_country as default - this causes unnecessary API calls on page load
+          // Don't auto-set visitorCountry as default - this causes unnecessary API calls on page load
           // The user can select their country when they get to checkout
-          // if (cart?.visitor_country && !cart.has_shipping_address && !cart.has_billing_address) {
-          //   cartState.updateShippingAddress({ country: cart.visitor_country });
-          //   cartState.updateBillingAddress({ country: cart.visitor_country });
+          // if (cart?.visitorCountry && !cart.hasShippingAddress && !cart.hasBillingAddress) {
+          //   cartState.updateShippingAddress({ country: cart.visitorCountry });
+          //   cartState.updateBillingAddress({ country: cart.visitorCountry });
           // }
           
           // Reset empty state if cart has items
@@ -906,7 +906,7 @@ export class CartWidget extends ShoprocketElement {
     // Step 4: Determine what to show based on API response (for payment-return URLs)
     if (cart && (cart as any).type === 'order' && (cart as any).order) {
       const order = (cart as any).order;
-      const status = order.payment_status;
+      const status = order.paymentStatus;
 
       console.log('Order status:', status);
 
@@ -1759,7 +1759,7 @@ export class CartWidget extends ShoprocketElement {
         // Clear loading state for completed orders
         this.checkoutLoading = false;
 
-      } else if (checkoutResponse.status === 'pending' && checkoutResponse.payment_method === 'offline') {
+      } else if (checkoutResponse.status === 'pending' && checkoutResponse.paymentMethod === 'offline') {
         // Offline payment method (cash on delivery, bank transfer, etc.)
         // Track as purchase but show special instructions
         this.track(EVENTS.PURCHASE, { 
@@ -2239,7 +2239,7 @@ export class CartWidget extends ShoprocketElement {
     if (!this.cart || !this.cart.totals) return; // Don't try to update optimistic carts
 
     // Update item count
-    this.cart.item_count = this.cart.items?.reduce((count, item) => count + item.quantity, 0) || 0;
+    this.cart.itemCount = this.cart.items?.reduce((count, item) => count + item.quantity, 0) || 0;
 
     const currency = this.cart.currency || this.getStoreCurrency();
     const locale = navigator.language || 'en-US';
@@ -2290,12 +2290,12 @@ export class CartWidget extends ShoprocketElement {
     // Check if we're increasing quantity and need stock validation
     if (quantity > item.quantity) {
       // Check if item has inventory policy and stock info
-      if (item.inventory_policy === 'deny' && item.inventory_count !== undefined) {
-        if (quantity > item.inventory_count) {
+      if (item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined) {
+        if (quantity > item.inventoryCount) {
           // Show error notification
-          const message = item.inventory_count === 0 
-            ? 'Out of stock' 
-            : `Maximum quantity (${item.inventory_count}) already in cart`;
+          const message = item.inventoryCount === 0
+            ? 'Out of stock'
+            : `Maximum quantity (${item.inventoryCount}) already in cart`;
           
           window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
             detail: { message }

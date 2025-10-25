@@ -22,8 +22,8 @@ export function isAllStockInCart(
   }
 
   const cartItem = cart.items?.find((item: any) =>
-    item.product_id === productId &&
-    item.variant_id === variantId
+    item.productId === productId &&
+    item.variantId === variantId
   );
 
   const quantityInCart = cartItem?.quantity || 0;
@@ -46,9 +46,9 @@ export function getQuantityInCart(
   const cart = (window as any).Shoprocket?.cart?.get?.();
   if (!cart) return 0;
   
-  const cartItem = cart.items?.find((item: any) => 
-    item.product_id === productId && 
-    item.variant_id === variantId
+  const cartItem = cart.items?.find((item: any) =>
+    item.productId === productId &&
+    item.variantId === variantId
   );
   
   return cartItem?.quantity || 0;

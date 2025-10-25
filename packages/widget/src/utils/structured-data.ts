@@ -64,12 +64,12 @@ function getProductUrl(product: Product): string {
  */
 function getAvailability(product: Product): string {
   // Check if tracking inventory
-  if (product.track_inventory === false) {
+  if (product.trackInventory === false) {
     return AVAILABILITY.IN_STOCK;
   }
 
   // Check inventory count
-  const count = product.inventory_count ?? 0;
+  const count = product.inventoryCount ?? 0;
   return count > 0 ? AVAILABILITY.IN_STOCK : AVAILABILITY.OUT_OF_STOCK;
 }
 

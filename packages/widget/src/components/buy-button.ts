@@ -297,10 +297,10 @@ export class BuyButton extends ShoprocketElement {
     if (variant.name) return variant.name;
 
     // Otherwise construct from option values
-    if (!this.productData?.options || !variant.option_values) return undefined;
+    if (!this.productData?.options || !variant.optionValues) return undefined;
 
     const variantParts: string[] = [];
-    const variantOptionValues = variant.option_values || variant.option_value_ids || [];
+    const variantOptionValues = variant.optionValues || variant.optionValueIds || [];
 
     this.productData.options.forEach((option: any) => {
       const matchingValue = option.values?.find((v: any) =>

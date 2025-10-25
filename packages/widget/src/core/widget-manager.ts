@@ -233,7 +233,7 @@ export class WidgetManager {
       // Already marked as initialized at the start of init()
 
       // Auto-mount any widgets already in DOM
-      this.autoMount();
+      await this.autoMount();
 
       // Auto-render floating cart button unless disabled
       this.autoRenderCart();
@@ -395,37 +395,40 @@ export class WidgetManager {
   /**
    * Auto-mount widgets based on data attributes
    */
-  private autoMount(): void {
-    // Find all elements with data-shoprocket attribute (inline config)
-    const inlineElements = document.querySelectorAll('[data-shoprocket]');
+  private async autoMount(): Promise<void> {
+    // Find all elements with data-shoprocket attribute
+    const elements = document.querySelectorAll('[data-shoprocket]');
 
-    inlineElements.forEach(element => {
+    const mountPromises: Promise<void>[] = [];
+
+    elements.forEach(element => {
       const widgetType = element.getAttribute('data-shoprocket');
       if (!widgetType) return;
 
-      // Extract all data-* attributes
-      const options: Record<string, string> = {};
-      Array.from(element.attributes).forEach(attr => {
-        if (attr.name.startsWith('data-') && attr.name !== 'data-shoprocket') {
-          const key = attr.name.replace('data-', '').replace(/-([a-z])/g, g => g[1]?.toUpperCase() || '');
-          options[key] = attr.value;
-        }
-      });
+      // Check if this is an embed (has data-embed-id)
+      const embedId = element.getAttribute('data-embed-id');
 
-      // Mount appropriate component
-      this.mount(element, widgetType, options);
+      if (embedId) {
+        // Dashboard-managed embed with explicit type
+        mountPromises.push(this.mountEmbed(element, widgetType, embedId));
+      } else {
+        // Inline widget with data attributes
+        // Extract all data-* attributes
+        const options: Record<string, string> = {};
+        Array.from(element.attributes).forEach(attr => {
+          if (attr.name.startsWith('data-') && attr.name !== 'data-shoprocket') {
+            const key = attr.name.replace('data-', '').replace(/-([a-z])/g, g => g[1]?.toUpperCase() || '');
+            options[key] = attr.value;
+          }
+        });
+
+        // Mount appropriate component
+        mountPromises.push(this.mount(element, widgetType, options));
+      }
     });
 
-    // Find all elements with data-shoprocket-embed attribute (dashboard-managed)
-    const embedElements = document.querySelectorAll('[data-shoprocket-embed]');
-
-    embedElements.forEach(element => {
-      const embedId = element.getAttribute('data-shoprocket-embed');
-      if (!embedId) return;
-
-      // Mount with embed ID (will fetch config from API)
-      this.mountEmbed(element, embedId);
-    });
+    // Wait for all mounts to complete
+    await Promise.all(mountPromises);
   }
 
   /**
@@ -466,14 +469,18 @@ export class WidgetManager {
       mappedOptions['widgetStyle'] = mappedOptions['style'];
       delete mappedOptions['style'];
     }
-    // For web components, we need to set attributes with data- prefix preserved
-    // Convert camelCase back to kebab-case and add data- prefix
+    // Extract theme before setting properties (it's used as an attribute, not a property)
+    const theme = mappedOptions['theme'];
+    delete mappedOptions['theme'];
+
+    // Set properties directly on the component (not as data-* attributes)
+    // Web components expect properties, not data-* attributes
+    // Convert kebab-case keys to camelCase for proper Lit property mapping
     Object.entries(mappedOptions).forEach(([key, value]) => {
-      // Convert camelCase to kebab-case
-      const kebabKey = key.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
-      // Add data- prefix back (components expect data-* attributes)
-      const attrName = `data-${kebabKey}`;
-      component.setAttribute(attrName, value);
+      // Convert kebab-case to camelCase (e.g., "filter-position" -> "filterPosition")
+      const camelKey = key.replace(/-([a-z])/g, g => g[1]?.toUpperCase() || '');
+      // Set as property directly (Lit components respond to property changes)
+      (component as any)[camelKey] = value;
     });
 
     // Set SDK as a property
@@ -492,18 +499,68 @@ export class WidgetManager {
       // Add shoprocket class for consistent theme targeting
       const existingClasses = element.className ? element.className + ' shoprocket' : 'shoprocket';
       component.className = existingClasses;
+
+      // Set theme attribute if provided (for per-embed theming)
+      if (theme) {
+        component.setAttribute('data-theme', theme);
+      }
     }
 
     // Replace the element with our component
     element.replaceWith(component);
+
+    // Special handling for cart: always move to body (breaks out of container)
+    if (widgetType === 'cart' && component.parentElement !== document.body) {
+      document.body.appendChild(component);
+    }
+
     this.mountedWidgets.set(component, component);
+  }
+
+  /**
+   * Inject theme CSS into the document head
+   * @param cssUrl - URL to fetch the CSS from
+   * @param themeName - Theme name/identifier for style tag ID
+   */
+  private async injectThemeCSS(cssUrl: string, themeName: string): Promise<void> {
+    try {
+      // Create a unique ID for this theme style tag
+      const styleId = `shoprocket-theme-${themeName}`;
+
+      // Skip if theme already injected (allows multiple embeds to share same theme)
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        return;
+      }
+
+      // Fetch the CSS
+      const response = await fetch(cssUrl);
+      if (!response.ok) {
+        console.warn(`Shoprocket: Failed to fetch theme CSS from ${cssUrl}:`, response.statusText);
+        return;
+      }
+
+      const css = await response.text();
+
+      // Create and inject style tag
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = css;
+      document.head.appendChild(style);
+    } catch (error) {
+      console.error(`Shoprocket: Error loading theme CSS for theme "${themeName}":`, error);
+    }
   }
 
   /**
    * Mount a widget from an embed ID (fetches config from API)
    * Supports preview mode via window.SHOPROCKET_PREVIEW_CONFIG
+   *
+   * @param element - The DOM element to mount the widget into
+   * @param widgetType - The widget type from data-shoprocket attribute
+   * @param embedId - The embed ID from data-embed-id attribute
    */
-  async mountEmbed(element: Element, embedId: string): Promise<void> {
+  async mountEmbed(element: Element, widgetType: string, embedId: string): Promise<void> {
     if (!this.initialized || !this.sdk) {
       throw new Error('Shoprocket: Not initialized. Call init() first.');
     }
@@ -521,17 +578,29 @@ export class WidgetManager {
         embedConfig = await this.sdk.embeds.getConfig(embedId);
       }
 
-      // Extract widget type and configuration
-      const widgetType = embedConfig.widget_type;
-      const options = embedConfig.configuration || {};
-
-      // TODO: Apply theme CSS if theme_css_url is provided
-      if (embedConfig.theme_css_url) {
-        // We could inject theme CSS here, but for now we'll skip it
-        // Theme application will be handled separately
+      // Validate that API widget type matches the attribute
+      if (embedConfig.widgetType && embedConfig.widgetType !== widgetType) {
+        console.error(
+          `Shoprocket: Widget type mismatch for embed ${embedId}. ` +
+          `Expected "${widgetType}" from data-shoprocket attribute, ` +
+          `but API returned "${embedConfig.widgetType}".`
+        );
+        // Use the type from attribute (trust the HTML)
       }
 
-      // Mount the widget with the fetched configuration
+      const options = embedConfig.configuration || {};
+
+      // Add theme to options if provided
+      if (embedConfig.theme) {
+        options.theme = embedConfig.theme;
+      }
+
+      // Apply theme CSS if themeCssUrl and theme name are provided
+      if (embedConfig.themeCssUrl && embedConfig.theme) {
+        await this.injectThemeCSS(embedConfig.themeCssUrl, embedConfig.theme);
+      }
+
+      // Mount the widget with the type from attribute and config from API
       await this.mount(element, widgetType, options);
     } catch (error) {
       console.error(`Shoprocket: Failed to load embed ${embedId}:`, error);

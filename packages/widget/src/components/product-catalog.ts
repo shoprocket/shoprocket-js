@@ -726,30 +726,30 @@ export class ProductCatalog extends ShoprocketElement {
   
   private async handleAddToCart(product: Product): Promise<void> {
     // Check if product needs options selected
-    if (!product.quick_add_eligible || !product.default_variant_id) {
+    if (!product.quickAddEligible || !product.defaultVariantId) {
       // Show product detail view
       this.handleProductClick(product);
       return;
     }
-    
+
     // Prepare cart item data for optimistic update
     const cartItemData = {
       product_id: product.id,
       product_name: product.name,
-      variant_id: product.default_variant_id,
+      variant_id: product.defaultVariantId,
       variant_name: undefined, // No variant text for default variant
       quantity: 1,
       price: product.price, // Already in correct format from API
       media: product.media?.[0] ? [product.media[0]] : undefined,
       source_url: window.location.href
     };
-    
+
     // Include stock info for validation
     const stockInfo = {
-      track_inventory: product.track_inventory ?? true, // Default to true if not specified
-      available_quantity: product.inventory_count ?? 0
+      track_inventory: product.trackInventory ?? true, // Default to true if not specified
+      available_quantity: product.inventoryCount ?? 0
     };
-    
+
     // Dispatch event to cart component - it will handle everything
     window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
       detail: { item: cartItemData, stockInfo }

@@ -53,7 +53,7 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
             srcset="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=128,h=128,fit=cover')} 1x,
                     ${context.getMediaUrl((item as any).image || item.media?.[0], 'w=256,h=256,fit=cover')} 2x,
                     ${context.getMediaUrl((item as any).image || item.media?.[0], 'w=384,h=384,fit=cover')} 3x"
-            alt="${item.product_name}"
+            alt="${item.productName}"
             width="128"
             height="128"
             @load="${(e: Event) => {
@@ -69,9 +69,9 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
           <div class="sr-cart-item-header">
             <div class="sr-cart-item-info">
               <h4 class="sr-cart-item-title"
-                  @click="${() => context.navigateToProduct(item)}">${item.product_name}</h4>
-              ${item.variant_name ? html`
-                <div class="sr-cart-item-variant">${item.variant_name}</div>
+                  @click="${() => context.navigateToProduct(item)}">${item.productName}</h4>
+              ${item.variantName ? html`
+                <div class="sr-cart-item-variant">${item.variantName}</div>
               ` : ''}
             </div>
           </div>
@@ -113,13 +113,13 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
               </button>
               <span class="sr-cart-quantity-value">${item.quantity}</span>
               <sr-tooltip
-                text="${item.inventory_policy === 'deny' && item.inventory_count !== undefined && item.quantity >= item.inventory_count ? `Maximum quantity (${item.inventory_count}) in cart` : ''}"
+                text="${item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined && item.quantity >= item.inventoryCount ? `Maximum quantity (${item.inventoryCount}) in cart` : ''}"
                 position="top"
               >
                 <button
                   class="sr-cart-quantity-button"
                   @click="${() => context.updateQuantity(item.id, item.quantity + 1)}"
-                  ?disabled="${item.inventory_policy === 'deny' && item.inventory_count !== undefined && item.quantity >= item.inventory_count}"
+                  ?disabled="${item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined && item.quantity >= item.inventoryCount}"
                   aria-label="Increase quantity"
                 >
                   +

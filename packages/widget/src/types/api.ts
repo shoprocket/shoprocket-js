@@ -23,11 +23,11 @@ export interface ProductVariant {
   id: string;
   name?: string;
   price: Money;
-  media_id?: string;
-  option_values?: string[]; // API returns this instead of option_value_ids
-  option_value_ids?: string[];
-  inventory_count?: number;
-  inventory_policy?: 'deny' | 'continue';
+  mediaId?: string;
+  optionValues?: string[]; // API returns this instead of optionValueIds
+  optionValueIds?: string[];
+  inventoryCount?: number;
+  inventoryPolicy?: 'deny' | 'continue';
 }
 
 export interface ProductOption {
@@ -46,34 +46,34 @@ export interface Product {
   summary?: string;
   description?: string;
   price: Money;
-  price_min?: number;
-  price_max?: number;
+  priceMin?: number;
+  priceMax?: number;
   media: Media[];
   variants?: ProductVariant[];
   options?: ProductOption[];
-  quick_add_eligible?: boolean;
-  default_variant_id?: string;
-  track_inventory: boolean;
-  in_stock?: boolean;
-  inventory_count?: number;
-  has_variants?: boolean;
-  variant_count?: number;
-  has_required_options?: boolean;
+  quickAddEligible?: boolean;
+  defaultVariantId?: string;
+  trackInventory: boolean;
+  inStock?: boolean;
+  inventoryCount?: number;
+  hasVariants?: boolean;
+  variantCount?: number;
+  hasRequiredOptions?: boolean;
   category?: string;
   brand?: string;
 }
 
 export interface CartItem {
   id: string;
-  product_id: string;
-  product_name: string;
-  variant_id?: string;
-  variant_name?: string;
+  productId: string;
+  productName: string;
+  variantId?: string;
+  variantName?: string;
   quantity: number;
   price: Money;
   media?: Media[];
-  inventory_count?: number;
-  inventory_policy?: 'deny' | 'continue';
+  inventoryCount?: number;
+  inventoryPolicy?: 'deny' | 'continue';
 }
 
 export interface CartTotals {
@@ -89,21 +89,21 @@ export interface Cart {
   items: CartItem[];
   totals: CartTotals;
   currency: string;
-  item_count: number;
-  visitor_country?: string;
-  has_checkout_data?: boolean;
-  has_billing_address?: boolean;
-  has_shipping_address?: boolean;
-  requires_shipping?: boolean;
+  itemCount: number;
+  visitorCountry?: string;
+  hasCheckoutData?: boolean;
+  hasBillingAddress?: boolean;
+  hasShippingAddress?: boolean;
+  requiresShipping?: boolean;
   // Order fields added for post-checkout state
-  order_status?: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'cancelled' | 'failed';
-  order_details?: {
-    order_id: string;
-    order_number?: string;
-    created_at?: string;
-    payment_method?: string;
+  orderStatus?: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'cancelled' | 'failed';
+  orderDetails?: {
+    orderId: string;
+    orderNumber?: string;
+    createdAt?: string;
+    paymentMethod?: string;
   };
-  order_id?: string;
+  orderId?: string;
 }
 
 export interface Store {
@@ -112,24 +112,24 @@ export interface Store {
   currency: string;
   locale: string;
   tracking?: {
-    google_analytics?: {
+    googleAnalytics?: {
       enabled: boolean;
-      measurement_id: string;
+      measurementId: string;
     };
-    facebook_pixel?: {
+    facebookPixel?: {
       enabled: boolean;
-      pixel_id: string;
+      pixelId: string;
     };
-    google_ads?: {
+    googleAds?: {
       enabled: boolean;
-      conversion_id: string;
+      conversionId: string;
     };
   };
 }
 
 export interface Session {
-  session_token: string;
-  expires_at?: string;
+  sessionToken: string;
+  expiresAt?: string;
 }
 
 // API Response wrappers
@@ -139,14 +139,14 @@ export interface ApiResponse<T> {
     pagination?: {
       total: number;
       count: number;
-      per_page: number;
-      current_page: number;
-      total_pages: number;
+      perPage: number;
+      currentPage: number;
+      totalPages: number;
     };
     // Payment-related meta fields
-    payment_url?: string;
-    payment_gateway?: string;
-    test_mode?: boolean;
+    paymentUrl?: string;
+    paymentGateway?: string;
+    testMode?: boolean;
     message?: string;
   };
 }

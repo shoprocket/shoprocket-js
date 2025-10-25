@@ -93,17 +93,17 @@ export class ProductListTemplates {
     const fetchPriority = index === 0 ? 'high' : undefined;
 
     // Let the API determine if quick add is eligible - it knows about variants, options, etc.
-    const needsOptions = !isSkeleton && product.quick_add_eligible === false;
+    const needsOptions = !isSkeleton && product.quickAddEligible === false;
     const loadingKey = needsOptions ? `viewProduct-${product.id}` : `addToCart-${product.id}`;
     const isLoading = !isSkeleton && handlers.isLoadingItem(loadingKey);
     const isAdded = !isSkeleton && addedToCartProducts.has(product.id);
-    const isOutOfStock = !isSkeleton && product.in_stock === false;
+    const isOutOfStock = !isSkeleton && product.inStock === false;
 
     // Check if all available stock is already in cart
     const stockStatus = !isSkeleton ? isAllStockInCart(
       product.id,
-      product.default_variant_id,
-      product.inventory_count
+      product.defaultVariantId,
+      product.inventoryCount
     ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
     
@@ -178,7 +178,7 @@ export class ProductListTemplates {
               <span class="sr-button-content">
                 ${isSkeleton ? '' :
                   isOutOfStock ? 'Out of Stock' :
-                  allStockInCart ? html`<span class="sr-button-text">Max (${product.inventory_count}) in cart</span>` :
+                  allStockInCart ? html`<span class="sr-button-text">Max (${product.inventoryCount}) in cart</span>` :
                   isAdded ? html`
                     <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>

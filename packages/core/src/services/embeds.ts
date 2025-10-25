@@ -1,11 +1,11 @@
 import { ApiClient } from '../api';
 
 export interface EmbedConfig {
-  widget_type: string;
-  theme_css_url?: string;
+  widgetType: string;
+  themeCssUrl?: string;
   configuration: Record<string, any>;
   store?: {
-    publishable_key: string;
+    publishableKey: string;
     [key: string]: any;
   };
 }

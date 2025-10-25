@@ -450,7 +450,7 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
                   <div class="sr-order-item-image-container">
                     <img
                       src="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=64,h=64,fit=cover')}"
-                      alt="${item.product_name}"
+                      alt="${item.productName}"
                       class="sr-order-item-image"
                       @load="${(e: Event) => {
                         const img = e.target as HTMLImageElement;
@@ -460,9 +460,9 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
                     >
                   </div>
                   <div class="sr-order-item-info">
-                    <span class="sr-order-item-name">${item.product_name}</span>
-                    ${item.variant_name ? html`
-                      <span class="sr-order-item-variant">${item.variant_name}</span>
+                    <span class="sr-order-item-name">${item.productName}</span>
+                    ${item.variantName ? html`
+                      <span class="sr-order-item-variant">${item.variantName}</span>
                     ` : ''}
                     <span class="sr-order-item-quantity">Qty: ${item.quantity}</span>
                   </div>

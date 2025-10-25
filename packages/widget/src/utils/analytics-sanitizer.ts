@@ -44,16 +44,16 @@ export class AnalyticsSanitizer {
    */
   static sanitizeCartItem(item: any): any {
     if (!item) return null;
-    
+
     const { price_cents, currency } = this.extractPrice(item);
-    
+
     return {
-      item_id: item.product_id || item.id,
-      item_name: item.product_name || item.name,
+      item_id: item.productId || item.id,
+      item_name: item.productName || item.name,
       price_cents,
       currency,
       quantity: item.quantity || 1,
-      variant: item.variant_name || item.variant_id || undefined
+      variant: item.variantName || item.variantId || undefined
     };
   }
 
@@ -79,14 +79,14 @@ export class AnalyticsSanitizer {
    */
   static sanitizeCart(cart: any): any {
     if (!cart) return null;
-    
+
     const { value_cents, currency } = this.extractTotal(cart);
-    
+
     return {
       cart_id: cart.id,
       currency,
       value_cents,
-      item_count: cart.item_count || cart.items?.length || 0
+      item_count: cart.itemCount || cart.items?.length || 0
       // Don't include items unless specifically needed
     };
   }
