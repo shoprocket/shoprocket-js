@@ -140,29 +140,29 @@
    * Advanced users can override by setting the specific variable
    * ===================================================== */
 
-  /* Hover states - blend border with surface */
-  --color-hover: color-mix(in srgb, var(--color-border) 60%, var(--color-surface) 40%);
+  /* Hover states - blend border with background */
+  --color-hover: color-mix(in srgb, var(--color-border) 60%, var(--color-background, var(--color-surface)) 40%);
 
   /* Disabled/subtle backgrounds - slightly darker/lighter than surface */
-  --color-surface-hover: color-mix(in srgb, var(--color-surface) 92%, var(--color-text) 8%);
+  --color-surface-hover: color-mix(in srgb, var(--color-card, var(--color-surface)) 92%, var(--color-foreground, var(--color-text)) 8%);
 
-  /* Input backgrounds - subtle variation of surface (can be overridden) */
-  --color-input-bg: var(--color-input-bg-override, color-mix(in srgb, var(--color-surface) 97%, var(--color-text) 3%));
+  /* Input backgrounds - use semantic input color with fallback */
+  --color-input-bg: var(--color-input-bg-override, var(--color-input, color-mix(in srgb, var(--color-background, var(--color-surface)) 97%, var(--color-foreground, var(--color-text)) 3%)));
 
-  /* Muted/secondary text - 60% opacity of main text */
-  --color-text-muted: color-mix(in srgb, var(--color-text) 60%, transparent 40%);
+  /* Muted/secondary text - use semantic muted-foreground with fallback */
+  --color-text-muted: var(--color-muted-foreground, color-mix(in srgb, var(--color-foreground, var(--color-text)) 60%, transparent 40%));
 
-  /* Text on colored backgrounds - uses core text color with fallback */
-  --color-on-surface: var(--color-text);
-  --color-on-primary: #ffffff;
-  --color-on-success: #ffffff;
-  --color-on-error: #ffffff;
+  /* Text on colored backgrounds - use semantic foreground tokens with fallbacks */
+  --color-on-surface: var(--color-card-foreground, var(--color-foreground, var(--color-text)));
+  --color-on-primary: var(--color-primary-foreground, #ffffff);
+  --color-on-success: var(--color-success-foreground, #ffffff);
+  --color-on-error: var(--color-destructive-foreground, #ffffff);
 
-  /* System colors */
-  --color-info: var(--color-blue-500);
-  --color-success: var(--color-green-700);
-  --color-warning: var(--color-yellow-700);
-  --color-danger: var(--color-red-700);
+  /* System colors - use semantic tokens with Tailwind fallbacks */
+  --color-info: var(--color-accent, var(--color-blue-500));
+  --color-success: var(--color-success, var(--color-green-700));
+  --color-warning: var(--color-warning, var(--color-yellow-700));
+  --color-danger: var(--color-destructive, var(--color-error, var(--color-red-700)));
 
   /* Spacing - Tailwind v4 uses its own spacing scale internally */
   /* We only define custom spacing for non-Tailwind use cases */

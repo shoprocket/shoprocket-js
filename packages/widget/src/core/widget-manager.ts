@@ -469,9 +469,12 @@ export class WidgetManager {
       mappedOptions['widgetStyle'] = mappedOptions['style'];
       delete mappedOptions['style'];
     }
-    // Extract theme before setting properties (it's used as an attribute, not a property)
+    // Extract theme and mode before setting properties (they're used as attributes, not properties)
     const theme = mappedOptions['theme'];
     delete mappedOptions['theme'];
+
+    const configuredMode = mappedOptions['mode'] || 'auto';
+    delete mappedOptions['mode'];
 
     // Set properties directly on the component (not as data-* attributes)
     // Web components expect properties, not data-* attributes
@@ -504,6 +507,21 @@ export class WidgetManager {
       if (theme) {
         component.setAttribute('data-theme', theme);
       }
+
+      // Determine and set mode attribute
+      const actualMode = this.detectMode(configuredMode);
+      component.setAttribute('data-mode', actualMode);
+
+      // Listen for system preference changes if using auto mode
+      if (configuredMode === 'auto') {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const updateMode = (e: MediaQueryListEvent | MediaQueryList) => {
+          const newMode = e.matches ? 'dark' : 'light';
+          component.setAttribute('data-mode', newMode);
+        };
+        // Modern browsers
+        mediaQuery.addEventListener('change', updateMode);
+      }
     }
 
     // Replace the element with our component
@@ -515,6 +533,23 @@ export class WidgetManager {
     }
 
     this.mountedWidgets.set(component, component);
+  }
+
+  /**
+   * Detect the actual mode to use based on configuration
+   * @param configuredMode - The mode from configuration ('light', 'dark', or 'auto')
+   * @returns The actual mode to apply ('light' or 'dark')
+   */
+  private detectMode(configuredMode: string): 'light' | 'dark' {
+    if (configuredMode === 'dark') {
+      return 'dark';
+    }
+    if (configuredMode === 'light') {
+      return 'light';
+    }
+    // Auto mode: detect from system preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
   }
 
   /**
