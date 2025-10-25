@@ -273,29 +273,29 @@ export class ProductDetail extends ShoprocketElement {
   private getButtonText(product: Product, canAdd: boolean): string {
     // If we can add, always show "Add to Cart"
     if (canAdd) return 'Add to Cart';
-    
+
     // If out of stock
-    if (product.in_stock === false) return 'Out of Stock';
-    
+    if (product.inStock === false) return 'Out of Stock';
+
     // During loading, determine text based on catalog data
-    const hasRequiredOptions = product.has_required_options === true;
-    const hasVariants = product.has_variants === true || 
-                       (product.variant_count && product.variant_count > 1);
-    
+    const hasRequiredOptions = product.hasRequiredOptions === true;
+    const hasVariants = product.hasVariants === true ||
+                       (product.variantCount && product.variantCount > 1);
+
     // If loading full product and has options/variants, check if we have full data
     if ((hasRequiredOptions || hasVariants) && !this.product) {
       // Still loading, but we can make educated guess
-      if (product.quick_add_eligible === true) {
+      if (product.quickAddEligible === true) {
         return 'Add to Cart';
       }
       return hasRequiredOptions ? 'Select Options' : 'Add to Cart';
     }
-    
+
     // If product has no required options or variants, or is quick add eligible
-    if (!hasRequiredOptions || product.quick_add_eligible === true) {
+    if (!hasRequiredOptions || product.quickAddEligible === true) {
       return 'Add to Cart';
     }
-    
+
     // Has required options that need selection
     return 'Select Options';
   }
@@ -312,14 +312,14 @@ export class ProductDetail extends ShoprocketElement {
     const canAdd = this.canAddToCart();
     
     // Check stock status for button text
-    const variantId = this.selectedVariant?.id || this.product.default_variant_id;
-    const totalInventory = this.selectedVariant ? 
-      this.selectedVariant.inventory_count : 
-      this.product.inventory_count;
+    const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
+    const totalInventory = this.selectedVariant ?
+      this.selectedVariant.inventoryCount :
+      this.product.inventoryCount;
     const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
 
     return html`
-      <button 
+      <button
         class="sr-button sr-add-to-cart-button ${this.addedToCart ? 'success' : canAdd && !isLoading ? '' : 'disabled'}"
         @click="${() => this.handleAddToCart()}"
         ?disabled="${!canAdd || isLoading}"
@@ -331,8 +331,8 @@ export class ProductDetail extends ShoprocketElement {
             </svg>
             Added to Cart
           </span>
-        ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` : 
-            this.product.in_stock === false ? 'Out of Stock' :
+        ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` :
+            this.product.inStock === false ? 'Out of Stock' :
             stockStatus.allInCart ? `Max (${totalInventory}) in cart` :
             this.getButtonText(this.product, canAdd)}
       </button>
@@ -377,7 +377,7 @@ export class ProductDetail extends ShoprocketElement {
   private async handleAddToCart(): Promise<void> {
     if (!this.product || !this.canAddToCart()) return;
 
-    const variantId = this.selectedVariant?.id || this.product.default_variant_id;
+    const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
     if (!variantId) {
       this.showError('Please select all options before adding to cart.');
       return;
@@ -388,29 +388,29 @@ export class ProductDetail extends ShoprocketElement {
 
     // Prepare cart item data for optimistic update
     const cartItemData = {
-      product_id: this.product.id,
-      product_name: this.product.name,
-      variant_id: variantId,
-      variant_name: this.getSelectedVariantText() || undefined,
+      productId: this.product.id,
+      productName: this.product.name,
+      variantId: variantId,
+      variantName: this.getSelectedVariantText() || undefined,
       quantity: 1,
       price: selectedPrice, // Pass the full Money object from API
       media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined,
       source_url: window.location.href
     };
-    
+
     // Include stock info for validation
     const stockInfo = {
-      track_inventory: this.product.track_inventory,
-      available_quantity: this.selectedVariant ? 
-        this.selectedVariant.inventory_count : 
-        this.product.inventory_count
+      track_inventory: this.product.trackInventory,
+      available_quantity: this.selectedVariant ?
+        this.selectedVariant.inventoryCount :
+        this.product.inventoryCount
     };
-    
+
     // Dispatch event with full cart item data for optimistic update
     window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
       detail: { item: cartItemData, stockInfo }
     }));
-    
+
     // DON'T show success immediately - wait for the cart to confirm
     // The cart will dispatch shoprocket:product:added if successful
     // or shoprocket:cart:error if it fails
@@ -433,16 +433,16 @@ export class ProductDetail extends ShoprocketElement {
     const selectedOptionValues = Object.values(this.selectedOptions);
     
     this.selectedVariant = this.product.variants.find((variant: ProductVariant) => {
-      const variantOptionValues = variant.option_values || variant.option_value_ids || [];
-      
+      const variantOptionValues = variant.optionValues || variant.optionValueIds || [];
+
       // Check if variant has exactly the selected values (no more, no less)
       return variantOptionValues.length === selectedOptionValues.length &&
              selectedOptionValues.every(valueId => variantOptionValues.includes(valueId));
     });
     
     // If variant has specific media, find its index and select it
-    if (this.selectedVariant?.media_id && this.product.media) {
-      const mediaIndex = this.product.media.findIndex((m: any) => m.id === this.selectedVariant!.media_id);
+    if (this.selectedVariant?.mediaId && this.product.media) {
+      const mediaIndex = this.product.media.findIndex((m: any) => m.id === this.selectedVariant!.mediaId);
       if (mediaIndex !== -1) {
         this.selectedMediaIndex = mediaIndex;
       }
@@ -451,26 +451,26 @@ export class ProductDetail extends ShoprocketElement {
 
   private canAddToCart(): boolean {
     if (!this.product) return false;
-    
+
     // Check if out of stock
-    if (this.product.in_stock === false) return false;
-    
+    if (this.product.inStock === false) return false;
+
     // Check if all stock is already in cart
-    const variantId = this.selectedVariant?.id || this.product.default_variant_id;
-    const totalInventory = this.selectedVariant ? 
-      this.selectedVariant.inventory_count : 
-      this.product.inventory_count;
-    
+    const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
+    const totalInventory = this.selectedVariant ?
+      this.selectedVariant.inventoryCount :
+      this.product.inventoryCount;
+
     const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
     if (stockStatus.allInCart) return false;
-    
+
     // For single variant products, can add if in stock
     if (this.product.variants?.length === 1) return true;
-    
+
     // For multi-variant, need all options selected
     if (!this.product.options) return false;
-    
-    return this.product.options.every((option: ProductOption) => 
+
+    return this.product.options.every((option: ProductOption) =>
       this.selectedOptions[option.id]
     );
   }
@@ -482,64 +482,64 @@ export class ProductDetail extends ShoprocketElement {
   }
   
   private isOptionValueOutOfStock(optionId: string, valueId: string, product: Product): boolean {
-    if (!product.track_inventory || !product.variants) return false;
-    
+    if (!product.trackInventory || !product.variants) return false;
+
     // Find all variants that have this specific option value
     const variantsWithThisOption = product.variants.filter(variant => {
-      const variantValues = variant.option_values || variant.option_value_ids || [];
+      const variantValues = variant.optionValues || variant.optionValueIds || [];
       return variantValues.includes(valueId);
     });
-    
+
     // If no variants have this option value, it shouldn't exist
     if (variantsWithThisOption.length === 0) return true;
-    
+
     // Check if there are any other selected options
     const otherSelections = Object.entries(this.selectedOptions)
       .filter(([optId]) => optId !== optionId)
       .map(([, valId]) => valId);
-    
+
     if (otherSelections.length === 0) {
       // No other selections, just check if any variant with this option has stock
-      return variantsWithThisOption.every(v => (v.inventory_count ?? 0) === 0);
+      return variantsWithThisOption.every(v => (v.inventoryCount ?? 0) === 0);
     }
-    
+
     // Find variants that match this option value AND all other current selections
     const fullyMatchingVariants = variantsWithThisOption.filter(variant => {
-      const variantValues = variant.option_values || variant.option_value_ids || [];
+      const variantValues = variant.optionValues || variant.optionValueIds || [];
       return otherSelections.every(valId => variantValues.includes(valId));
     });
-    
+
     // If no fully matching variants or all have 0 inventory, it's out of stock
     if (fullyMatchingVariants.length === 0) return false; // Don't disable if no exact match yet
-    return fullyMatchingVariants.every(v => (v.inventory_count ?? 0) === 0);
+    return fullyMatchingVariants.every(v => (v.inventoryCount ?? 0) === 0);
   }
   
   private renderStockStatus(product: Product | undefined): TemplateResult | string {
     if (!this.hasFeature('stock')) {
       return '';
     }
-    
-    if (!product || !product.track_inventory) {
+
+    if (!product || !product.trackInventory) {
       return '';
     }
-    
+
     // Simple low stock threshold (future: from theme/config)
     const lowStockThreshold = STOCK_THRESHOLDS.LOW;
-    
+
     // Determine stock based on selected variant or product total
     let stockQuantity: number;
     let inStock: boolean;
-    
+
     if (this.selectedVariant) {
       // Use variant stock when variant is selected
-      stockQuantity = this.selectedVariant.inventory_count ?? 0;
+      stockQuantity = this.selectedVariant.inventoryCount ?? 0;
       inStock = stockQuantity > 0;
     } else {
       // Use product stock data from API
-      stockQuantity = product.inventory_count ?? 0;
-      inStock = product.in_stock ?? (stockQuantity > 0);
+      stockQuantity = product.inventoryCount ?? 0;
+      inStock = product.inStock ?? (stockQuantity > 0);
     }
-    
+
     // Always show out of stock
     if (!inStock || stockQuantity === 0) {
       return html`
@@ -548,9 +548,9 @@ export class ProductDetail extends ShoprocketElement {
         </div>
       `;
     }
-    
+
     const isLowStock = stockQuantity <= lowStockThreshold;
-    
+
     // Always show stock when feature is enabled
     return html`
       <div class="sr-stock-status ${isLowStock ? 'sr-low-stock' : 'sr-in-stock'}">
@@ -697,7 +697,7 @@ export class ProductDetail extends ShoprocketElement {
     // Use global cart data instead of making API call
     const cart = (window as any).Shoprocket?.cart?.get?.();
     if (cart && cart.items) {
-      this.isInCart = cart.items.some((item: any) => item.product_id === product.id);
+      this.isInCart = cart.items.some((item: any) => item.productId === product.id);
     }
   }
   

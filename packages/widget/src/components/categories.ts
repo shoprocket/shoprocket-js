@@ -634,13 +634,13 @@ export class CategoriesWidget extends ShoprocketElement {
       <div
         class="sr-category-card"
         @click="${() => this.handleCategoryClick(category)}">
-        ${this.showImages && category.image_url ? html`
+        ${this.showImages && category.imageUrl ? html`
           <img
             class="sr-category-image"
-            src="${this.getCategoryImageUrl(category.image_url)}"
-            srcset="${this.getCategoryImageUrl(category.image_url)} 600w,
-                    ${this.getCategoryImageUrl(category.image_url).replace('w=600', 'w=400')} 400w,
-                    ${this.getCategoryImageUrl(category.image_url).replace('w=600', 'w=300')} 300w"
+            src="${this.getCategoryImageUrl(category.imageUrl)}"
+            srcset="${this.getCategoryImageUrl(category.imageUrl)} 600w,
+                    ${this.getCategoryImageUrl(category.imageUrl).replace('w=600', 'w=400')} 400w,
+                    ${this.getCategoryImageUrl(category.imageUrl).replace('w=600', 'w=300')} 300w"
             sizes="${getMediaSizes({ sm: Math.min(this.columns, 2), md: Math.min(this.columns, 3), lg: this.columns })}"
             alt="${category.name}"
             width="600"
@@ -656,7 +656,7 @@ export class CategoriesWidget extends ShoprocketElement {
 
         ${this.showCounts ? html`
           <div class="sr-category-count">
-            ${formatNumber(category.products_count)} ${category.products_count === 1 ? 'product' : 'products'}
+            ${formatNumber(category.productsCount)} ${category.productsCount === 1 ? 'product' : 'products'}
           </div>
         ` : ''}
       </div>

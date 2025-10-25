@@ -70,7 +70,7 @@ export function renderOrderSuccess(
                     <img
                       class="sr-item-image"
                       src="${context.getMediaUrl(item.image, '&w=80&h=80&fit=cover')}"
-                      alt="${item.product_name}"
+                      alt="${item.productName}"
                       @error="${context.handleImageError}"
                     />
                   ` : html`
@@ -81,9 +81,9 @@ export function renderOrderSuccess(
                     </div>
                   `}
                   <div class="sr-item-info">
-                    <div class="sr-item-name">${item.product_name}</div>
-                    ${item.variant_name ? html`
-                      <div class="sr-item-variant">${item.variant_name}</div>
+                    <div class="sr-item-name">${item.productName}</div>
+                    ${item.variantName ? html`
+                      <div class="sr-item-variant">${item.variantName}</div>
                     ` : ''}
                     <div class="sr-item-qty">Qty: ${item.quantity}</div>
                   </div>

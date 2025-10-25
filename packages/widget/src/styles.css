@@ -638,8 +638,7 @@
     @apply md:w-[440px] md:max-w-[calc(100vw-40px)] md:h-[625px] md:max-h-[calc(100vh-40px)] md:rounded;
   }
 
-  /* Cart Panel - Sidebar Style */
-  .sr-cart-panel-sidebar,
+  /* Cart Panel - Drawer Style */
   .sr-cart-panel-drawer {
     @apply w-[100dvw] h-[100dvh] rounded-none;
     @apply md:w-[400px] md:max-w-[calc(100vw-40px)] md:h-[100vh];
@@ -662,16 +661,16 @@
     @apply top-0 start-0 md:top-5 md:start-5 origin-top-left;
   }
 
-  /* Cart Panel Positions - Sidebar Style */
-  .sr-cart-panel-sidebar.sr-cart-panel-bottom-right,
-  .sr-cart-panel-sidebar.sr-cart-panel-top-right,
-  .sr-cart-panel-sidebar.sr-cart-panel-middle-right {
+  /* Cart Panel Positions - Drawer Style */
+  .sr-cart-panel-drawer.sr-cart-panel-bottom-right,
+  .sr-cart-panel-drawer.sr-cart-panel-top-right,
+  .sr-cart-panel-drawer.sr-cart-panel-middle-right {
     @apply top-0 end-0;
   }
 
-  .sr-cart-panel-sidebar.sr-cart-panel-bottom-left,
-  .sr-cart-panel-sidebar.sr-cart-panel-top-left,
-  .sr-cart-panel-sidebar.sr-cart-panel-middle-left {
+  .sr-cart-panel-drawer.sr-cart-panel-bottom-left,
+  .sr-cart-panel-drawer.sr-cart-panel-top-left,
+  .sr-cart-panel-drawer.sr-cart-panel-middle-left {
     @apply top-0 start-0;
   }
 
@@ -692,19 +691,19 @@
     @apply -translate-x-full md:translate-x-0;
   }
 
-  /* Cart Panel States - Sidebar Style */
-  .sr-cart-panel-sidebar.open {
+  /* Cart Panel States - Drawer Style */
+  .sr-cart-panel-drawer.open {
     @apply translate-x-0;
   }
 
-  .sr-cart-panel-sidebar.closed {
+  .sr-cart-panel-drawer.closed {
     @apply translate-x-full;
   }
 
   /* Left side positions need different slide direction */
-  .sr-cart-panel-sidebar.sr-cart-panel-bottom-left.closed,
-  .sr-cart-panel-sidebar.sr-cart-panel-top-left.closed,
-  .sr-cart-panel-sidebar.sr-cart-panel-middle-left.closed {
+  .sr-cart-panel-drawer.sr-cart-panel-bottom-left.closed,
+  .sr-cart-panel-drawer.sr-cart-panel-top-left.closed,
+  .sr-cart-panel-drawer.sr-cart-panel-middle-left.closed {
     @apply -translate-x-full;
   }
 
