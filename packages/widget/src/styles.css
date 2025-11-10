@@ -2085,17 +2085,20 @@
 }
 
 .sr-filter-sort,
-.sr-filter-category {
+.sr-filter-category,
+.sr-filter-per-page {
   @apply flex-1; /* 50% each on mobile/tablet (flex-1 in flex-wrap) */
-  /* Auto width on desktop */
+  /* Auto width on desktop with minimum width */
   @media (min-width: 1024px) {
     @apply flex-initial w-auto flex-shrink-0;
+    min-width: 100px;
   }
 }
 
-/* Ensure field groups inside sort/category take full width on mobile */
+/* Ensure field groups inside sort/category/per-page take full width on mobile */
 .sr-filter-sort .sr-field-group,
-.sr-filter-category .sr-field-group {
+.sr-filter-category .sr-field-group,
+.sr-filter-per-page .sr-field-group {
   @apply w-full;
 }
 

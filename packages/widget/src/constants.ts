@@ -47,6 +47,8 @@ export const UI_SPACING = {
 export const LIMITS = {
   MAX_PAGINATION_BUTTONS: 5,  // Maximum visible page buttons
   MAX_ANALYTICS_ITEMS: 10,    // Maximum items to track in analytics
+  DEFAULT_PER_PAGE: 12,       // Default products per page
+  PER_PAGE_OPTIONS: [12, 24, 48, 96] as const, // User-selectable options
 } as const;
 
 // Route identifiers

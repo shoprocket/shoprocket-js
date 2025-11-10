@@ -179,6 +179,12 @@ export class ProductCatalog extends ShoprocketElement {
   private totalProducts = 0; // Total count of all products
 
   @state()
+  private actualPageSize = 0; // Actual page size used by API (for consistent index calculations)
+
+  @state()
+  private perPage = LIMITS.DEFAULT_PER_PAGE; // User-selectable products per page
+
+  @state()
   private currentProductSlug?: string;
   
   // Keep track of which pages we've loaded
@@ -287,6 +293,7 @@ export class ProductCatalog extends ShoprocketElement {
     this.allProducts.clear();
     this.individualProducts.clear();
     this.currentPage = 1;
+    this.actualPageSize = 0; // Reset page size so it's recalculated from API
     await this.loadProducts(1);
   }
 
@@ -294,7 +301,7 @@ export class ProductCatalog extends ShoprocketElement {
    * Clean up schemas from a specific page
    */
   private cleanupOldPageSchemas(page: number): void {
-    const pageSize = this.limit || 12;
+    const pageSize = this.actualPageSize || this.perPage;
     const startIndex = (page - 1) * pageSize;
     const endIndex = startIndex + pageSize;
 
@@ -388,7 +395,7 @@ export class ProductCatalog extends ShoprocketElement {
 
         const response = await this.sdk.products.list({
           page,
-          per_page: this.limit || 12,
+          per_page: this.perPage,
           category: categoryParam,
           search: this.searchQuery || undefined,
           sort: this.sortBy || undefined,
@@ -398,7 +405,7 @@ export class ProductCatalog extends ShoprocketElement {
         }) as ApiResponse<Product[]>;
 
         const products = response.data || [];
-        const pageSize = this.limit || 12;
+        const pageSize = this.perPage;
 
         // Store products by their absolute position in the full list
         products.forEach((product, index) => {
@@ -436,9 +443,12 @@ export class ProductCatalog extends ShoprocketElement {
           if (meta.total && meta.per_page) {
             this.totalPages = Math.ceil(meta.total / meta.per_page);
             this.totalProducts = meta.total;
+            this.actualPageSize = meta.per_page; // Store actual page size for consistent index calculations
           } else if (response.meta?.pagination) {
             this.totalPages = response.meta.pagination.total_pages;
             this.totalProducts = response.meta.pagination.total || 0;
+            // Fallback: calculate page size from total and pages
+            this.actualPageSize = this.totalPages > 0 ? Math.ceil(this.totalProducts / this.totalPages) : this.perPage;
           }
         }
         
@@ -484,11 +494,23 @@ export class ProductCatalog extends ShoprocketElement {
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
-    
+
+    // Initialize perPage: priority is localStorage > data-limit > default
+    const storedPerPage = localStorage.getItem('shoprocket_per_page');
+    if (storedPerPage) {
+      const parsed = parseInt(storedPerPage, 10);
+      if (parsed > 0) {
+        this.perPage = parsed;
+      }
+    } else if (this.limit) {
+      // If merchant set data-limit and no localStorage, use that as the default
+      this.perPage = this.limit;
+    }
+
     // Listen for successful product additions
     this.handleProductAdded = this.handleProductAdded.bind(this);
     window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
-    
+
     // Listen for cart loaded/updated to update button states
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
@@ -593,6 +615,8 @@ export class ProductCatalog extends ShoprocketElement {
             .priceRangeMin="${this.priceRangeMin}"
             .priceRangeMax="${this.priceRangeMax}"
             .inStockOnly="${this.inStockOnly}"
+            .perPage="${this.perPage}"
+            .perPageOptions="${this.getPerPageOptions()}"
             @filter-change="${this.handleFilterChange}"
           ></shoprocket-catalog-filters>
         ` : ''}
@@ -600,7 +624,7 @@ export class ProductCatalog extends ShoprocketElement {
           ${ProductListTemplates.renderProductList(
             pageProducts,
             this.loadedPages.size === 0 || this.isLoading('products'),
-            this.limit || 12,
+            this.perPage,
             this.errorMessage,
             this.successMessage,
             this.addedToCartProducts,
@@ -712,12 +736,21 @@ export class ProductCatalog extends ShoprocketElement {
       case 'inStockOnly':
         this.inStockOnly = value === 'true';
         break;
+      case 'perPage': {
+        const newPerPage = parseInt(value, 10);
+        if (newPerPage !== this.perPage) {
+          this.perPage = newPerPage;
+          // Save to localStorage for future visits
+          localStorage.setItem('shoprocket_per_page', newPerPage.toString());
+        }
+        break;
+      }
     }
 
     // Reload products with new filters
     await this.reload();
   }
-  
+
   private handleCartUpdate = (): void => {
     // Just trigger a re-render when cart updates
     // The product list will check cart state during render
@@ -815,12 +848,33 @@ export class ProductCatalog extends ShoprocketElement {
     return nextProduct || null;
   }
   
+  // Get available per-page options, including custom limit if set
+  private getPerPageOptions(): readonly number[] {
+    const options = [...LIMITS.PER_PAGE_OPTIONS];
+
+    // If merchant set a custom data-limit, always include it as an option
+    if (this.limit && !options.includes(this.limit)) {
+      options.push(this.limit);
+    }
+
+    // If current perPage is not in the options (from localStorage), add it too
+    if (!options.includes(this.perPage)) {
+      options.push(this.perPage);
+    }
+
+    // Sort numerically
+    options.sort((a, b) => a - b);
+
+    return options;
+  }
+
   // Get products for the current page view
   private getPageProducts(): Product[] {
-    const pageSize = this.limit || 12;
+    // Use actualPageSize if set (from API response), otherwise fall back to perPage
+    const pageSize = this.actualPageSize || this.perPage;
     const startIndex = (this.currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
-    
+
     const products: Product[] = [];
     for (let i = startIndex; i < endIndex && i < this.totalProducts; i++) {
       const product = this.allProducts.get(i);
@@ -828,13 +882,13 @@ export class ProductCatalog extends ShoprocketElement {
         products.push(product);
       }
     }
-    
+
     return products;
   }
   
   // Ensure a product at a specific index is loaded
   private async ensureProductLoaded(index: number): Promise<void> {
-    const pageSize = this.limit || 12;
+    const pageSize = this.actualPageSize || this.perPage;
     const pageNumber = Math.floor(index / pageSize) + 1;
     
     // Load the current page if needed
@@ -882,7 +936,7 @@ export class ProductCatalog extends ShoprocketElement {
     this.currentProductIndex = targetIndex;
 
     // Calculate which page this product is on
-    const pageSize = this.limit || 12;
+    const pageSize = this.actualPageSize || this.perPage;
     const targetPage = Math.floor(targetIndex / pageSize) + 1;
 
     // Update URL with product and page
@@ -1038,7 +1092,7 @@ export class ProductCatalog extends ShoprocketElement {
     await customElements.whenDefined('shoprocket-product');
 
     // Calculate which page this product is on
-    const pageSize = this.limit || 12;
+    const pageSize = this.actualPageSize || this.perPage;
     const targetPage = Math.floor(this.currentProductIndex / pageSize) + 1;
 
     if (this.isPrimary) {
@@ -1104,9 +1158,9 @@ export class ProductCatalog extends ShoprocketElement {
     // In this case, we've already loaded the full product details, so just show it
     if (targetIndex !== -1) {
       this.currentProductIndex = targetIndex;
-      
+
       // Calculate which page this product is on
-      const pageSize = this.limit || 12;
+      const pageSize = this.actualPageSize || this.perPage;
       const productPage = Math.floor(targetIndex / pageSize) + 1;
       
       // Update current page if needed
