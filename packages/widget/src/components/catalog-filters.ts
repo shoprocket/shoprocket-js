@@ -49,6 +49,12 @@ export class CatalogFilters extends ShoprocketElement {
   @property({ type: Boolean, attribute: 'in-stock-only' })
   inStockOnly = false;
 
+  @property({ type: Number, attribute: 'per-page' })
+  perPage = 12;
+
+  @property({ type: Array, attribute: 'per-page-options' })
+  perPageOptions: readonly number[] = [12, 24, 48, 96];
+
   @state()
   private localMinPrice?: number;
 
@@ -136,6 +142,11 @@ export class CatalogFilters extends ShoprocketElement {
   private handleInStockChange(e: Event) {
     const checked = (e.target as HTMLInputElement).checked;
     this.dispatchFilterChange('inStockOnly', checked ? 'true' : 'false');
+  }
+
+  private handlePerPageChange(e: Event) {
+    const value = (e.target as HTMLSelectElement).value;
+    this.dispatchFilterChange('perPage', value);
   }
 
   private dispatchFilterChange(filterType: string, value: string) {
@@ -277,6 +288,25 @@ export class CatalogFilters extends ShoprocketElement {
             </div>
           </div>
         ` : ''}
+
+        <!-- Per Page Selector -->
+        <div class="sr-filter-group sr-filter-per-page">
+          <div class="sr-field-group">
+            <select
+              id="per-page"
+              class="sr-field-select peer has-value"
+              .value="${this.perPage.toString()}"
+              @change="${this.handlePerPageChange}"
+            >
+              ${this.perPageOptions.map(option => html`
+                <option value="${option}" ?selected="${option === this.perPage}">
+                  ${option}
+                </option>
+              `)}
+            </select>
+            <label class="sr-field-label" for="per-page">Per Page</label>
+          </div>
+        </div>
 
         <!-- Price Range Slider -->
         <div class="sr-filter-group sr-filter-price-range">
