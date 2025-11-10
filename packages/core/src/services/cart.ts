@@ -183,7 +183,7 @@ export class CartService {
     return response.data || response;
   }
 
-  async getOrderStatus(orderId: string): Promise<{ status: string; payment_status?: string }> {
+  async getOrderStatus(orderId: string): Promise<{ status: string; paymentStatus?: string }> {
     const response = await this.api.get<any>(`/orders/${orderId}/status`);
     return response.data || response;
   }

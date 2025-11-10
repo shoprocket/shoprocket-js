@@ -734,10 +734,10 @@ export class ProductCatalog extends ShoprocketElement {
 
     // Prepare cart item data for optimistic update
     const cartItemData = {
-      product_id: product.id,
-      product_name: product.name,
-      variant_id: product.defaultVariantId,
-      variant_name: undefined, // No variant text for default variant
+      productId: product.id,
+      productName: product.name,
+      variantId: product.defaultVariantId,
+      variantName: undefined, // No variant text for default variant
       quantity: 1,
       price: product.price, // Already in correct format from API
       media: product.media?.[0] ? [product.media[0]] : undefined,

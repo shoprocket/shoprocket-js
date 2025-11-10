@@ -262,10 +262,10 @@ export class BuyButton extends ShoprocketElement {
 
     // Prepare cart item data for optimistic update (matching catalog pattern)
     const cartItemData = {
-      product_id: this.productData.id,
-      product_name: this.productData.name,
-      variant_id: variantId,
-      variant_name: variantName,
+      productId: this.productData.id,
+      productName: this.productData.name,
+      variantId: variantId,
+      variantName: variantName,
       quantity: this.quantity,
       price: variantPrice,
       media: this.productData.media?.[0] ? [this.productData.media[0]] : undefined,

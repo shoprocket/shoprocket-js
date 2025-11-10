@@ -37,7 +37,7 @@ import type { OrderDetails } from './cart/cart-types';
  * 
  * @attr {string} data-shoprocket - Must be "cart" to initialize this component
  * @attr {string} [data-position="bottom-right"] - Position of cart icon (bottom-right, bottom-left, top-right, top-left)
- * @attr {string} [data-style="bubble"] - Visual style (bubble, minimal, custom)
+ * @attr {string} [data-style="bubble"] - Visual style (bubble, drawer)
  * @attr {boolean} [data-floating=true] - Whether cart floats over page content
  * @attr {string} [data-show] - Comma-separated features to show
  * @attr {string} [data-hide] - Comma-separated features to hide
@@ -249,7 +249,7 @@ export class CartWidget extends ShoprocketElement {
   private shouldResetOnNextOpen = false;
 
   private customerCheckTimeout?: NodeJS.Timeout;
-  
+
   // Order ID for post-checkout order API access
   private lastCheckedEmail?: string;
 
@@ -295,7 +295,7 @@ export class CartWidget extends ShoprocketElement {
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
-    
+
     // Initialize HashRouter first
     this.hashRouter = HashRouter.getInstance();
     
@@ -322,30 +322,32 @@ export class CartWidget extends ShoprocketElement {
     });
     
     // Listen for add item events (optimistic updates)
-    this.handleAddItem = this.handleAddItem.bind(this);
+    // Note: Handlers are arrow functions, already bound to instance - no need for .bind()
+    // Remove before adding to prevent duplicate listeners if connectedCallback is called multiple times
+    window.removeEventListener(WIDGET_EVENTS.CART_ADD_ITEM, this.handleAddItem as EventListener);
     window.addEventListener(WIDGET_EVENTS.CART_ADD_ITEM, this.handleAddItem as EventListener);
-    
+
     // Listen for product added events
-    this.handleProductAdded = this.handleProductAdded.bind(this);
+    window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
-    
+
     // Listen for cart errors to show floating notifications
-    this.handleFloatingError = this.handleFloatingError.bind(this);
+    window.removeEventListener(WIDGET_EVENTS.CART_ERROR, this.handleFloatingError as EventListener);
     window.addEventListener(WIDGET_EVENTS.CART_ERROR, this.handleFloatingError as EventListener);
     
-    
+
     // Set up HashRouter event handling (already initialized above)
-    this.handleHashStateChange = this.handleHashStateChange.bind(this);
+    this.hashRouter.removeEventListener('state-change', this.handleHashStateChange);
     this.hashRouter.addEventListener('state-change', this.handleHashStateChange);
 
     // Handle browser back/forward cache (bfcache) restoration
-    this.handlePageShow = this.handlePageShow.bind(this);
+    window.removeEventListener('pageshow', this.handlePageShow);
     window.addEventListener('pageshow', this.handlePageShow);
 
     // Handle cart control events
-    this.handleOpenCart = this.handleOpenCart.bind(this);
-    this.handleCloseCart = this.handleCloseCart.bind(this);
-    this.handleToggleCart = this.handleToggleCart.bind(this);
+    window.removeEventListener('open-cart', this.handleOpenCart as EventListener);
+    window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
+    window.removeEventListener('toggle-cart', this.handleToggleCart as EventListener);
     window.addEventListener('open-cart', this.handleOpenCart as EventListener);
     window.addEventListener('close-cart', this.handleCloseCart as EventListener);
     window.addEventListener('toggle-cart', this.handleToggleCart as EventListener);
@@ -380,17 +382,17 @@ export class CartWidget extends ShoprocketElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    
+
     // Restore scroll if cart was open
     if (this.isOpen) {
       document.body.style.overflow = '';
     }
-    
+
     // Unsubscribe from cart state
     if (this.unsubscribeCartState) {
       this.unsubscribeCartState();
     }
-    
+
     // Remove event listeners
     window.removeEventListener(WIDGET_EVENTS.CART_ADD_ITEM, this.handleAddItem as EventListener);
     window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
@@ -799,7 +801,7 @@ export class CartWidget extends ShoprocketElement {
       } catch (err) {
         console.error('Failed to load cart:', err);
         this.cart = null;
-        this.showError('Failed to load cart data');
+        this.showInCartError('Failed to load cart data');
       }
     });
     return loadedCart;
@@ -1329,9 +1331,10 @@ export class CartWidget extends ShoprocketElement {
         
         // Update state based on result
         this.customerCheckResult = result;
-        
+
         // Show password field if customer exists and has password
-        this.showPasswordField = result.exists && result.has_password;
+        // API now returns camelCase via CustomerCheckResource
+        this.showPasswordField = result.exists && result.hasPassword;
         
         // Reset login state when checking new email
         this.loginLinkSent = false;
@@ -1358,20 +1361,33 @@ export class CartWidget extends ShoprocketElement {
       this.sendingLoginLink = true;
       // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
       const result = await this.sdk.cart.sendAuth(this.customerData.email);
-      
-      if (result.auth_sent) {
+
+      // API now returns camelCase via AuthStatusResource
+      if (result.authSent) {
         this.loginLinkSent = true;
         // Don't auto-hide when showing OTP form - user needs time to enter code
         // The OTP form will clear loginLinkSent when verification is complete or resend is clicked
-        
+
         // Auto-focus the first OTP input after render
         this.updateComplete.then(() => {
           const firstInput = this.shadowRoot?.querySelector('[data-otp-index="0"]') as HTMLInputElement;
           firstInput?.focus();
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send authentication:', error);
+
+      // Handle specific error types
+      let errorMessage = 'Failed to send verification code. Please try again.';
+
+      // API wrapper returns { status, message, code } directly (not response.status)
+      if (error.status === 429) {
+        errorMessage = 'Too many attempts. Please wait a moment before trying again.';
+      } else if (error.message && error.message !== 'API request failed') {
+        errorMessage = error.message;
+      }
+
+      this.showAnimatedError(errorMessage);
     } finally {
       this.sendingLoginLink = false;
     }
@@ -1499,7 +1515,7 @@ export class CartWidget extends ShoprocketElement {
         // Invalid OTP
         const errorMessage = result.message || 'Invalid verification code. Please try again.';
         this.otpError = errorMessage;
-        this.showError(errorMessage);
+        this.showAnimatedError(errorMessage);
         this.otpCode = ''; // Clear the code
         
         // Clear all input fields
@@ -1514,18 +1530,16 @@ export class CartWidget extends ShoprocketElement {
       console.error('OTP verification failed:', error);
       // Handle API error response
       let errorMessage = 'Verification failed. Please try again.';
-      if (error.response?.data?.error?.message) {
-        errorMessage = error.response.data.error.message;
-      } else if (error.data?.error?.message) {
-        errorMessage = error.data.error.message;
-      } else if (error.error?.message) {
-        errorMessage = error.error.message;
+
+      // API wrapper returns { status, message, code } directly
+      if (error.message && error.message !== 'API request failed') {
+        errorMessage = error.message;
       }
-      
+
       this.otpError = errorMessage;
-      this.showError(errorMessage);
+      this.showAnimatedError(errorMessage);
       this.otpCode = ''; // Clear the code
-      
+
       // Clear all input fields
       const inputs = this.shadowRoot?.querySelectorAll('.sr-otp-input') as NodeListOf<HTMLInputElement>;
       inputs.forEach(input => input.value = '');
@@ -1560,8 +1574,9 @@ export class CartWidget extends ShoprocketElement {
       // Send new OTP without hiding the form
       // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
       const result = await this.sdk.cart.sendAuth(this.customerData.email);
-      
-      if (result.auth_sent) {
+
+      // API now returns camelCase via AuthStatusResource
+      if (result.authSent) {
         // Keep loginLinkSent true to stay on OTP form
         // Just focus the first input again
         this.updateComplete.then(() => {
@@ -1569,9 +1584,21 @@ export class CartWidget extends ShoprocketElement {
           firstInput?.focus();
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to resend authentication:', error);
-      this.otpError = 'Failed to resend code. Please try again.';
+
+      // Handle specific error types
+      let errorMessage = 'Failed to resend code. Please try again.';
+
+      // API wrapper returns { status, message, code } directly (not response.status)
+      if (error.status === 429) {
+        errorMessage = 'Too many attempts. Please wait a moment before trying again.';
+      } else if (error.message && error.message !== 'API request failed') {
+        errorMessage = error.message;
+      }
+
+      this.otpError = errorMessage;
+      this.showAnimatedError(errorMessage);
     } finally {
       this.resendingOtp = false;
     }
@@ -1881,6 +1908,7 @@ export class CartWidget extends ShoprocketElement {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
           </button>
+          ${this.renderInCartNotification()}
         </div>
         <div class="sr-cart-body ${this.effectiveWidgetStyle === 'bubble' ? `sr-cart-animation-${this.isOpen ? 'in' : 'out'}-items` : ''}">
           ${this.checkoutLoading && !this.isCheckingOut ? loadingOverlay() :
@@ -2427,9 +2455,8 @@ export class CartWidget extends ShoprocketElement {
     return this.cartModules.cartTrigger.renderTriggerContent(itemCount, this.position, shoppingBasketIcon);
   }
   
-  private handleFloatingError = (event: CustomEvent): void => {
-    const { message } = event.detail;
-    
+  // Shared method for displaying animated error notifications (used by both events and direct calls)
+  private showAnimatedError(message: string): void {
     // Clear any existing success notification
     this.recentlyAddedProduct = null;
     this.notificationSliding = null;
@@ -2439,7 +2466,7 @@ export class CartWidget extends ShoprocketElement {
     if (this.notificationTimeouts.remove) {
       clearTimeout(this.notificationTimeouts.remove);
     }
-    
+
     // Clear any existing error timeouts
     if (this.errorNotificationTimeouts.slideOut) {
       clearTimeout(this.errorNotificationTimeouts.slideOut);
@@ -2447,26 +2474,31 @@ export class CartWidget extends ShoprocketElement {
     if (this.errorNotificationTimeouts.remove) {
       clearTimeout(this.errorNotificationTimeouts.remove);
     }
-    
+
     // Show the error notification
     this.errorNotificationSliding = null;
     this.floatingErrorMessage = message;
-    
+
     // Trigger animation after next render
     requestAnimationFrame(() => {
       this.errorNotificationSliding = 'in';
-      
+
       // Start slide out after 4 seconds
       this.errorNotificationTimeouts.slideOut = setTimeout(() => {
         this.errorNotificationSliding = 'out';
-        
+
         // Remove completely after slide animation completes
         this.errorNotificationTimeouts.remove = setTimeout(() => {
           this.floatingErrorMessage = null;
           this.errorNotificationSliding = null;
-        }, TIMEOUTS.ANIMATION); // Match animation duration
+        }, TIMEOUTS.ANIMATION);
       }, 4000);
     });
+  }
+
+  private handleFloatingError = (event: CustomEvent): void => {
+    const { message } = event.detail;
+    this.showAnimatedError(message);
   }
   
   private renderNotification(): TemplateResult {
@@ -2480,7 +2512,7 @@ export class CartWidget extends ShoprocketElement {
       position: this.position,
       recentlyAddedProduct: this.recentlyAddedProduct,
       notificationSliding: this.notificationSliding,
-      floatingErrorMessage: this.floatingErrorMessage,
+      floatingErrorMessage: null, // Errors now only show inside cart header, not on trigger badge
       errorNotificationSliding: this.errorNotificationSliding,
       getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
       formatPrice: (amount) => this.formatPrice(amount),
@@ -2488,5 +2520,31 @@ export class CartWidget extends ShoprocketElement {
     };
 
     return this.cartModules.cartTrigger.renderNotification(context);
+  }
+
+  private renderInCartNotification(): TemplateResult {
+    if (!this.floatingErrorMessage) {
+      return html``;
+    }
+
+    let animationClass = '';
+    if (this.errorNotificationSliding === 'in') {
+      animationClass = 'sr-notification-slide-down-in';
+    } else if (this.errorNotificationSliding === 'out') {
+      animationClass = 'sr-notification-slide-down-out';
+    }
+
+    return html`
+      <div class="sr-in-cart-notification sr-notification-error ${animationClass}">
+        <div class="sr-in-cart-notification-content">
+          <svg class="sr-notification-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <div class="sr-in-cart-notification-message">
+            <p>${this.floatingErrorMessage}</p>
+          </div>
+        </div>
+      </div>
+    `;
   }
 }

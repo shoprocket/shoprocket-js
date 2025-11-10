@@ -491,7 +491,6 @@ export class WidgetManager {
       (component as BaseComponent).sdk = this.sdk;
     }
 
-    // Replace the mount point with our component to avoid unnecessary wrapper
     // Copy over any custom CSS variables or styles from the mount point
     if (element instanceof HTMLElement && component instanceof HTMLElement) {
       // Copy inline styles only if they exist
@@ -524,12 +523,16 @@ export class WidgetManager {
       }
     }
 
-    // Replace the element with our component
-    element.replaceWith(component);
-
-    // Special handling for cart: always move to body (breaks out of container)
-    if (widgetType === 'cart' && component.parentElement !== document.body) {
+    // Mount the component
+    // Special handling for cart: mount directly to body in one operation (avoids double connectedCallback)
+    if (widgetType === 'cart') {
+      // Remove the mount point placeholder
+      element.remove();
+      // Mount cart directly to body (single DOM operation = single connectedCallback)
       document.body.appendChild(component);
+    } else {
+      // Normal widgets: replace mount point in place
+      element.replaceWith(component);
     }
 
     this.mountedWidgets.set(component, component);
