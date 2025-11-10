@@ -286,7 +286,8 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
     ` : context.customerCheckResult && context.customerCheckResult.exists ? html`
       <div class="sr-auth-section">
         ${(() => {
-          if (context.customerCheckResult!.exists && !context.customerCheckResult!.has_password) {
+          // API now returns camelCase via CustomerCheckResource
+          if (context.customerCheckResult!.exists && !context.customerCheckResult!.hasPassword) {
             // Customer exists but no password (guest checkout previously)
             return html`
                 <!-- Guest customer (no account) -->
@@ -311,7 +312,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                 ` : ''}
               `;
 
-          } else if (context.customerCheckResult!.exists && context.customerCheckResult!.has_password) {
+          } else if (context.customerCheckResult!.exists && context.customerCheckResult!.hasPassword) {
             // Customer exists with password (registered account)
             return html`
                 <!-- Registered customer -->

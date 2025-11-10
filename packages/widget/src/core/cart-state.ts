@@ -142,39 +142,42 @@ class CartStateManager {
    */
   setCheckoutData(data: any): void {
     if (!data) return;
-    
+
     // Update checkout data fields - preserve empty strings from API
+    // API returns camelCase (firstName) but internal state uses snake_case (first_name)
     this.state.checkoutData = {
       email: data.email ?? '',
-      first_name: data.first_name ?? '',
-      last_name: data.last_name ?? '',
+      first_name: data.firstName ?? data.first_name ?? '',
+      last_name: data.lastName ?? data.last_name ?? '',
       phone: data.phone ?? '',
       company: data.company ?? ''
     };
-    
+
     // Keep legacy alias in sync
     this.state.customer = this.state.checkoutData;
-    
+
     // Update addresses
-    if (data.shipping_address) {
-      this.state.shippingAddress = this.cleanObject(data.shipping_address);
+    // API returns camelCase (shippingAddress) but also support snake_case for flexibility
+    if (data.shippingAddress || data.shipping_address) {
+      this.state.shippingAddress = this.cleanObject(data.shippingAddress ?? data.shipping_address);
     }
-    
-    if (data.billing_address) {
-      this.state.billingAddress = this.cleanObject(data.billing_address);
+
+    if (data.billingAddress || data.billing_address) {
+      this.state.billingAddress = this.cleanObject(data.billingAddress ?? data.billing_address);
     }
     
     // Don't update same_as_billing from API - it's UI state only
     // Intelligently set it based on whether addresses match (only on initial load)
     if (!this.state.checkoutData.email) {
       // First time loading - check if addresses match
+      // Support both camelCase and snake_case
       this.state.sameAsBilling = this.areAddressesEqual(
-        data.shipping_address,
-        data.billing_address
+        data.shippingAddress ?? data.shipping_address,
+        data.billingAddress ?? data.billing_address
       );
     }
     // Otherwise keep the current UI state
-    
+
     this.notifyListeners();
   }
   

@@ -26,9 +26,9 @@ export interface AddressFormErrors {
 export interface Country {
   code: string;
   name: string;
-  phone_code?: string;
+  phoneCode?: string;
   currency?: string;
-  requires_state?: boolean;
+  requiresState?: boolean;
 }
 
 export interface State {
@@ -110,7 +110,7 @@ export class AddressForm extends BaseComponent {
       // Set requires_state flag for current country
       if (this.address.country) {
         const selectedCountry = this.countries.find(c => c.code === this.address.country);
-        this.currentCountryRequiresState = selectedCountry?.requires_state !== false;
+        this.currentCountryRequiresState = selectedCountry?.requiresState !== false;
       }
     }
 
@@ -134,7 +134,7 @@ export class AddressForm extends BaseComponent {
           // After loading countries, set requires_state flag
           if (this.address.country) {
             const selectedCountry = this.countries.find(c => c.code === this.address.country);
-            this.currentCountryRequiresState = selectedCountry?.requires_state !== false;
+            this.currentCountryRequiresState = selectedCountry?.requiresState !== false;
           }
         });
       }
@@ -262,7 +262,7 @@ export class AddressForm extends BaseComponent {
     if (field === 'country' && value && value !== this.currentCountryCode) {
       // Update requires_state flag based on selected country
       const selectedCountry = this.countries.find(c => c.code === value);
-      this.currentCountryRequiresState = selectedCountry?.requires_state !== false; // Default to true if undefined
+      this.currentCountryRequiresState = selectedCountry?.requiresState !== false; // Default to true if undefined
 
       // Store current state value if autofill is happening
       if (isAutofill && this.address.state) {

@@ -33,9 +33,12 @@ declare global {
 // Note: CLS prevention is handled by loader.js (sets inline min-height before bundle loads)
 // Components clear these inline styles when content is ready (see product-catalog.ts, etc.)
 
-// Capture script info immediately while currentScript is available
-// For ES modules, currentScript is null, so we look for our bundle script tag
-const scriptUrl = (document.currentScript as HTMLScriptElement)?.src || '';
+// Capture script info - different methods for ES modules vs IIFE
+// ES modules: Use import.meta.url (most reliable)
+// IIFE: Use document.currentScript or fallback to bundle script tag
+const scriptUrl = (typeof import.meta !== 'undefined' && import.meta.url)
+  ? import.meta.url
+  : (document.currentScript as HTMLScriptElement)?.src || '';
 
 // Create global instance
 const shoprocket = new WidgetManager();
@@ -210,7 +213,8 @@ function autoInit(): void {
   }
 
   // Initialize config based on script URL
-  // For ES modules, we need to get the URL from the bundle script tag
+  // scriptUrl is already set from import.meta.url (ES modules) or document.currentScript (IIFE)
+  // Final fallback: try to find bundle script tag
   const configUrl = scriptUrl || (document.querySelector('script[data-shoprocket-bundle="true"]') as HTMLScriptElement)?.src || '';
   initializeConfig(configUrl);
 
