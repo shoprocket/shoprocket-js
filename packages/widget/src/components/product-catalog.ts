@@ -128,6 +128,44 @@ export class ProductCatalog extends ShoprocketElement {
   @property({ type: String, attribute: 'data-filter-position' })
   filterPosition: 'top' | 'left' = 'top';
 
+  // Grid columns for different breakpoints
+  private _columns?: number;
+  private _columnsMd?: number;
+  private _columnsSm?: number;
+
+  @property({ type: Number })
+  set columns(value: number | undefined) {
+    this._columns = value;
+    if (value) {
+      this.style.setProperty('--cols', String(value));
+    }
+  }
+  get columns(): number | undefined {
+    return this._columns;
+  }
+
+  @property({ type: Number })
+  set columnsMd(value: number | undefined) {
+    this._columnsMd = value;
+    if (value) {
+      this.style.setProperty('--cols-md', String(value));
+    }
+  }
+  get columnsMd(): number | undefined {
+    return this._columnsMd;
+  }
+
+  @property({ type: Number })
+  set columnsSm(value: number | undefined) {
+    this._columnsSm = value;
+    if (value) {
+      this.style.setProperty('--cols-sm', String(value));
+    }
+  }
+  get columnsSm(): number | undefined {
+    return this._columnsSm;
+  }
+
   @state()
   private currentView: 'list' | 'product' = 'list';
 
