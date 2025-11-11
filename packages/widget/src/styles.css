@@ -1086,6 +1086,18 @@
     @apply grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8;
   }
 
+  /* Single column when media is hidden */
+  .sr-product-detail-grid[data-no-media] {
+    @apply grid-cols-1;
+  }
+
+  /* Center and limit width when no media */
+  .sr-product-detail-grid[data-no-media] .sr-product-detail-info {
+    max-width: var(--product-detail-max-width, 800px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   .sr-product-detail-media {
     @apply w-full;
   }
@@ -1100,7 +1112,7 @@
   }
 
   .sr-product-detail-image-main {
-    @apply w-full mb-4 cursor-zoom-in;
+    @apply w-full mb-4;
     aspect-ratio: var(--sr-product-image-aspect-ratio);
   }
 
@@ -1569,7 +1581,7 @@
 }
 
 /* Specific implementations */
-.sr-product-detail-image-main .sr-media-image {
+.sr-product-detail-image-main[data-zoom-enabled="true"] .sr-media-image {
   @apply cursor-zoom-in;
 }
 
