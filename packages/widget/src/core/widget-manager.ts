@@ -476,6 +476,10 @@ export class WidgetManager {
     const configuredMode = mappedOptions['mode'] || 'auto';
     delete mappedOptions['mode'];
 
+    // Extract features before setting properties (it's used as an attribute, not a property)
+    const features = mappedOptions['features'];
+    delete mappedOptions['features'];
+
     // Set properties directly on the component (not as data-* attributes)
     // Web components expect properties, not data-* attributes
     // Convert kebab-case keys to camelCase for proper Lit property mapping
@@ -505,6 +509,15 @@ export class WidgetManager {
       // Set theme attribute if provided (for per-embed theming)
       if (theme) {
         component.setAttribute('data-theme', theme);
+      }
+
+      // Set features attribute if provided (for feature control)
+      if (features !== undefined) {
+        if (Array.isArray(features)) {
+          component.setAttribute('data-features', features.join(','));
+        } else if (features === null || features === '') {
+          component.setAttribute('data-features', ''); // Explicitly show nothing
+        }
       }
 
       // Determine and set mode attribute

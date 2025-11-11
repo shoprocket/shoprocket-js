@@ -20,11 +20,10 @@ export type FeatureKey =
   | 'price'           // Price display
   | 'stock'           // Stock status
   | 'sku'             // SKU display
+  | 'summary'         // Short summary text
   | 'description'     // Full description
-  | 'short-description' // Short description
-  
+
   // Shopping
-  | 'variants'        // Variant selector
   | 'quantity'        // Quantity selector
   | 'add-to-cart'     // Add to cart button
   | 'wishlist'        // Wishlist button
@@ -68,21 +67,21 @@ export interface FeatureConfig {
 // Default features per widget type
 export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
   'product-view': [
-    'media', 'gallery', 'zoom', 'title', 'price', 'stock',
-    'variants', 'quantity', 'add-to-cart', 'description'
+    'media', 'gallery', 'zoom', 'title', 'price', 'stock', 'summary',
+    'quantity', 'add-to-cart', 'description'
   ],
   'product-card': [
     'media', 'title', 'price', 'add-to-cart'
   ],
   'product-detail': [
     'navigation', 'back-button', 'prev-next', 'media', 'gallery', 'zoom', 'title', 'price',
-    'stock', 'sku', 'variants', 'quantity', 'add-to-cart',
+    'stock', 'sku', 'summary', 'quantity', 'add-to-cart',
     'description', 'reviews', 'share', 'scroll'
   ],
   // shoprocket-product element (used in catalog)
   'product': [
     'navigation', 'back-button', 'prev-next', 'media', 'gallery', 'zoom', 'title', 'price',
-    'stock', 'sku', 'variants', 'quantity', 'add-to-cart',
+    'stock', 'sku', 'summary', 'quantity', 'add-to-cart',
     'description', 'reviews', 'share', 'scroll'
   ],
   // Product catalog widget
@@ -97,19 +96,16 @@ export function parseFeatures(
   widgetType: string
 ): Set<FeatureKey> {
   const defaults = new Set(DEFAULT_FEATURES[widgetType] || []);
-  
-  // Parse show list (replaces defaults if provided)
-  const showAttr = element.getAttribute('data-show');
-  if (showAttr) {
-    return new Set(showAttr.split(',').map(s => s.trim()) as FeatureKey[]);
+
+  // Parse features list (explicit list of what to show)
+  const featuresAttr = element.getAttribute('data-features');
+  if (featuresAttr !== null) {  // Attribute exists
+    if (featuresAttr === '') {
+      return new Set(); // Empty features = show nothing
+    }
+    return new Set(featuresAttr.split(',').map(s => s.trim()).filter(s => s) as FeatureKey[]);
   }
-  
-  // Parse hide list (removes from defaults)
-  const hideAttr = element.getAttribute('data-hide');
-  if (hideAttr) {
-    const hideList = hideAttr.split(',').map(s => s.trim());
-    hideList.forEach(feature => defaults.delete(feature as FeatureKey));
-  }
-  
+
+  // No features attribute = use defaults
   return defaults;
 }

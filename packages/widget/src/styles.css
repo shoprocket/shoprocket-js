@@ -1246,11 +1246,15 @@
   }
 
   .sr-quantity-selector {
-    @apply flex items-center gap-3;
+    @apply space-y-2;
+    width: var(--quantity-width, 150px);
+    max-width: 100%;
+    margin-top: var(--spacing-md, 1rem);
+    margin-bottom: var(--spacing-md, 1rem);
   }
 
   .sr-quantity-label {
-    @apply text-sm font-medium;
+    @apply text-sm font-medium block;
     color: var(--color-on-surface);
   }
 
@@ -1276,6 +1280,23 @@
   }
 
   .sr-quantity-button:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .sr-quantity-input {
+    @apply w-12 text-center font-medium border-0 outline-none;
+    color: var(--color-on-surface);
+    background: transparent;
+    -moz-appearance: textfield; /* Remove spinner in Firefox */
+  }
+
+  .sr-quantity-input::-webkit-outer-spin-button,
+  .sr-quantity-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .sr-quantity-input:disabled {
     @apply opacity-50 cursor-not-allowed;
   }
 

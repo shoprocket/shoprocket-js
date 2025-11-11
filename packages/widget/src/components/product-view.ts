@@ -249,7 +249,7 @@ export class ProductView extends ShoprocketElement {
           .sdk="${this.sdk}"
           .product="${this.productData}"
           data-widget-type="product-view"
-          data-hide="navigation"
+          data-features="${this.getAttribute('data-features') || ''}"
         ></shoprocket-product>
       </div>
     `;

@@ -90,6 +90,9 @@ export class ProductDetail extends ShoprocketElement {
   @state()
   private loadedImages: Set<string> = new Set();
 
+  @state()
+  private quantity: number = 1;
+
   private zoomTimeout?: number;
 
   protected override async updated(changedProperties: Map<string, any>): Promise<void> {
@@ -109,6 +112,7 @@ export class ProductDetail extends ShoprocketElement {
         this.zoomActive = false;
         this.addedToCart = false;
         this.isInCart = false;
+        this.quantity = 1;
         // Reset loaded image tracking so cached images still trigger display
         this.loadedImages = new Set();
         
@@ -146,50 +150,64 @@ export class ProductDetail extends ShoprocketElement {
         <div class="sr-product-detail-content">
           <div class="sr-product-detail-grid">
             <!-- Product Images - Left side -->
-            <div class="sr-product-detail-media">
-              <div class="sr-product-detail-media-sticky">
-                <!-- Main image with zoom -->
-                ${this.renderMediaContainer(
-                  this.getSelectedMedia(),
-                  IMAGE_SIZES.MAIN,
-                  this.product?.name || 'Product image',
-                  'sr-product-detail-image-main',
-                  !this.product
-                )}
-                
-                <!-- Thumbnail gallery -->
-                ${this.renderThumbnails(this.product)}
+            ${this.hasFeature('media') ? html`
+              <div class="sr-product-detail-media">
+                <div class="sr-product-detail-media-sticky">
+                  <!-- Main image with zoom -->
+                  ${this.renderMediaContainer(
+                    this.getSelectedMedia(),
+                    IMAGE_SIZES.MAIN,
+                    this.product?.name || 'Product image',
+                    'sr-product-detail-image-main',
+                    !this.product
+                  )}
+
+                  <!-- Thumbnail gallery -->
+                  ${this.hasFeature('gallery') ? this.renderThumbnails(this.product) : ''}
+                </div>
               </div>
-            </div>
-            
+            ` : ''}
+
             <!-- Product Info - Right side -->
             <div class="sr-product-detail-info">
-              <h1 class="sr-product-detail-title">
-                ${this.product?.name || ''}
-              </h1>
-              
-              <div class="sr-product-detail-price">
-                ${this.product ? this.formatProductPrice(this.product) : ''}
-              </div>
-              
+              ${this.hasFeature('title') ? html`
+                <h1 class="sr-product-detail-title">
+                  ${this.product?.name || ''}
+                </h1>
+              ` : ''}
+
+              ${this.hasFeature('price') ? html`
+                <div class="sr-product-detail-price">
+                  ${this.product ? this.formatProductPrice(this.product) : ''}
+                </div>
+              ` : ''}
+
               ${this.renderStockStatus(this.product)}
-              
-              <p class="sr-product-detail-summary">
-                ${this.product?.summary || ''}
-              </p>
-              
+
+              ${this.hasFeature('summary') ? html`
+                <p class="sr-product-detail-summary">
+                  ${this.product?.summary || ''}
+                </p>
+              ` : ''}
+
               <!-- Variant Options -->
               ${this.renderProductOptions(this.product)}
-              
+
+              <!-- Quantity Selector -->
+              ${this.hasFeature('quantity') ? this.renderQuantitySelector() : ''}
+
               <!-- Add to Cart Section -->
-              <div class="sr-product-detail-actions">
-                <div class="sr-product-detail-buttons">
-                  ${this.renderAddToCartButton()}
-                  ${this.renderViewCartButton()}
+              ${this.hasFeature('add-to-cart') ? html`
+                <div class="sr-product-detail-actions">
+                  <div class="sr-product-detail-buttons">
+                    ${this.renderAddToCartButton()}
+                    ${this.renderViewCartButton()}
+                  </div>
                 </div>
-                
-                <!-- Product Description -->
-                ${this.renderDescription(this.product)}
+              ` : ''}
+
+              <!-- Product Description -->
+              ${this.hasFeature('description') ? this.renderDescription(this.product) : ''}
                 
                 <!-- Additional info -->
                 <div class="sr-product-detail-info-text">
@@ -235,7 +253,7 @@ export class ProductDetail extends ShoprocketElement {
     if (!product?.options || product.options.length === 0) {
       return html``;
     }
-    
+
     return html`
         <div class="sr-product-options">
           ${product.options.map((option: ProductOption) => html`
@@ -247,7 +265,7 @@ export class ProductDetail extends ShoprocketElement {
                 ${option.values?.map((value: any) => {
                   const isDisabled = this.isOptionValueOutOfStock(option.id, value.id, product);
                   const button = html`
-                    <button 
+                    <button
                       class="sr-variant-option ${this.selectedOptions[option.id] === value.id ? 'selected' : ''}"
                       @click="${() => !isDisabled && this.selectOption(option.id, value.id)}"
                       ?disabled="${isDisabled}"
@@ -255,7 +273,7 @@ export class ProductDetail extends ShoprocketElement {
                       ${value.value}
                     </button>
                   `;
-                  
+
                   // Wrap disabled buttons in tooltip
                   return isDisabled ? html`
                     <sr-tooltip text="Out of stock" position="top">
@@ -268,6 +286,119 @@ export class ProductDetail extends ShoprocketElement {
           `)}
         </div>
       `;
+  }
+
+  private renderQuantitySelector = (): TemplateResult => {
+    if (!this.product) {
+      return html``;
+    }
+
+    // Get max quantity based on stock
+    const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
+    const totalInventory = this.selectedVariant ?
+      this.selectedVariant.inventoryCount :
+      this.product.inventoryCount;
+
+    // Check how many are already in cart
+    const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
+    // Calculate available quantity (total - what's in cart)
+    // If no inventory tracking, default to 999 max
+    const maxQuantity = totalInventory
+      ? Math.max(0, totalInventory - stockStatus.quantityInCart)
+      : 999;
+
+    const allStockInCart = maxQuantity === 0;
+    const canDecrease = this.quantity > 1 && !allStockInCart;
+    const canIncrease = this.quantity < maxQuantity && !allStockInCart;
+
+    // Tooltip messages
+    const decreaseTooltip = allStockInCart
+      ? `All available stock (${totalInventory}) is in your cart`
+      : '';
+    const increaseTooltip = allStockInCart
+      ? `All available stock (${totalInventory}) is in your cart`
+      : `Maximum available (${maxQuantity})`;
+
+    const decreaseButton = html`
+      <button
+        class="sr-quantity-button"
+        @click="${() => canDecrease && this.quantity--}"
+        ?disabled="${!canDecrease}"
+        aria-label="Decrease quantity"
+      >
+        -
+      </button>
+    `;
+
+    const increaseButton = html`
+      <button
+        class="sr-quantity-button"
+        @click="${() => canIncrease && this.quantity++}"
+        ?disabled="${!canIncrease}"
+        aria-label="Increase quantity"
+      >
+        +
+      </button>
+    `;
+
+    return html`
+      <div class="sr-quantity-selector">
+        <label class="sr-quantity-label">Quantity</label>
+        <div class="sr-quantity-controls">
+          ${allStockInCart ? html`
+            <sr-tooltip text="${decreaseTooltip}" position="top">
+              ${decreaseButton}
+            </sr-tooltip>
+          ` : decreaseButton}
+          <input
+            type="number"
+            class="sr-quantity-input"
+            .value="${this.quantity}"
+            @input="${(e: Event) => this.handleQuantityInput(e)}"
+            min="1"
+            max="${maxQuantity || 1}"
+            ?disabled="${allStockInCart}"
+            aria-label="Quantity"
+          />
+          ${!canIncrease ? html`
+            <sr-tooltip text="${increaseTooltip}" position="top">
+              ${increaseButton}
+            </sr-tooltip>
+          ` : increaseButton}
+        </div>
+      </div>
+    `;
+  }
+
+  private handleQuantityInput(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const value = parseInt(input.value, 10);
+
+    if (isNaN(value) || value < 1) {
+      this.quantity = 1;
+      input.value = '1';
+      return;
+    }
+
+    // Get max quantity
+    const variantId = this.selectedVariant?.id || this.product?.defaultVariantId;
+    const totalInventory = this.selectedVariant ?
+      this.selectedVariant.inventoryCount :
+      this.product?.inventoryCount;
+    const stockStatus = isAllStockInCart(this.product?.id || '', variantId, totalInventory);
+    // Calculate available quantity (total - what's in cart)
+    // If no inventory tracking, default to 999 max
+    const maxQuantity = totalInventory
+      ? Math.max(0, totalInventory - stockStatus.quantityInCart)
+      : 999;
+
+    if (value > maxQuantity) {
+      this.quantity = maxQuantity;
+      input.value = String(maxQuantity);
+      return;
+    }
+
+    this.quantity = value;
   }
 
   private getButtonText(product: Product, canAdd: boolean): string {
@@ -392,7 +523,7 @@ export class ProductDetail extends ShoprocketElement {
       productName: this.product.name,
       variantId: variantId,
       variantName: this.getSelectedVariantText() || undefined,
-      quantity: 1,
+      quantity: this.quantity,
       price: selectedPrice, // Pass the full Money object from API
       media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined,
       source_url: window.location.href
@@ -423,7 +554,7 @@ export class ProductDetail extends ShoprocketElement {
 
   private updateSelectedVariant(): void {
     if (!this.product?.variants || !this.product?.options) return;
-    
+
     // Only look for exact match if all options are selected
     if (Object.keys(this.selectedOptions).length !== this.product.options.length) {
       this.selectedVariant = undefined;
@@ -431,7 +562,7 @@ export class ProductDetail extends ShoprocketElement {
     }
 
     const selectedOptionValues = Object.values(this.selectedOptions);
-    
+
     this.selectedVariant = this.product.variants.find((variant: ProductVariant) => {
       const variantOptionValues = variant.optionValues || variant.optionValueIds || [];
 
@@ -439,12 +570,27 @@ export class ProductDetail extends ShoprocketElement {
       return variantOptionValues.length === selectedOptionValues.length &&
              selectedOptionValues.every(valueId => variantOptionValues.includes(valueId));
     });
-    
+
     // If variant has specific media, find its index and select it
     if (this.selectedVariant?.mediaId && this.product.media) {
       const mediaIndex = this.product.media.findIndex((m: any) => m.id === this.selectedVariant!.mediaId);
       if (mediaIndex !== -1) {
         this.selectedMediaIndex = mediaIndex;
+      }
+    }
+
+    // Auto-adjust quantity if it exceeds available stock for this variant
+    if (this.selectedVariant) {
+      const variantId = this.selectedVariant.id;
+      const totalInventory = this.selectedVariant.inventoryCount;
+      const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
+      const maxQuantity = totalInventory
+        ? Math.max(0, totalInventory - stockStatus.quantityInCart)
+        : 999;
+
+      // Cap quantity to max available
+      if (this.quantity > maxQuantity) {
+        this.quantity = Math.max(1, maxQuantity);
       }
     }
   }
@@ -622,14 +768,16 @@ export class ProductDetail extends ShoprocketElement {
       `;
     }
 
+    const hasZoom = this.hasFeature('zoom');
+
     return html`
       <div
         class="sr-media-container ${className}"
         data-loaded="${isLoaded}"
-        data-zoom-active="${isMainImage ? this.zoomActive : false}"
-        @mouseenter="${isMainImage ? () => this.handleMouseEnterZoom() : null}"
-        @mouseleave="${isMainImage ? () => this.handleMouseLeaveZoom() : null}"
-        @mousemove="${isMainImage ? (e: MouseEvent) => this.handleMouseMoveZoom(e) : null}"
+        data-zoom-active="${isMainImage && hasZoom ? this.zoomActive : false}"
+        @mouseenter="${isMainImage && hasZoom ? () => this.handleMouseEnterZoom() : null}"
+        @mouseleave="${isMainImage && hasZoom ? () => this.handleMouseLeaveZoom() : null}"
+        @mousemove="${isMainImage && hasZoom ? (e: MouseEvent) => this.handleMouseMoveZoom(e) : null}"
       >
         ${!isLoaded ? html`<div class="sr-media-loading"></div>` : ''}
         <img
@@ -645,18 +793,18 @@ export class ProductDetail extends ShoprocketElement {
           @load="${() => this.handleImageLoad(url)}"
           @error="${(e: Event) => this.handleImageError(e)}"
         >
-        
-        ${isMainImage && this.zoomActive ? html`
+
+        ${isMainImage && hasZoom && this.zoomActive ? html`
           <div class="sr-product-detail-image-zoom"
                style="--zoom-x: ${this.zoomPosition.x}%; --zoom-y: ${this.zoomPosition.y}%;">
-            <img 
+            <img
               src="${this.getMediaUrl(media, IMAGE_SIZES.ZOOM)}"
               alt="${alt} (zoomed)"
               class="sr-media-image"
               loading="lazy"
             >
           </div>
-          
+
           <!-- Zoom lens indicator -->
           <div class="sr-zoom-lens"
                style="--lens-x: ${this.zoomPosition.x}%; --lens-y: ${this.zoomPosition.y}%;">
