@@ -326,7 +326,7 @@ export class ProductDetail extends ShoprocketElement {
         ?disabled="${!canDecrease}"
         aria-label="Decrease quantity"
       >
-        -
+        −
       </button>
     `;
 

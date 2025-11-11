@@ -84,9 +84,7 @@
   --tw-scale-x: 1;
   --tw-scale-y: 1;
 
-  /* Shadows */
-  --shadow: 0 1px 3px rgba(0,0,0,0.1);
-   /* neutralize Tailwind’s extras so shadow-[…] can resolve */
+  /* Shadows - neutralize Tailwind's extras so shadow-[…] can resolve */
    --tw-inset-shadow: 0 0 #0000;
    --tw-inset-ring-shadow: 0 0 #0000;
    --tw-ring-offset-shadow: 0 0 #0000;
@@ -161,8 +159,9 @@
   /* Border radius - ONE value for consistency across all elements */
   --sr-radius: 0.3125rem; /* 5px - change this once to update all corners */
 
-  /* Shadow - ONE value for consistency, users can customize via CSS */
-  --sr-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  /* Shadow - Theme provides individual variables, we combine them like Tailwind does */
+  /* Themes define: --shadow-color, --shadow-opacity, --shadow-offset-x, --shadow-offset-y, --shadow-blur, --shadow-spread */
+  --tw-shadow: var(--shadow-offset-x, 0px) var(--shadow-offset-y, 0px) var(--shadow-blur, 0px) var(--shadow-spread, 0px) color-mix(in srgb, var(--shadow-color, transparent) calc(var(--shadow-opacity, 0) * 100%), transparent);
 
   /* Skeleton shimmer - ONE gradient and duration for all loading states */
   --skeleton-shimmer-gradient: linear-gradient(90deg, rgb(243, 244, 246) 0%, rgb(249, 250, 251) 50%, rgb(243, 244, 246) 100%);
@@ -366,8 +365,7 @@
     @apply flex flex-col h-full cursor-pointer text-left;
     background: var(--color-surface);
     color: var(--color-text);
-    /* box-shadow: var(--sr-shadow); */
-    /* border-radius: var(--sr-radius); */
+    border-radius: var(--sr-radius);
   }
 
   /* Product Image Container */
@@ -375,6 +373,7 @@
     @apply relative w-full overflow-hidden flex-shrink-0 mb-4;
     aspect-ratio: var(--sr-product-image-aspect-ratio);
     border-radius: var(--sr-product-image-radius);
+    box-shadow: var(--tw-shadow);
   }
 
   /* Product Image */
@@ -455,6 +454,7 @@
     padding: var(--sr-button-padding-y) var(--sr-button-padding-x);
     border-radius: var(--sr-radius);
     font-size: var(--sr-button-font-size);
+    box-shadow: var(--tw-shadow);
   }
 
   .sr-button:hover {
@@ -558,7 +558,7 @@
     border-radius: var(--sr-radius);
     width: var(--cart-size);
     height: var(--cart-size);
-    box-shadow: var(--shadow);
+    box-shadow: var(--tw-shadow);
     user-select: none;
     -webkit-user-select: none;
   }
@@ -1062,6 +1062,7 @@
     @apply px-3 py-1 bg-transparent border rounded-md cursor-pointer text-sm font-medium transition-all;
     border-color: var(--color-border);
     color: var(--color-on-surface);
+    box-shadow: var(--tw-shadow);
   }
   
   .sr-nav-button:hover:not(.disabled) {
@@ -1223,6 +1224,7 @@
     border-color: var(--color-border);
     background: var(--color-surface);
     color: var(--color-on-surface);
+    box-shadow: var(--tw-shadow);
   }
 
   .sr-variant-option:hover {
@@ -1271,8 +1273,9 @@
   }
 
   .sr-quantity-controls {
-    @apply flex items-center border rounded-lg;
+    @apply flex items-center border rounded-lg w-full;
     border-color: var(--color-border);
+    box-shadow: var(--tw-shadow);
   }
 
   .sr-quantity-button {
@@ -1296,7 +1299,7 @@
   }
 
   .sr-quantity-input {
-    @apply w-12 text-center font-medium border-0 outline-none;
+    @apply flex-1 min-w-0 text-center font-medium border-0 outline-none;
     color: var(--color-on-surface);
     background: transparent;
     -moz-appearance: textfield; /* Remove spinner in Firefox */
@@ -1487,7 +1490,7 @@
   @apply rounded-lg p-4 shadow flex items-start gap-3;
   border-radius: var(--sr-radius);
   padding: var(--spacing);
-  box-shadow: var(--sr-shadow);
+  box-shadow: var(--tw-shadow);
 }
 
 .sr-notification-error .sr-notification-content {
@@ -1547,6 +1550,7 @@
 .sr-media-container {
   @apply relative w-full h-full overflow-hidden;
   background: var(--media-bg, var(--color-surface-secondary, #f9fafb));
+  box-shadow: var(--tw-shadow);
 }
 
 /* Only apply border-radius when media container is the outermost element */
@@ -1864,7 +1868,7 @@
   @apply absolute px-3 py-3 min-w-[260px] max-w-[320px];
   background: var(--color-surface);
   border-radius: var(--sr-radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--tw-shadow);
   z-index: -1;
 }
 
@@ -2141,6 +2145,7 @@
   @apply text-sm;
   min-height: 3rem; /* 48px for better touch targets */
   background-color: var(--color-surface); /* Match product cards and pagination */
+  box-shadow: var(--tw-shadow);
 }
 
 /* Show empty value options in catalog filters (Featured, All, etc.) */
@@ -2198,6 +2203,7 @@
 
 .sr-filter-price-range .sr-field-group {
   @apply w-full;
+  box-shadow: var(--tw-shadow);
 }
 
 /* Price Range Field - matches field-select styling */
@@ -2296,7 +2302,7 @@
   height: 20px;
   background: #fff;
   border: 2px solid var(--color-primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--tw-shadow);
   position: relative;
   z-index: 4;
   transition: all 0.15s ease;
@@ -2308,7 +2314,7 @@
   height: 20px;
   background: #fff;
   border: 2px solid var(--color-primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--tw-shadow);
   position: relative;
   z-index: 4;
   transition: all 0.15s ease;
@@ -2317,26 +2323,26 @@
 /* Hover states */
 .sr-price-range-slider input[type="range"]:hover::-webkit-slider-thumb {
   transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--tw-shadow);
 }
 
 .sr-price-range-slider input[type="range"]:hover::-moz-range-thumb {
   transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--tw-shadow);
 }
 
 /* Active/dragging state */
 .sr-price-range-slider input[type="range"]:active::-webkit-slider-thumb {
   @apply cursor-grabbing;
   transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--tw-shadow);
   background: var(--color-primary);
 }
 
 .sr-price-range-slider input[type="range"]:active::-moz-range-thumb {
   @apply cursor-grabbing;
   transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--tw-shadow);
   background: var(--color-primary);
 }
 
@@ -2359,6 +2365,7 @@
   background: var(--color-surface);
   border-color: var(--color-border);
   color: var(--color-on-surface);
+  box-shadow: var(--tw-shadow);
 }
 
 .sr-pagination-button:hover:not(:disabled):not(.disabled) {
@@ -3519,7 +3526,7 @@ shoprocket-product-modal {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: var(--sr-shadow, 0 10px 40px rgba(0, 0, 0, 0.2));
+  box-shadow: var(--tw-shadow);
   animation: sr-modal-slideUp 0.3s ease-out;
   z-index: 1;
 }
@@ -3663,7 +3670,7 @@ shoprocket-product-modal.closing .sr-modal-content {
 
 .sr-category-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--tw-shadow);
 }
 
 .sr-category-image {
