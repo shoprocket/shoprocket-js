@@ -148,7 +148,7 @@ export class ProductDetail extends ShoprocketElement {
         
         <!-- Product Details -->
         <div class="sr-product-detail-content">
-          <div class="sr-product-detail-grid">
+          <div class="sr-product-detail-grid" ?data-no-media="${!this.hasFeature('media')}">
             <!-- Product Images - Left side -->
             ${this.hasFeature('media') ? html`
               <div class="sr-product-detail-media">
@@ -774,6 +774,7 @@ export class ProductDetail extends ShoprocketElement {
       <div
         class="sr-media-container ${className}"
         data-loaded="${isLoaded}"
+        data-zoom-enabled="${isMainImage && hasZoom}"
         data-zoom-active="${isMainImage && hasZoom ? this.zoomActive : false}"
         @mouseenter="${isMainImage && hasZoom ? () => this.handleMouseEnterZoom() : null}"
         @mouseleave="${isMainImage && hasZoom ? () => this.handleMouseLeaveZoom() : null}"
