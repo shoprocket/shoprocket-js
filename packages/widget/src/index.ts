@@ -17,6 +17,7 @@ import { WidgetManager } from './core/widget-manager';
 import { ShoprocketElement } from './core/base-component';
 import { Tooltip } from './components/tooltip';
 import { TestModeBanner } from './components/test-mode-banner';
+import { Toggle } from './components/toggle';
 import { initializeConfig, getConfig } from './core/config';
 
 // ProductGrid and CartWidget are now imported from their respective files
@@ -193,6 +194,9 @@ if (!customElements.get('sr-tooltip')) {
 }
 if (!customElements.get('shoprocket-test-banner')) {
   customElements.define('shoprocket-test-banner', TestModeBanner);
+}
+if (!customElements.get('shoprocket-toggle')) {
+  customElements.define('shoprocket-toggle', Toggle);
 }
 
 /**

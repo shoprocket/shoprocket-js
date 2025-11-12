@@ -1,4 +1,4 @@
-import { html, css, type TemplateResult, type PropertyValues } from 'lit';
+import { html, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product, ApiResponse } from '../types/api';
@@ -47,56 +47,6 @@ import './catalog-filters'; // Register filter component
  *      data-show="price,title,image"></div>
  */
 export class ProductCatalog extends ShoprocketElement {
-  static override styles = css`
-    /* Skeleton animation and styles for shadow DOM */
-    @keyframes skeleton-shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-
-    /* Apply skeleton to empty elements when parent has data-loading */
-    [data-loading] :where(h1, h2, h3, p, span):empty {
-      display: block;
-      background: var(--skeleton-shimmer-gradient);
-      background-size: 200% 100%;
-      animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
-      border-radius: 0.25rem;
-    }
-
-    /* Specific sizing */
-    [data-loading] h3:empty { min-height: 1.25rem; width: 75%; }
-    [data-loading] .sr-product-price:empty { min-height: 1rem; width: 5rem; display: inline-block; }
-    [data-loading] button[disabled]:empty { min-height: 2.5rem; width: 100%; }
-
-    /* Disabled buttons skeleton */
-    [data-loading] .sr-button:disabled {
-      color: transparent !important;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    [data-loading] .sr-button:disabled::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: var(--skeleton-shimmer-gradient);
-      background-size: 200% 100%;
-      animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
-      border-radius: inherit;
-    }
-
-    /* Image containers */
-    [data-loading] .sr-product-image-container::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: var(--skeleton-shimmer-gradient);
-      background-size: 200% 100%;
-      animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
-      z-index: 1;
-    }
-  `;
-
   // Use Light DOM when embedded in other widgets to avoid nested shadow DOM
   protected override createRenderRoot(): HTMLElement | ShadowRoot {
     if (this.useLightDom) {
@@ -530,20 +480,28 @@ export class ProductCatalog extends ShoprocketElement {
     }
   }
 
+  private perPageInitialized = false;
+
+  override willUpdate(changedProperties: Map<string, any>): void {
+    // Initialize perPage when limit property changes or on first update
+    // This ensures skeletons show the correct count immediately
+    if (!this.perPageInitialized || changedProperties.has('limit')) {
+      const storedPerPage = localStorage.getItem('shoprocket_per_page');
+      if (storedPerPage) {
+        const parsed = parseInt(storedPerPage, 10);
+        if (parsed > 0) {
+          this.perPage = parsed;
+        }
+      } else if (this.limit && this.limit > 0) {
+        // If merchant set data-limit and no localStorage, use that as the default
+        this.perPage = this.limit;
+      }
+      this.perPageInitialized = true;
+    }
+  }
+
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
-
-    // Initialize perPage: priority is localStorage > data-limit > default
-    const storedPerPage = localStorage.getItem('shoprocket_per_page');
-    if (storedPerPage) {
-      const parsed = parseInt(storedPerPage, 10);
-      if (parsed > 0) {
-        this.perPage = parsed;
-      }
-    } else if (this.limit) {
-      // If merchant set data-limit and no localStorage, use that as the default
-      this.perPage = this.limit;
-    }
 
     // Listen for successful product additions
     this.handleProductAdded = this.handleProductAdded.bind(this);
@@ -635,7 +593,8 @@ export class ProductCatalog extends ShoprocketElement {
     }
 
     const pageProducts = this.getPageProducts();
-    const layoutMode = this.filterPosition === 'left' ? 'sidebar' : 'horizontal';
+    // Only use sidebar layout if filters are enabled AND position is left
+    const layoutMode = this.hasFeature('filters') && this.filterPosition === 'left' ? 'sidebar' : 'horizontal';
 
     return html`
       <div class="sr-catalog-list-view ${this.currentView === 'list' ? 'visible' : 'hidden'}"
@@ -666,6 +625,7 @@ export class ProductCatalog extends ShoprocketElement {
             this.errorMessage,
             this.successMessage,
             this.addedToCartProducts,
+            this.getFeatures(),
             {
               handleProductClick: (product) => this.handleProductClick(product),
               handleAddToCart: (product) => this.handleAddToCart(product),

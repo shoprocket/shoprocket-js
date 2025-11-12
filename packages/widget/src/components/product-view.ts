@@ -220,15 +220,17 @@ export class ProductView extends ShoprocketElement {
       return html`
         <div class="sr-product-view-container sr-product-view-loading">
           <div class="sr-product-detail" data-loading>
-            <div class="sr-product-detail-grid">
-              <div class="sr-product-detail-media">
-                <div class="sr-media-container sr-product-detail-image-main"></div>
-              </div>
+            <div class="sr-product-detail-grid" ?data-no-media="${!this.hasFeature('media')}">
+              ${this.hasFeature('media') ? html`
+                <div class="sr-product-detail-media">
+                  <div class="sr-media-container sr-product-detail-image-main"></div>
+                </div>
+              ` : ''}
               <div class="sr-product-detail-info">
-                <h1 class="sr-product-detail-title"></h1>
-                <div class="sr-product-detail-price"></div>
-                <p class="sr-product-detail-summary"></p>
-                <button class="sr-button" disabled></button>
+                ${this.hasFeature('title') ? html`<h1 class="sr-product-detail-title"></h1>` : ''}
+                ${this.hasFeature('price') ? html`<div class="sr-product-detail-price"></div>` : ''}
+                ${this.hasFeature('summary') ? html`<p class="sr-product-detail-summary"></p>` : ''}
+                ${this.hasFeature('add-to-cart') ? html`<button class="sr-button" disabled></button>` : ''}
               </div>
             </div>
           </div>
