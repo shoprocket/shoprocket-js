@@ -37,8 +37,10 @@ export type FeatureKey =
   | 'analytics'       // Analytics tracking
 
   // Catalog Features
-  | 'filters';        // Filter toolbar (search, sort, category)
+  | 'filters'         // Filter toolbar (search, sort, category)
                       // Note: Pagination always shows automatically when needed (totalPages > 1)
+  | 'product-detail'; // Enable product detail view (makes products clickable)
+                      // Use detail:* prefix for features specific to detail view (e.g., detail:gallery)
 
 // Feature configuration
 export interface FeatureConfig {
@@ -88,8 +90,12 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
   'catalog': [
     // Catalog-level features
     'filters',
+    'product-detail',  // Enable clickable products and detail view
     // Product card features (controls what shows on each product in the grid)
-    'media', 'title', 'price', 'add-to-cart'
+    'media', 'title', 'price', 'add-to-cart',
+    // Detail view features (use detail: prefix for features specific to detail view)
+    'detail:media', 'detail:gallery', 'detail:zoom', 'detail:title', 'detail:price',
+    'detail:stock', 'detail:summary', 'detail:quantity', 'detail:add-to-cart', 'detail:description'
   ]
 };
 

@@ -626,6 +626,7 @@ export class ProductCatalog extends ShoprocketElement {
             this.successMessage,
             this.addedToCartProducts,
             this.getFeatures(),
+            this.hasFeature('product-detail'),
             {
               handleProductClick: (product) => this.handleProductClick(product),
               handleAddToCart: (product) => this.handleAddToCart(product),
@@ -647,6 +648,7 @@ export class ProductCatalog extends ShoprocketElement {
           .prevProduct="${this.getPrevProduct()}"
           .nextProduct="${this.getNextProduct()}"
           product-slug="${this.currentProductSlug || ''}"
+          data-features="${this.getDetailFeatures().join(',')}"
           @back-to-list="${() => this.backToList()}"
           @navigate-product="${(e: CustomEvent) => this.handleProductNavigation(e)}"
         ></shoprocket-product>
@@ -787,6 +789,17 @@ export class ProductCatalog extends ShoprocketElement {
     }));
   }
   
+  /**
+   * Extract detail: prefixed features for product detail view
+   * Strips the 'detail:' prefix and returns clean feature names
+   */
+  private getDetailFeatures(): string[] {
+    const allFeatures = this.getFeatures();
+    return allFeatures
+      .filter(f => f.startsWith('detail:'))
+      .map(f => f.replace('detail:', ''));
+  }
+
   private getCurrentProduct(): Product | undefined {
     if (!this.currentProductSlug) return undefined;
     
