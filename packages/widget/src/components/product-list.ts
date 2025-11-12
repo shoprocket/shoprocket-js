@@ -19,6 +19,7 @@ export class ProductListTemplates {
     successMessage: string | null,
     addedToCartProducts: Set<string>,
     features: FeatureKey[],
+    isClickable: boolean,
     handlers: {
       handleProductClick: (product: Product) => void;
       handleAddToCart: (product: Product) => Promise<void>;
@@ -70,7 +71,7 @@ export class ProductListTemplates {
       ` : ''}
       <div class="sr-product-grid" data-shoprocket="product-list" ?data-loading="${isLoading}">
         ${displayProducts.length > 0
-          ? displayProducts.map((product, index) => ProductListTemplates.renderProduct(product, index, addedToCartProducts, features, handlers))
+          ? displayProducts.map((product, index) => ProductListTemplates.renderProduct(product, index, addedToCartProducts, features, isClickable, handlers))
           : emptyContent
         }
       </div>
@@ -83,6 +84,7 @@ export class ProductListTemplates {
     index: number,
     addedToCartProducts: Set<string>,
     features: FeatureKey[],
+    isClickable: boolean,
     handlers: {
       handleProductClick: (product: Product) => void;
       handleAddToCart: (product: Product) => Promise<void>;
@@ -126,8 +128,8 @@ export class ProductListTemplates {
     return html`
       <article class="sr-product-card">
         ${hasMedia ? html`
-          <div class="sr-product-image-container ${!isSkeleton ? 'sr-image-loading' : ''}"
-               @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">
+          <div class="sr-product-image-container ${!isSkeleton ? 'sr-image-loading' : ''} ${isClickable ? 'sr-product-clickable' : ''}"
+               @click="${!isSkeleton && isClickable ? () => handlers.handleProductClick(product) : null}">
             ${!isSkeleton ? html`
             <!-- Always render img tag to ensure placeholder shows on error -->
             <img
@@ -179,8 +181,8 @@ export class ProductListTemplates {
         <div class="sr-card-content">
           <div class="sr-product-info">
             ${hasTitle ? html`
-              <h3 class="sr-product-title"
-                  @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">${isSkeleton ? '' : product.name}</h3>
+              <h3 class="sr-product-title ${isClickable ? 'sr-product-clickable' : ''}"
+                  @click="${!isSkeleton && isClickable ? () => handlers.handleProductClick(product) : null}">${isSkeleton ? '' : product.name}</h3>
             ` : ''}
 
             ${hasPrice ? html`
