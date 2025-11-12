@@ -604,23 +604,19 @@ export class AddressForm extends BaseComponent {
 
   private renderSameAsBillingField(): TemplateResult {
     return html`
-      <label for="same-as-billing-${this.id || 'default'}" class="sr-checkbox-label">
-        <input
-          type="checkbox"
-          id="same-as-billing-${this.id || 'default'}"
-          name="same_as_billing"
-          .checked="${this.sameAsBilling}"
-          @change="${(e: Event) => {
-            const checked = (e.target as HTMLInputElement).checked;
-            this.dispatchEvent(new CustomEvent('same-as-billing-change', {
-              detail: { checked },
-              bubbles: true,
-              composed: true
-            }));
-          }}"
-        >
-        <span class="sr-checkbox-text">Use same address for billing</span>
-      </label>
+      <shoprocket-toggle
+        id="same-as-billing-${this.id || 'default'}"
+        name="same_as_billing"
+        label="Use same address for billing"
+        .checked="${this.sameAsBilling}"
+        @change="${(e: CustomEvent) => {
+          this.dispatchEvent(new CustomEvent('same-as-billing-change', {
+            detail: { checked: e.detail.checked },
+            bubbles: true,
+            composed: true
+          }));
+        }}"
+      ></shoprocket-toggle>
     `;
   }
 }

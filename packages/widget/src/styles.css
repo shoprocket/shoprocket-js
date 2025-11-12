@@ -291,10 +291,53 @@
     margin-bottom: 1rem;
   }
   
-  [data-loading] .sr-product-detail-summary { 
-    min-height: 4rem; 
+  [data-loading] .sr-product-detail-summary {
+    min-height: 4rem;
     width: 100%;
     margin-bottom: 1.5rem;
+  }
+
+  /* Variant option skeletons */
+  [data-loading] .sr-product-option-label {
+    position: relative;
+    color: transparent !important;
+    user-select: none;
+    overflow: hidden;
+    display: inline-block;
+    min-height: 1.25rem;
+    width: 5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  [data-loading] .sr-product-option-label::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--skeleton-shimmer-gradient);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
+    border-radius: var(--sr-radius);
+    z-index: 1;
+  }
+
+  [data-loading] .sr-variant-option {
+    position: relative;
+    overflow: hidden;
+    color: transparent !important;
+    user-select: none;
+    min-width: 3.5rem;
+    min-height: 2.5rem;
+  }
+
+  [data-loading] .sr-variant-option::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--skeleton-shimmer-gradient);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
+    border-radius: var(--sr-radius);
+    z-index: 1;
   }
 
   /* Button skeletons */
@@ -1094,7 +1137,8 @@
 
   /* Center and limit width when no media */
   .sr-product-detail-grid[data-no-media] .sr-product-detail-info {
-    max-width: var(--product-detail-max-width, 800px);
+    width: 100%;
+    max-width: var(--product-detail-max-width, 100%);
     margin-left: auto;
     margin-right: auto;
   }
@@ -2764,12 +2808,136 @@
 }
 
 .sr-checkbox-text {
-  @apply ms-2 text-sm font-medium text-[var(--color-text-muted)] 
+  @apply ms-2 text-sm font-medium text-[var(--color-text-muted)]
          transition-colors duration-150 select-none;
 }
 
-.sr-checkbox-label:hover .sr-checkbox-text {
-  @apply text-[var(--color-text)];
+/* Toggle Switch */
+.sr-toggle-wrapper {
+  @apply relative flex items-center gap-3 min-w-0;
+}
+
+.sr-toggle-container {
+  @apply relative block rounded-full transition-colors cursor-pointer flex-shrink-0;
+  background: var(--color-border);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sr-toggle-container.sr-toggle-checked {
+  background: var(--color-primary);
+}
+
+.sr-toggle-container.sr-toggle-disabled {
+  @apply cursor-not-allowed opacity-50;
+}
+
+.sr-toggle-container.sr-toggle-error {
+  @apply ring-2 ring-red-500;
+}
+
+/* Size variants */
+.sr-toggle-sm {
+  @apply h-6 w-10;
+}
+
+.sr-toggle-md {
+  @apply h-8 w-14;
+}
+
+.sr-toggle-lg {
+  @apply h-10 w-16;
+}
+
+/* Hidden checkbox input */
+.sr-toggle-input {
+  @apply sr-only;
+}
+
+/* Toggle track (background) */
+.sr-toggle-track {
+  @apply block w-full h-full relative;
+}
+
+/* Toggle thumb (sliding circle) */
+.sr-toggle-thumb {
+  @apply absolute inset-y-0 start-0 m-1 grid place-content-center rounded-full bg-white transition-all duration-200 ease-in-out;
+  color: var(--color-text-muted);
+}
+
+/* Thumb sizes */
+.sr-toggle-sm .sr-toggle-thumb {
+  @apply size-4;
+}
+
+.sr-toggle-md .sr-toggle-thumb {
+  @apply size-6;
+}
+
+.sr-toggle-lg .sr-toggle-thumb {
+  @apply size-7;
+}
+
+/* Thumb position when checked */
+.sr-toggle-checked.sr-toggle-sm .sr-toggle-thumb {
+  inset-inline-start: calc(100% - 24px); /* 16px thumb + 4px margin */
+}
+
+.sr-toggle-checked.sr-toggle-md .sr-toggle-thumb {
+  inset-inline-start: calc(100% - 32px); /* 24px thumb + 8px margin */
+}
+
+.sr-toggle-checked.sr-toggle-lg .sr-toggle-thumb {
+  inset-inline-start: calc(100% - 36px); /* 28px thumb + 8px margin */
+}
+
+/* Toggle checked state - change thumb color */
+.sr-toggle-checked .sr-toggle-thumb {
+  color: var(--color-primary);
+}
+
+/* Toggle icons */
+.sr-toggle-icon {
+  @apply transition-opacity duration-200;
+}
+
+.sr-toggle-icon-x {
+  @apply opacity-100;
+}
+
+.sr-toggle-icon-check {
+  @apply opacity-0 absolute inset-0;
+}
+
+/* When checked, swap icon visibility */
+.sr-toggle-checked .sr-toggle-icon-x {
+  @apply opacity-0;
+}
+
+.sr-toggle-checked .sr-toggle-icon-check {
+  @apply opacity-100;
+}
+
+/* Icon sizes */
+.sr-toggle-sm .sr-toggle-icon {
+  @apply size-3;
+}
+
+.sr-toggle-md .sr-toggle-icon {
+  @apply size-4;
+}
+
+.sr-toggle-lg .sr-toggle-icon {
+  @apply size-5;
+}
+
+/* Toggle label */
+.sr-toggle-label {
+  @apply cursor-pointer text-sm font-medium min-w-0;
+  color: var(--color-text);
+}
+
+.sr-toggle-label-disabled {
+  @apply cursor-not-allowed opacity-50;
 }
 
 /* Payment Placeholder */

@@ -1,5 +1,6 @@
 import { html, type TemplateResult } from 'lit';
 import type { Product } from '../types/api';
+import type { FeatureKey } from '../types/features';
 import { formatProductPrice, getMediaSrcSet, getMediaSizes } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
@@ -17,6 +18,7 @@ export class ProductListTemplates {
     errorMessage: string | null,
     successMessage: string | null,
     addedToCartProducts: Set<string>,
+    features: FeatureKey[],
     handlers: {
       handleProductClick: (product: Product) => void;
       handleAddToCart: (product: Product) => Promise<void>;
@@ -27,16 +29,23 @@ export class ProductListTemplates {
     }
   ): TemplateResult {
     // Create skeleton products for initial loading
-    const displayProducts = isLoading && !products.length
-      ? Array(limit || 12).fill(null).map((_, i) => ({
-          id: `skeleton-${i}`,
-          name: '',
-          price: 0,
-          media: [null],
-          in_stock: true,
-          quick_add_eligible: true
-        } as any))
-      : products;
+    // Ensure we always have a valid count (default to 12 if somehow limit is 0 or invalid)
+    const skeletonCount = limit > 0 ? limit : 12;
+
+    let displayProducts: Product[];
+    if (isLoading && !products.length) {
+      // Use Array.from with explicit length to avoid minification issues with Array(n)
+      displayProducts = Array.from({ length: skeletonCount }, (_, i) => ({
+        id: `skeleton-${i}`,
+        name: '',
+        price: 0,
+        media: [null],
+        in_stock: true,
+        quick_add_eligible: true
+      } as any));
+    } else {
+      displayProducts = products;
+    }
 
     // Empty content for when no products are found
     const emptyContent = !isLoading && !products.length && !errorMessage ? html`
@@ -61,7 +70,7 @@ export class ProductListTemplates {
       ` : ''}
       <div class="sr-product-grid" data-shoprocket="product-list" ?data-loading="${isLoading}">
         ${displayProducts.length > 0
-          ? displayProducts.map((product, index) => ProductListTemplates.renderProduct(product, index, addedToCartProducts, handlers))
+          ? displayProducts.map((product, index) => ProductListTemplates.renderProduct(product, index, addedToCartProducts, features, handlers))
           : emptyContent
         }
       </div>
@@ -73,6 +82,7 @@ export class ProductListTemplates {
     product: Product,
     index: number,
     addedToCartProducts: Set<string>,
+    features: FeatureKey[],
     handlers: {
       handleProductClick: (product: Product) => void;
       handleAddToCart: (product: Product) => Promise<void>;
@@ -86,6 +96,12 @@ export class ProductListTemplates {
   ): TemplateResult {
     // Check if this is a skeleton product
     const isSkeleton = product.id.startsWith('skeleton-');
+
+    // Check which features are enabled (for both real products and skeletons)
+    const hasMedia = features.includes('media');
+    const hasTitle = features.includes('title');
+    const hasPrice = features.includes('price');
+    const hasAddToCart = features.includes('add-to-cart');
 
     // Performance: Only first image loads eagerly (LCP candidate)
     // All others use native lazy loading (browser detects viewport automatically)
@@ -109,9 +125,10 @@ export class ProductListTemplates {
     
     return html`
       <article class="sr-product-card">
-        <div class="sr-product-image-container ${!isSkeleton ? 'sr-image-loading' : ''}"
-             @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">
-          ${!isSkeleton ? html`
+        ${hasMedia ? html`
+          <div class="sr-product-image-container ${!isSkeleton ? 'sr-image-loading' : ''}"
+               @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">
+            ${!isSkeleton ? html`
             <!-- Always render img tag to ensure placeholder shows on error -->
             <img
               src="${product.media?.[0] ? handlers.getMediaUrl(product.media[0]) : '/placeholder-not-found.jpg'}"
@@ -155,22 +172,28 @@ export class ProductListTemplates {
               >
             ` : ''}
           ` : ''}
-        </div>
-        
+          </div>
+        ` : ''}
+
         <!-- Product Info -->
         <div class="sr-card-content">
           <div class="sr-product-info">
-            <h3 class="sr-product-title"
-                @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">${isSkeleton ? '' : product.name}</h3>
-            
-            <div>
-              <span class="sr-product-price">${isSkeleton ? '' : formatProductPrice(product as any)}</span>
-            </div>
+            ${hasTitle ? html`
+              <h3 class="sr-product-title"
+                  @click="${!isSkeleton ? () => handlers.handleProductClick(product) : null}">${isSkeleton ? '' : product.name}</h3>
+            ` : ''}
+
+            ${hasPrice ? html`
+              <div>
+                <span class="sr-product-price">${isSkeleton ? '' : formatProductPrice(product as any)}</span>
+              </div>
+            ` : ''}
           </div>
-          
+
           <!-- Quick Actions -->
-          <div class="sr-product-actions">
-            <button
+          ${hasAddToCart ? html`
+            <div class="sr-product-actions">
+              <button
               class="sr-button ${isAdded ? 'sr-button-success' : 'sr-button-primary'}"
               @click="${(e: Event) => { e.stopPropagation(); !isSkeleton && handlers.handleAddToCart(product); }}"
               ?disabled="${isSkeleton || isOutOfStock || allStockInCart}"
@@ -186,8 +209,9 @@ export class ProductListTemplates {
                     <span class="sr-button-text">Added</span>
                   ` : isLoading ? loadingSpinner('sm') : html`<span class="sr-button-text">${needsOptions ? 'Select Options' : 'Add to Cart'}</span>`}
               </span>
-            </button>
-          </div>
+              </button>
+            </div>
+          ` : ''}
         </div>
       </article>
     `;

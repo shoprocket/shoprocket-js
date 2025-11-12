@@ -37,8 +37,8 @@ export type FeatureKey =
   | 'analytics'       // Analytics tracking
 
   // Catalog Features
-  | 'filters'         // Filter toolbar (search, sort, category)
-  | 'pagination';     // Pagination controls
+  | 'filters';        // Filter toolbar (search, sort, category)
+                      // Note: Pagination always shows automatically when needed (totalPages > 1)
 
 // Feature configuration
 export interface FeatureConfig {
@@ -86,7 +86,10 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
   ],
   // Product catalog widget
   'catalog': [
-    'filters', 'pagination'
+    // Catalog-level features
+    'filters',
+    // Product card features (controls what shows on each product in the grid)
+    'media', 'title', 'price', 'add-to-cart'
   ]
 };
 

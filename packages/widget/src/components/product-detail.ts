@@ -248,9 +248,31 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private renderProductOptions = (product: Product | undefined): TemplateResult => {
-    // For now, only show options when product is loaded
-    // Future: could show skeleton options based on has_required_options flag
-    if (!product?.options || product.options.length === 0) {
+    // Show skeleton if product is loading but we know it has required options
+    if (!product?.options) {
+      // Check if we have metadata indicating variants exist (from catalog listing)
+      const hasVariants = product?.hasRequiredOptions || product?.quickAddEligible === false;
+
+      if (hasVariants) {
+        // Render conservative skeleton: 1 row with 4 button placeholders
+        return html`
+          <div class="sr-product-options" data-loading>
+            <div class="sr-product-option">
+              <label class="sr-product-option-label"></label>
+              <div class="sr-product-option-values">
+                ${Array.from({ length: 4 }, () => html`
+                  <button class="sr-variant-option" disabled></button>
+                `)}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      return html``;
+    }
+
+    if (product.options.length === 0) {
       return html``;
     }
 
