@@ -419,6 +419,10 @@
     box-shadow: var(--tw-shadow);
   }
 
+  .sr-product-image-container.sr-product-clickable {
+    @apply cursor-pointer;
+  }
+
   /* Product Image */
   .sr-product-image {
     @apply absolute inset-0 w-full h-full object-cover transition-all duration-500;
@@ -464,13 +468,17 @@
 
   /* Product Title */
   .sr-product-title {
-    @apply font-medium leading-tight transition-colors cursor-pointer;
+    @apply font-medium leading-tight transition-colors;
     color: var(--color-text);
     font-size: var(--sr-product-title-size);
     margin-bottom: 0.5rem;
   }
 
-  .sr-product-title:hover {
+  .sr-product-title.sr-product-clickable {
+    @apply cursor-pointer;
+  }
+
+  .sr-product-title.sr-product-clickable:hover {
     opacity: 0.6;
   }
 
