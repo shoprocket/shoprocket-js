@@ -38,15 +38,24 @@ import { HashRouter } from '../core/hash-router';
  * <!-- With price display -->
  * <div data-shoprocket="buy-button"
  *      data-product="awesome-tshirt"
- *      data-show-price="true"></div>
+ *      data-show="price"></div>
+ *
+ * @example
+ * <!-- With name and price -->
+ * <div data-shoprocket="buy-button"
+ *      data-product="prod_123"
+ *      data-show="name,price"></div>
  *
  * @example
  * <!-- Specific variant with name and price -->
  * <div data-shoprocket="buy-button"
  *      data-product="prod_123"
  *      data-variant="var_large_blue"
- *      data-show-name="true"
- *      data-show-price="true"></div>
+ *      data-show="name,price"></div>
+ *
+ * Available features (use with data-show):
+ * - name: Display product name on button
+ * - price: Display product price on button
  */
 export class BuyButton extends ShoprocketElement {
   // Use Shadow DOM - this is a top-level widget component
@@ -54,8 +63,6 @@ export class BuyButton extends ShoprocketElement {
   @property({ type: String, attribute: 'data-product' }) product?: string;
   @property({ type: String, attribute: 'data-variant' }) variant?: string;
   @property({ type: String, attribute: 'data-action' }) action: 'buy' | 'view' = 'buy';
-  @property({ type: Boolean, attribute: 'data-show-price' }) showPrice = false;
-  @property({ type: Boolean, attribute: 'data-show-name' }) showName = false;
   @property({ type: Number, attribute: 'data-quantity' }) quantity = 1;
 
   @state() private productData?: Product;
@@ -234,7 +241,7 @@ export class BuyButton extends ShoprocketElement {
     }
 
     // For "buy" action: check if product needs variant selection
-    if (this.productData.has_variants || this.productData.has_required_options) {
+    if (this.productData.hasVariants || this.productData.hasRequiredOptions) {
       this.openProductModal();
     } else {
       this.addToCart();
@@ -245,18 +252,18 @@ export class BuyButton extends ShoprocketElement {
     if (!this.productData) return;
 
     // Use specified variant if provided, otherwise use default
-    const variantId = this.variant || this.productData.default_variant_id;
+    const variantId = this.variant || this.productData.defaultVariantId;
 
     // Get variant details if a specific variant was selected
     let variantName: string | undefined = undefined;
     let variantPrice = this.productData.price;
-    let variantInventory = this.productData.inventory_count ?? 0;
+    let variantInventory = this.productData.inventoryCount ?? 0;
     if (this.variant && this.productData.variants) {
       const selectedVariant = this.productData.variants.find(v => v.id === this.variant);
       if (selectedVariant) {
         variantName = this.getVariantText(selectedVariant);
         variantPrice = selectedVariant.price;
-        variantInventory = selectedVariant.inventory_count ?? 0;
+        variantInventory = selectedVariant.inventoryCount ?? 0;
       }
     }
 
@@ -274,7 +281,7 @@ export class BuyButton extends ShoprocketElement {
 
     // Include stock info for validation
     const stockInfo = {
-      track_inventory: this.productData.track_inventory ?? true,
+      track_inventory: this.productData.trackInventory ?? true,
       available_quantity: variantInventory
     };
 
@@ -389,7 +396,7 @@ export class BuyButton extends ShoprocketElement {
 
   private canAddToCart(): boolean {
     if (!this.productData) return false;
-    if (this.productData.in_stock === false) return false;
+    if (this.productData.inStock === false) return false;
     if (this.adding || this.success) return false;
     return true;
   }
@@ -419,17 +426,17 @@ export class BuyButton extends ShoprocketElement {
       `;
     }
 
-    const isOutOfStock = !this.productData.in_stock;
-    const needsOptions = this.productData.has_variants || this.productData.has_required_options;
+    const isOutOfStock = this.productData.inStock === false;
+    const needsOptions = this.productData.hasVariants || this.productData.hasRequiredOptions;
 
     // Get the variant we'll be adding (specified or default)
-    const targetVariantId = this.variant || this.productData.default_variant_id;
+    const targetVariantId = this.variant || this.productData.defaultVariantId;
 
     // Get inventory count for the target variant
-    let inventoryCount = this.productData.inventory_count;
+    let inventoryCount = this.productData.inventoryCount;
     if (this.variant && this.productData.variants) {
       const targetVariant = this.productData.variants.find(v => v.id === this.variant);
-      inventoryCount = targetVariant?.inventory_count;
+      inventoryCount = targetVariant?.inventoryCount;
     }
 
     // Check if all available stock is already in cart (same as product list)
@@ -453,12 +460,12 @@ export class BuyButton extends ShoprocketElement {
         @click=${this.handleClick}
         ?disabled=${isOutOfStock || allStockInCart || !this.canAddToCart()}
       >
-        <div class="flex items-center justify-center gap-x-2 w-full px-2 min-w-0">
-          ${this.showName && !this.adding && !this.success ? html`
+        <div class="flex items-center justify-center gap-x-2 px-2 min-w-0">
+          ${(this.hasFeature('name') || this.hasFeature('product-name')) && !this.adding && !this.success ? html`
             <span class="truncate min-w-0">${this.productData.name}</span>
           ` : ''}
 
-          ${this.showPrice && !this.adding && !this.success ? html`
+          ${this.hasFeature('price') && !this.adding && !this.success ? html`
             <span class="shrink-0 whitespace-nowrap">
               ${formatProductPrice(this.productData)}
             </span>
