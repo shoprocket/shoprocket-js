@@ -405,7 +405,7 @@
 
   /* Product Card */
   .sr-product-card {
-    @apply flex flex-col h-full cursor-pointer text-left;
+    @apply flex flex-col h-full text-left;
     background: var(--color-surface);
     color: var(--color-text);
     border-radius: var(--sr-radius);
