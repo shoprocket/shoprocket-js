@@ -501,7 +501,9 @@
 
   /* Button Base */
   .sr-button {
-    @apply font-medium transition-all transform cursor-pointer w-full h-11;
+    @apply font-medium transition-all transform cursor-pointer h-11;
+    width: var(--sr-button-width, auto);
+    max-width: var(--sr-button-max-width, none);
     padding: var(--sr-button-padding-y) var(--sr-button-padding-x);
     border-radius: var(--sr-radius);
     font-size: var(--sr-button-font-size);

@@ -17,6 +17,8 @@ export type FeatureKey =
   
   // Product Info
   | 'title'           // Product name
+  | 'name'            // Product name (alias for title, used by buy-button)
+  | 'product-name'    // Product name (dashboard alias, maps to 'name')
   | 'price'           // Price display
   | 'stock'           // Stock status
   | 'sku'             // SKU display
@@ -96,6 +98,11 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
     // Detail view features (use detail: prefix for features specific to detail view)
     'detail:media', 'detail:gallery', 'detail:zoom', 'detail:title', 'detail:price',
     'detail:stock', 'detail:summary', 'detail:quantity', 'detail:add-to-cart', 'detail:description'
+  ],
+  // Buy button widget
+  'buy-button': [
+    'name',   // Product name on button
+    'price'   // Product price on button
   ]
 };
 
