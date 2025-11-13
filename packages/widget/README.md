@@ -64,6 +64,46 @@ Or use the product slug:
 <div data-shoprocket="product-view" data-product-slug="awesome-tshirt"></div>
 ```
 
+#### Buy Button
+Quick add-to-cart button for products:
+
+```html
+<!-- Basic buy button -->
+<div data-shoprocket="buy-button" data-product="prod_123"></div>
+```
+
+The buy button automatically handles:
+- **Simple products**: Direct add to cart
+- **Products with variants**: Opens modal for variant selection
+- **Out of stock**: Disables button
+- **Success states**: Shows confirmation
+
+Optional attributes:
+- `data-product="prod_123"` - Product ID or slug (required)
+- `data-variant="var_456"` - Specific variant ID (bypasses modal for products with variants)
+- `data-action="view"` - Set to `"view"` to always open product modal instead of adding to cart
+- `data-quantity="2"` - Default quantity to add (default: 1)
+- `data-show="name,price"` - Show product name and/or price on button
+
+Examples:
+
+```html
+<!-- Add specific variant directly to cart -->
+<div data-shoprocket="buy-button"
+     data-product="awesome-tshirt"
+     data-variant="var_large_blue"></div>
+
+<!-- View product button (opens modal) -->
+<div data-shoprocket="buy-button"
+     data-product="prod_123"
+     data-action="view"></div>
+
+<!-- With product name and price -->
+<div data-shoprocket="buy-button"
+     data-product="prod_123"
+     data-show="name,price"></div>
+```
+
 #### Feature Control
 Show/hide specific features using data attributes:
 
@@ -137,6 +177,7 @@ Stock display options:
 |--------|---------|---------|
 | `catalog` | Product listing with pagination | `<div data-shoprocket="catalog"></div>` |
 | `product-view` | Standalone product embed | `<div data-shoprocket="product-view" data-product-id="123"></div>` |
+| `buy-button` | Quick add-to-cart button | `<div data-shoprocket="buy-button" data-product="prod_123"></div>` |
 | `cart` | Shopping cart (auto-rendered by default) | `<div data-shoprocket="cart"></div>` |
 
 ## Development
