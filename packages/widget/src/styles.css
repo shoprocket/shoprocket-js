@@ -191,6 +191,15 @@
   --sr-button-primary-opacity-hover: 0.9;
 }
 
+/* Embeddable widget spacing - adds breathing room between stacked embeds */
+/* Cart excluded as it's position: fixed */
+:host(shoprocket-catalog),
+:host(shoprocket-buy-button),
+:host(shoprocket-product-view) {
+  display: block;
+  margin-bottom: 20px;
+}
+
 @layer components {
   /* Icon wrapper should respect Tailwind size classes, not fill parent */
   .sr-icon {
@@ -501,9 +510,7 @@
 
   /* Button Base */
   .sr-button {
-    @apply font-medium transition-all transform cursor-pointer h-11;
-    width: var(--sr-button-width, auto);
-    max-width: var(--sr-button-max-width, none);
+    @apply font-medium transition-all transform cursor-pointer w-full h-11;
     padding: var(--sr-button-padding-y) var(--sr-button-padding-x);
     border-radius: var(--sr-radius);
     font-size: var(--sr-button-font-size);
@@ -611,11 +618,11 @@
     border-radius: var(--sr-radius);
     width: var(--cart-size);
     height: var(--cart-size);
-    box-shadow: var(--tw-shadow);
+    box-shadow: var(--cart-trigger-shadow, 0 4px 30px rgba(0, 0, 0, 0.05));
     user-select: none;
     -webkit-user-select: none;
   }
-  
+
   @media (max-width: 640px) {
     .sr-cart-toggle-button {
       width: var(--cart-size-sm);
@@ -1077,7 +1084,7 @@
 
   /* Product View Container */
   .sr-product-view-container {
-    min-height: 500px;
+    /* min-height: 500px; */
   }
 
   /* Product Detail Container */
@@ -2256,7 +2263,7 @@
 }
 
 .sr-filter-price-range .sr-field-group {
-  @apply w-full;
+  @apply w-full rounded-md;
   box-shadow: var(--tw-shadow);
 }
 
@@ -3662,6 +3669,14 @@
 
 .sr-not-found-actions {
   @apply flex gap-4 flex-wrap justify-center;
+}
+
+/* ==========================================
+   Buy Button Styles
+   ========================================== */
+
+.sr-buy-button {
+  width: auto;
 }
 
 /* ==========================================

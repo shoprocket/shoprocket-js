@@ -450,6 +450,7 @@ export class BuyButton extends ShoprocketElement {
     // Use same classes as product list for consistency
     const buttonClasses = [
       'sr-button',
+      'sr-buy-button',
       `sr-button-action-${this.action}`,
       this.success ? 'sr-button-success' : 'sr-button-primary'
     ].filter(Boolean).join(' ');

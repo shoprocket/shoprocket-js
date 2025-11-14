@@ -55,10 +55,8 @@ export class CategoriesService {
         Object.entries(params.filter).forEach(([key, value]) => {
           if (value !== undefined) {
             if ((key === 'id' || key === 'slug') && Array.isArray(value)) {
-              // Multiple values: filter[key][]=val1&filter[key][]=val2
-              value.forEach(val => {
-                queryParams.append(`filter[${key}][]`, val);
-              });
+              // Multiple values: filter[key]=val1,val2 (comma-separated)
+              queryParams.append(`filter[${key}]`, value.join(','));
             } else if (key === 'isRoot' && typeof value === 'boolean') {
               // Boolean: filter[isRoot]=true
               queryParams.append('filter[isRoot]', value.toString());

@@ -469,12 +469,12 @@ export class WidgetManager {
       mappedOptions['widgetStyle'] = mappedOptions['style'];
       delete mappedOptions['style'];
     }
-    // Extract theme and mode before setting properties (they're used as attributes, not properties)
+    // Extract theme and colorScheme before setting properties (they're used as attributes, not properties)
     const theme = mappedOptions['theme'];
     delete mappedOptions['theme'];
 
-    const configuredMode = mappedOptions['mode'] || 'auto';
-    delete mappedOptions['mode'];
+    const configuredColorScheme = mappedOptions['colorScheme'] || 'auto';
+    delete mappedOptions['colorScheme'];
 
     // Extract features before setting properties (it's used as an attribute, not a property)
     const features = mappedOptions['features'];
@@ -520,19 +520,19 @@ export class WidgetManager {
         }
       }
 
-      // Determine and set mode attribute
-      const actualMode = this.detectMode(configuredMode);
-      component.setAttribute('data-mode', actualMode);
+      // Determine and set color scheme attribute
+      const actualColorScheme = this.detectColorScheme(configuredColorScheme);
+      component.setAttribute('data-color-scheme', actualColorScheme);
 
-      // Listen for system preference changes if using auto mode
-      if (configuredMode === 'auto') {
+      // Listen for system preference changes if using auto color scheme
+      if (configuredColorScheme === 'auto') {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const updateMode = (e: MediaQueryListEvent | MediaQueryList) => {
-          const newMode = e.matches ? 'dark' : 'light';
-          component.setAttribute('data-mode', newMode);
+        const updateColorScheme = (e: MediaQueryListEvent | MediaQueryList) => {
+          const newColorScheme = e.matches ? 'dark' : 'light';
+          component.setAttribute('data-color-scheme', newColorScheme);
         };
         // Modern browsers
-        mediaQuery.addEventListener('change', updateMode);
+        mediaQuery.addEventListener('change', updateColorScheme);
       }
     }
 
@@ -552,18 +552,18 @@ export class WidgetManager {
   }
 
   /**
-   * Detect the actual mode to use based on configuration
-   * @param configuredMode - The mode from configuration ('light', 'dark', or 'auto')
-   * @returns The actual mode to apply ('light' or 'dark')
+   * Detect the actual color scheme to use based on configuration
+   * @param configuredColorScheme - The color scheme from configuration ('light', 'dark', or 'auto')
+   * @returns The actual color scheme to apply ('light' or 'dark')
    */
-  private detectMode(configuredMode: string): 'light' | 'dark' {
-    if (configuredMode === 'dark') {
+  private detectColorScheme(configuredColorScheme: string): 'light' | 'dark' {
+    if (configuredColorScheme === 'dark') {
       return 'dark';
     }
-    if (configuredMode === 'light') {
+    if (configuredColorScheme === 'light') {
       return 'light';
     }
-    // Auto mode: detect from system preference
+    // Auto color scheme: detect from system preference
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     return prefersDark ? 'dark' : 'light';
   }
