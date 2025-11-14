@@ -41,8 +41,8 @@ export class ProductListTemplates {
         name: '',
         price: 0,
         media: [null],
-        in_stock: true,
-        quick_add_eligible: true
+        inStock: true,
+        quickAddEligible: true
       } as any));
     } else {
       displayProducts = products;

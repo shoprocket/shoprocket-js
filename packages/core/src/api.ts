@@ -14,7 +14,7 @@ export interface ApiResponse<T> {
   meta?: {
     total?: number;
     page?: number;
-    per_page?: number;
+    perPage?: number;
   };
 }
 

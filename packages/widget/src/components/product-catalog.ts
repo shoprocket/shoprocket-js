@@ -419,14 +419,14 @@ export class ProductCatalog extends ShoprocketElement {
 
         const response = await this.sdk.products.list({
           page,
-          per_page: this.perPage,
+          perPage: this.perPage,
           category: categoryParam,
           products: productsParam,
           search: this.searchQuery || undefined,
           sort: this.sortBy || undefined,
-          min_price: this.minPrice,
-          max_price: this.maxPrice,
-          in_stock: this.inStockOnly || undefined,
+          minPrice: this.minPrice,
+          maxPrice: this.maxPrice,
+          inStock: this.inStockOnly || undefined,
           include: this.filterMode === 'products' ? 'categories' : undefined,
         }) as ApiResponse<Product[]>;
 
@@ -471,12 +471,12 @@ export class ProductCatalog extends ShoprocketElement {
         // Update pagination info from API response
         if (response.meta) {
           const meta = response.meta as any;
-          if (meta.total && meta.per_page) {
-            this.totalPages = Math.ceil(meta.total / meta.per_page);
+          if (meta.total && meta.perPage) {
+            this.totalPages = Math.ceil(meta.total / meta.perPage);
             this.totalProducts = meta.total;
-            this.actualPageSize = meta.per_page; // Store actual page size for consistent index calculations
+            this.actualPageSize = meta.perPage; // Store actual page size for consistent index calculations
           } else if (response.meta?.pagination) {
-            this.totalPages = response.meta.pagination.total_pages;
+            this.totalPages = response.meta.pagination.totalPages;
             this.totalProducts = response.meta.pagination.total || 0;
             // Fallback: calculate page size from total and pages
             this.actualPageSize = this.totalPages > 0 ? Math.ceil(this.totalProducts / this.totalPages) : this.perPage;
