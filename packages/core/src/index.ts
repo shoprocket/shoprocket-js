@@ -119,6 +119,7 @@ export class ShoprocketCore {
 }
 
 // Export types
+export * from './types';
 export * from './api';
 export * from './services/session';
 export * from './services/products';

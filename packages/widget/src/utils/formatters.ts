@@ -1,4 +1,4 @@
-import type { Money, Media } from '../types/api';
+import type { Money, Media } from '@shoprocket/core';
 import type { ShoprocketCore } from '@shoprocket/core';
 import { getConfig } from '../core/config';
 import { IMAGE_SIZES, RESPONSIVE_SIZES, WIDGET_EVENTS } from '../constants';

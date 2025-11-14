@@ -7,7 +7,7 @@ import { loadingSpinner, loadingOverlay } from '../loading-spinner';
 import type { CheckoutStep, CustomerCheckResult } from './cart-types';
 import type { CustomerData, CustomerFormErrors } from '../customer-form';
 import type { AddressData, AddressFormErrors } from '../address-form';
-import type { Cart } from '../../types/api';
+import type { Cart } from '@shoprocket/core';
 
 export interface CheckoutWizardContext {
   // Cart state

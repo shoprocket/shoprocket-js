@@ -5,7 +5,7 @@
 import { html, type TemplateResult } from 'lit';
 import { keyed } from 'lit/directives/keyed.js';
 import { loadingSpinner } from '../loading-spinner';
-import type { Cart } from '../../types/api';
+import type { Cart } from '@shoprocket/core';
 
 export interface CartFooterContext {
   cart: Cart | null;

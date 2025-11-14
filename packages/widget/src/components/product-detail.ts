@@ -2,7 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
-import type { Product, ProductVariant, ProductOption } from '../types/api';
+import type { Product, ProductVariant, ProductOption } from '@shoprocket/core';
 import { loadingSpinner } from './loading-spinner';
 import { formatProductPrice, getMediaSizes, formatNumber } from '../utils/formatters';
 import { isAllStockInCart } from '../utils/cart-utils';

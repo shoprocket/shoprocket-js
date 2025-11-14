@@ -1,59 +1,8 @@
 import { ApiClient } from '../api';
+import type { Product, ProductListParams } from '../types';
 
-export interface ProductMedia {
-  id: string;
-  path: string;
-  type: string;
-  alt?: string;
-}
-
-export interface ProductOption {
-  id: string;
-  name: string;
-  values: Array<{
-    id: string;
-    value: string;
-  }>;
-}
-
-export interface ProductVariant {
-  id: string;
-  sku?: string;
-  price: number | { amount: number; amountCents: number };
-  inventoryQuantity: number;
-  optionValues: string[];
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  summary?: string;
-  fullDescription?: string;
-  price: number | { amount: number; amountCents: number };
-  priceMin?: number;
-  priceMinCents?: number;
-  hasVariants: boolean;
-  quickAddEligible: boolean;
-  defaultVariantId?: string;
-  hasStock: boolean;
-  media?: ProductMedia[];
-  options?: ProductOption[];
-  variants?: ProductVariant[];
-}
-
-export interface ProductListParams {
-  page?: number;
-  perPage?: number;
-  sort?: string;
-  category?: string | string[];
-  products?: string | string[];
-  search?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  inStock?: boolean;
-  include?: string; // e.g., 'categories' or 'categories,variants'
-}
+// Re-export types for backward compatibility
+export type { Product, ProductListParams } from '../types';
 
 export class ProductsService {
   constructor(private api: ApiClient) {}
