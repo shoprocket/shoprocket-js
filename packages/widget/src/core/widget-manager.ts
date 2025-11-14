@@ -520,16 +520,16 @@ export class WidgetManager {
         }
       }
 
-      // Determine and set color scheme attribute
+      // Determine and set color scheme attribute (data-mode for CSS selector compatibility)
       const actualColorScheme = this.detectColorScheme(configuredColorScheme);
-      component.setAttribute('data-color-scheme', actualColorScheme);
+      component.setAttribute('data-mode', actualColorScheme);
 
       // Listen for system preference changes if using auto color scheme
       if (configuredColorScheme === 'auto') {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         const updateColorScheme = (e: MediaQueryListEvent | MediaQueryList) => {
           const newColorScheme = e.matches ? 'dark' : 'light';
-          component.setAttribute('data-color-scheme', newColorScheme);
+          component.setAttribute('data-mode', newColorScheme);
         };
         // Modern browsers
         mediaQuery.addEventListener('change', updateColorScheme);

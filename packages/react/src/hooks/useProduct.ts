@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useShoprocket } from './useShoprocket';
+import type { Product } from '@shoprocket/core';
 
 export function useProduct(productId: string) {
   const { sdk, initialized } = useShoprocket();
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 

@@ -1,7 +1,7 @@
 import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
-import type { Product } from '../types/api';
+import type { Product } from '@shoprocket/core';
 import { TIMEOUTS } from '../constants';
 import { getMediaSizes, formatNumber } from '../utils/formatters';
 

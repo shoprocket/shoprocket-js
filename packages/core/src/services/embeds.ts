@@ -1,14 +1,8 @@
 import { ApiClient } from '../api';
+import type { EmbedConfig } from '../types';
 
-export interface EmbedConfig {
-  widgetType: string;
-  themeCssUrl?: string;
-  configuration: Record<string, any>;
-  store?: {
-    publishableKey: string;
-    [key: string]: any;
-  };
-}
+// Re-export types for backward compatibility
+export type { EmbedConfig } from '../types';
 
 export class EmbedsService {
   constructor(private api: ApiClient) {}

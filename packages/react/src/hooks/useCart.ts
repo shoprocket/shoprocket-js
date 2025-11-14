@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useShoprocket } from './useShoprocket';
+import type { Cart } from '@shoprocket/core';
 
 export function useCart() {
   const { sdk, initialized } = useShoprocket();
-  const [cart, setCart] = useState<any>(null);
+  const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [updating, setUpdating] = useState(false);

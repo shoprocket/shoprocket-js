@@ -1,7 +1,7 @@
 import { html, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
-import type { Product, ApiResponse } from '../types/api';
+import type { Product, ApiResponse } from '@shoprocket/core';
 import type { Category } from '@shoprocket/core';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { ProductListTemplates } from './product-list';

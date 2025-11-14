@@ -1,4 +1,4 @@
-import type { Cart, Money } from '../../types/api';
+import type { Cart, Money } from '@shoprocket/core';
 import type { CustomerData, CustomerFormErrors } from '../customer-form';
 import type { AddressData, AddressFormErrors } from '../address-form';
 

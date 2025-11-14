@@ -3,28 +3,10 @@
  */
 
 import { ApiClient } from '../api';
+import type { LoginRequest, RegisterRequest, AuthResponse } from '../types';
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  name?: string;
-}
-
-export interface AuthResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  user?: {
-    id: string;
-    email: string;
-    name?: string;
-  };
-}
+// Re-export types for backward compatibility
+export type { LoginRequest, RegisterRequest, AuthResponse } from '../types';
 
 export class AuthService {
   constructor(private api: ApiClient) {}

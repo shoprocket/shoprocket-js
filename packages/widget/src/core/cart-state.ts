@@ -3,7 +3,7 @@
  * Single source of truth for all cart-related data
  */
 
-import type { Cart } from '../types/api';
+import type { Cart } from '@shoprocket/core';
 import { internalState } from './internal-state';
 
 export interface Address {

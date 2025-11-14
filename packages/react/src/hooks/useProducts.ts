@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useShoprocket } from './useShoprocket';
+import type { Product } from '@shoprocket/core';
 
 interface UseProductsOptions {
   page?: number;
@@ -10,7 +11,7 @@ interface UseProductsOptions {
 
 export function useProducts(options: UseProductsOptions = {}) {
   const { sdk, initialized } = useShoprocket();
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [meta, setMeta] = useState<any>(null);
