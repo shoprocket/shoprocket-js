@@ -19,9 +19,9 @@ export interface ProductOption {
 export interface ProductVariant {
   id: string;
   sku?: string;
-  price: number | { amount: number; amount_cents: number };
-  inventory_quantity: number;
-  option_values: string[];
+  price: number | { amount: number; amountCents: number };
+  inventoryQuantity: number;
+  optionValues: string[];
 }
 
 export interface Product {
@@ -29,14 +29,14 @@ export interface Product {
   name: string;
   description?: string;
   summary?: string;
-  full_description?: string;
-  price: number | { amount: number; amount_cents: number };
-  price_min?: number;
-  price_min_cents?: number;
-  has_variants: boolean;
-  quick_add_eligible: boolean;
-  default_variant_id?: string;
-  has_stock: boolean;
+  fullDescription?: string;
+  price: number | { amount: number; amountCents: number };
+  priceMin?: number;
+  priceMinCents?: number;
+  hasVariants: boolean;
+  quickAddEligible: boolean;
+  defaultVariantId?: string;
+  hasStock: boolean;
   media?: ProductMedia[];
   options?: ProductOption[];
   variants?: ProductVariant[];
@@ -44,14 +44,14 @@ export interface Product {
 
 export interface ProductListParams {
   page?: number;
-  per_page?: number;
+  perPage?: number;
   sort?: string;
   category?: string | string[];
   products?: string | string[];
   search?: string;
-  min_price?: number;
-  max_price?: number;
-  in_stock?: boolean;
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
   include?: string; // e.g., 'categories' or 'categories,variants'
 }
 
@@ -88,20 +88,23 @@ export class ProductsService {
             } else {
               queryParams.append('sort', sortValue);
             }
-          } else if (key === 'min_price') {
-            // Price min uses filter[price_min] format (convert to cents)
-            queryParams.append('filter[price_min]', (Number(value) * 100).toString());
-          } else if (key === 'max_price') {
-            // Price max uses filter[price_max] format (convert to cents)
-            queryParams.append('filter[price_max]', (Number(value) * 100).toString());
-          } else if (key === 'in_stock') {
-            // In stock uses filter[in_stock] format
-            queryParams.append('filter[in_stock]', value ? 'true' : 'false');
+          } else if (key === 'minPrice') {
+            // Price min uses filter[priceMin] format (convert to cents)
+            queryParams.append('filter[priceMin]', (Number(value) * 100).toString());
+          } else if (key === 'maxPrice') {
+            // Price max uses filter[priceMax] format (convert to cents)
+            queryParams.append('filter[priceMax]', (Number(value) * 100).toString());
+          } else if (key === 'inStock') {
+            // In stock uses filter[inStock] format
+            queryParams.append('filter[inStock]', value ? 'true' : 'false');
           } else if (key === 'include') {
             // Include related resources (e.g., 'categories', 'categories,variants')
             queryParams.append('include', value.toString());
+          } else if (key === 'perPage') {
+            // Per page param
+            queryParams.append('perPage', value.toString());
           } else {
-            // Standard params (page, per_page)
+            // Standard params (page)
             queryParams.append(key, value.toString());
           }
         }
