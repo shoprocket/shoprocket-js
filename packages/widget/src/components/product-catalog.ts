@@ -18,33 +18,45 @@ import './catalog-filters'; // Register filter component
  * 
  * @attr {string} data-shoprocket - Must be "catalog" to initialize this component
  * @attr {string} [data-store-id] - Store ID for loading products (if not using global config)
- * @attr {string} [data-categories] - Filter products by category slug(s) - comma-separated
- * @attr {number} [data-limit=12] - Number of products per page
- * @attr {boolean} [data-routable=false] - Enable URL hash synchronization for this catalog
- * @attr {string} [data-show] - Comma-separated features to show (replaces defaults)
- * @attr {string} [data-hide] - Comma-separated features to hide (removes from defaults)
+ *
+ * Configuration properties (passed via embed config):
+ * @property {string} [filterMode='all'] - Display mode: 'all' | 'categories' | 'products'
+ * @property {string} [categories=''] - Category slug(s) or ID(s) - comma-separated (used with filterMode='categories')
+ * @property {string} [products=''] - Product slug(s) or ID(s) - comma-separated (used with filterMode='products')
+ * @property {number} [limit=12] - Number of products per page
+ * @property {boolean} [routable=false] - Enable URL hash synchronization for this catalog
+ * @property {string[]} [features] - Array of features to enable
  * 
  * @example
- * <!-- Basic product catalog -->
- * <div data-shoprocket="catalog"></div>
- * 
+ * <!-- Basic product catalog (via embed ID - shows all products) -->
+ * <div data-shoprocket-embed="embed_catalog_abc123"></div>
+ *
  * @example
- * <!-- Filtered catalog with pagination -->
- * <div data-shoprocket="catalog"
- *      data-categories="t-shirts,shirts"
- *      data-limit="8"></div>
- * 
+ * Configuration structure (set in dashboard):
+ * {
+ *   filterMode: 'all',        // Show all products
+ *   categories: '',            // Not used in 'all' mode
+ *   products: '',              // Not used in 'all' mode
+ *   limit: 12,
+ *   columns: 4,
+ *   features: ['media', 'title', 'price', 'add-to-cart', 'filters']
+ * }
+ *
  * @example
- * <!-- Catalog with URL routing enabled -->
- * <div data-shoprocket="catalog" 
- *      data-routable="true"
- *      data-limit="20"></div>
- * 
+ * Configuration for category mode:
+ * {
+ *   filterMode: 'categories',
+ *   categories: 't-shirts,shoes',  // Comma-separated slugs or IDs
+ *   limit: 8
+ * }
+ *
  * @example
- * <!-- Catalog with custom features -->
- * <div data-shoprocket="catalog"
- *      data-hide="quick-add"
- *      data-show="price,title,image"></div>
+ * Configuration for products mode (curated list):
+ * {
+ *   filterMode: 'products',
+ *   products: 'prod_123,prod_456,prod_789',  // Comma-separated slugs or IDs
+ *   limit: 12
+ * }
  */
 export class ProductCatalog extends ShoprocketElement {
   // Use Light DOM when embedded in other widgets to avoid nested shadow DOM
@@ -63,8 +75,14 @@ export class ProductCatalog extends ShoprocketElement {
   @property({ type: String, attribute: 'store-id' })
   storeId?: string;
 
-  @property({ type: String, attribute: 'data-categories' })
+  @property({ type: String, attribute: 'filter-mode' })
+  filterMode?: 'all' | 'categories' | 'products';
+
+  @property({ type: String })
   categories?: string;
+
+  @property({ type: String })
+  products?: string;
 
   @property({ type: Number, attribute: 'data-limit' })
   limit?: number;
@@ -369,27 +387,47 @@ export class ProductCatalog extends ShoprocketElement {
       try {
         // Build category parameter
         let categoryParam: string | string[] | undefined;
+        let productsParam: string | string[] | undefined;
 
-        if (this.selectedCategory) {
-          // User selected a specific category from the filter dropdown
+        // Handle filterMode-based filtering
+        if (this.filterMode === 'products' && this.products) {
+          // Mode: products - filter to specific product IDs/slugs
+          const productIds = this.products.split(',').map(p => p.trim()).filter(p => p);
+          productsParam = productIds.length === 1 ? productIds[0] : productIds;
+
+          // Also apply category filter if user selected one from dropdown
+          if (this.selectedCategory) {
+            categoryParam = this.selectedCategory;
+          }
+        } else if (this.filterMode === 'categories' && this.categories) {
+          // Mode: categories - filter to specific categories
+          if (this.selectedCategory) {
+            // User selected a specific category from the filter dropdown
+            categoryParam = this.selectedCategory;
+          } else {
+            // Use categories from config
+            const slugs = this.categories.split(',').map(c => c.trim()).filter(c => c);
+            if (slugs.length > 0) {
+              categoryParam = slugs.length === 1 ? slugs[0] : slugs;
+            }
+          }
+        } else if (this.selectedCategory) {
+          // Legacy: no filterMode but user selected category from dropdown
           categoryParam = this.selectedCategory;
-        } else if (this.categories) {
-          // data-categories attribute is set - use those categories
-          // (applies when user selects "All" from filter or no filter selection)
-          const slugs = this.categories.split(',').map(c => c.trim());
-          categoryParam = slugs.length === 1 ? slugs[0] : slugs;
         }
-        // If no selectedCategory AND no data-categories → undefined (all products)
+        // If filterMode='all' or no filterMode → undefined (all products)
 
         const response = await this.sdk.products.list({
           page,
           per_page: this.perPage,
           category: categoryParam,
+          products: productsParam,
           search: this.searchQuery || undefined,
           sort: this.sortBy || undefined,
           min_price: this.minPrice,
           max_price: this.maxPrice,
           in_stock: this.inStockOnly || undefined,
+          include: this.filterMode === 'products' ? 'categories' : undefined,
         }) as ApiResponse<Product[]>;
 
         const products = response.data || [];
@@ -400,6 +438,11 @@ export class ProductCatalog extends ShoprocketElement {
           const absoluteIndex = (page - 1) * pageSize + index;
           this.allProducts.set(absoluteIndex, product);
         });
+
+        // For products mode, derive categories from loaded products (only on initial load, not when filtered)
+        if (this.filterMode === 'products' && page === 1 && !this.selectedCategory && this.allCategories.length === 0) {
+          await this.deriveCategoriesFromProducts();
+        }
 
         // Only calculate price range on first load to get a reasonable estimate
         // Don't update it afterward as it would only reflect loaded pages
@@ -460,22 +503,76 @@ export class ProductCatalog extends ShoprocketElement {
    */
   private async loadCategories(): Promise<void> {
     try {
-      if (this.categories) {
-        // Load specific categories if data-categories attribute is set
-        const slugs = this.categories.split(',').map(c => c.trim());
-        const response = await this.sdk.categories.list({
-          filter: { slug: slugs },
-        });
-        this.allCategories = response.data || [];
+      if (this.filterMode === 'products') {
+        // For products mode, categories will be derived from loaded products
+        // This happens in loadProducts() after products are fetched
+        this.allCategories = [];
+      } else if (this.filterMode === 'categories' && this.categories) {
+        // Load specific categories from config
+        const categoryValues = this.categories.split(',').map(c => c.trim()).filter(c => c);
+        if (categoryValues.length > 0) {
+          // Detect if we have IDs (start with cat_) or slugs
+          const isId = categoryValues[0].startsWith('cat_');
+          const response = await this.sdk.categories.list({
+            filter: isId ? { id: categoryValues } : { slug: categoryValues },
+          });
+          this.allCategories = response.data || [];
+        }
       } else {
-        // Load all root categories if no categories specified
+        // Load all root categories if filterMode='all' or no filterMode
         const response = await this.sdk.categories.list({
-          filter: { is_root: true },
+          filter: { isRoot: true },
         });
         this.allCategories = response.data || [];
       }
     } catch (error) {
       console.warn('Failed to load categories:', error);
+      this.allCategories = [];
+    }
+  }
+
+  /**
+   * Derive categories from loaded products (for products mode)
+   */
+  private async deriveCategoriesFromProducts(): Promise<void> {
+    try {
+      // Extract unique category IDs from all loaded products
+      const categoryIds = new Set<string>();
+      const categoryMap = new Map<string, { id: string; slug: string; name: string }>();
+
+      this.allProducts.forEach(product => {
+        if (product.categories && Array.isArray(product.categories)) {
+          product.categories.forEach(category => {
+            categoryIds.add(category.id);
+            categoryMap.set(category.id, category);
+          });
+        }
+      });
+
+      if (categoryIds.size === 0) {
+        this.allCategories = [];
+        return;
+      }
+
+      // We already have the category data from the API response, just convert to Category[] format
+      this.allCategories = Array.from(categoryMap.values()).map(cat => ({
+        id: cat.id,
+        slug: cat.slug,
+        name: cat.name,
+        description: null,
+        status: 'published',
+        parentId: null,
+        level: 0,
+        sortOrder: 0,
+        productsCount: 0,
+        imageUrl: null,
+        metaTitle: null,
+        metaDescription: null,
+        createdAt: '',
+        updatedAt: ''
+      }));
+    } catch (error) {
+      console.warn('Failed to derive categories from products:', error);
       this.allCategories = [];
     }
   }

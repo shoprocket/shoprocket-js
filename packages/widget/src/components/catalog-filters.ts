@@ -267,8 +267,8 @@ export class CatalogFilters extends ShoprocketElement {
           </div>
         </div>
 
-        <!-- Category Filter (only show if we have categories) -->
-        ${this.categories && this.categories.length > 0 ? html`
+        <!-- Category Filter (only show if we have multiple categories) -->
+        ${this.categories && this.categories.length > 1 ? html`
           <div class="sr-filter-group sr-filter-category">
             <div class="sr-field-group">
               <select

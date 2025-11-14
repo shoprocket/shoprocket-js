@@ -59,7 +59,11 @@ export interface Product {
   hasVariants?: boolean;
   variantCount?: number;
   hasRequiredOptions?: boolean;
-  category?: string;
+  categories?: Array<{
+    id: string;
+    slug: string;
+    name: string;
+  }>;
   brand?: string;
 }
 
