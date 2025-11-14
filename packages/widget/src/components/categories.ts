@@ -409,7 +409,7 @@ export class CategoriesWidget extends ShoprocketElement {
         ? Promise.resolve({ data: this.cachedProducts })
         : this.sdk.products.list({
             category: categoryIdOrSlug,
-            per_page: 1000, // Load enough products to find neighbors
+            perPage: 1000, // Load enough products to find neighbors
           });
 
       // Only fetch product if we don't have full details

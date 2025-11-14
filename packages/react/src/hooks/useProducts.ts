@@ -27,7 +27,7 @@ export function useProducts(options: UseProductsOptions = {}) {
         
         const response = await sdk.products.list({
           page: options.page || 1,
-          per_page: options.perPage || 12,
+          perPage: options.perPage || 12,
           sort: options.sort,
           ...options.filters
         });
