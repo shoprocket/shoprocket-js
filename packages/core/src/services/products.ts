@@ -47,10 +47,12 @@ export interface ProductListParams {
   per_page?: number;
   sort?: string;
   category?: string | string[];
+  products?: string | string[];
   search?: string;
   min_price?: number;
   max_price?: number;
   in_stock?: boolean;
+  include?: string; // e.g., 'categories' or 'categories,variants'
 }
 
 export class ProductsService {
@@ -66,16 +68,13 @@ export class ProductsService {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
           if (key === 'category') {
-            // Handle filter[category] format
-            if (Array.isArray(value)) {
-              // Multiple: filter[category][]=val1&filter[category][]=val2
-              value.forEach(cat => {
-                queryParams.append('filter[category][]', cat);
-              });
-            } else {
-              // Single: filter[category]=val
-              queryParams.append('filter[category]', value.toString());
-            }
+            // Handle filter[category] format - comma-separated values
+            const categoryValue = Array.isArray(value) ? value.join(',') : value.toString();
+            queryParams.append('filter[category]', categoryValue);
+          } else if (key === 'products') {
+            // Handle filter[ids] format - comma-separated product slugs or IDs
+            const productsValue = Array.isArray(value) ? value.join(',') : value.toString();
+            queryParams.append('filter[ids]', productsValue);
           } else if (key === 'search') {
             // Search uses filter[search] format
             queryParams.append('filter[search]', value.toString());
@@ -98,6 +97,9 @@ export class ProductsService {
           } else if (key === 'in_stock') {
             // In stock uses filter[in_stock] format
             queryParams.append('filter[in_stock]', value ? 'true' : 'false');
+          } else if (key === 'include') {
+            // Include related resources (e.g., 'categories', 'categories,variants')
+            queryParams.append('include', value.toString());
           } else {
             // Standard params (page, per_page)
             queryParams.append(key, value.toString());
