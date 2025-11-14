@@ -1,7 +1,7 @@
 import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
-import type { Product } from '../types/api';
+import type { Product } from '@shoprocket/core';
 import { formatProductPrice } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';

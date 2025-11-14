@@ -1,5 +1,5 @@
 import { html, type TemplateResult } from 'lit';
-import type { Product } from '../types/api';
+import type { Product } from '@shoprocket/core';
 import type { FeatureKey } from '../types/features';
 import { formatProductPrice, getMediaSrcSet, getMediaSizes } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';

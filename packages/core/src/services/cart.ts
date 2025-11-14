@@ -1,71 +1,28 @@
 import { ApiClient } from '../api';
+import type { Cart, CartItem, AddToCartParams, UpdateCartItemParams } from '../types';
 
-export interface CartItem {
-  id: string;
-  product_id: string;
-  variant_id?: string;
-  variant_name?: string;
-  product_name?: string;
-  price: number;
-  quantity: number;
-  subtotal: number;
-  product_image?: {
-    path: string;
-  };
-}
+// Re-export types for backward compatibility
+export type { Cart, CartItem, AddToCartParams, UpdateCartItemParams } from '../types';
 
-export interface MoneyValue {
-  amount: number;
-  currency: string;
-  formatted: string;
-}
-
-export interface CartTotals {
-  subtotal: MoneyValue;
-  tax: MoneyValue;
-  shipping: MoneyValue;
-  discount: MoneyValue;
-  total: MoneyValue;
-}
-
-export interface Cart {
-  id: string;
-  items: CartItem[];
-  totals: CartTotals;
-  currency: string;
-  item_count: number;
-  visitor_country?: string;
-  has_customer?: boolean;
-  has_billing_address?: boolean;
-  has_shipping_address?: boolean;
-  requires_shipping?: boolean;
-}
-
-export interface AddToCartData {
-  product_id: string;
-  quantity: number;
-  variant_id?: string;
-  source_url?: string;
-}
-
+// Address and checkout types (widget-specific, but needed for cart service)
 export interface Address {
   line1: string;
   line2?: string;
   city: string;
   state?: string;
-  postal_code: string;
+  postalCode: string;
   country: string;
 }
 
 export interface CheckoutData {
   email: string;
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   phone?: string;
   company?: string;
-  shipping_address?: Address;
-  billing_address?: Address;
-  same_as_billing?: boolean;
+  shippingAddress?: Address;
+  billingAddress?: Address;
+  sameAsBilling?: boolean;
 }
 
 // Legacy alias for backward compatibility
@@ -73,7 +30,7 @@ export type CustomerData = CheckoutData;
 
 export interface CheckCustomerResponse {
   exists: boolean;
-  has_password: boolean;
+  hasPassword: boolean;
 }
 
 export class CartService {
@@ -84,7 +41,7 @@ export class CartService {
     return response.cart || response.data || response;
   }
 
-  async addItem(data: AddToCartData): Promise<Cart> {
+  async addItem(data: AddToCartParams): Promise<Cart> {
     const response = await this.api.post<any>('/cart/items', data);
     return response.cart || response.data || response;
   }

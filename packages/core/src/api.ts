@@ -1,21 +1,12 @@
+import type { ApiResponse } from './types';
+
+export type { ApiResponse } from './types';
+
 export interface ApiConfig {
   apiUrl: string;
   publishableKey: string;
   locale?: string;
   cartToken?: string;
-}
-
-export interface ApiResponse<T> {
-  data?: T;
-  error?: {
-    message: string;
-    code?: string;
-  };
-  meta?: {
-    total?: number;
-    page?: number;
-    perPage?: number;
-  };
 }
 
 export class ApiClient {

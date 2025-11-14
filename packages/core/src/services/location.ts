@@ -1,36 +1,8 @@
 import { ApiClient } from '../api';
+import type { Country, State, CountriesResponse, StatesResponse } from '../types';
 
-export interface Country {
-  code: string;
-  name: string;
-  phone_code?: string;
-  currency?: string;
-  requires_state?: boolean;
-}
-
-export interface State {
-  code: string;
-  name: string;
-}
-
-export interface CountriesResponse {
-  success: boolean;
-  data: {
-    countries: Country[];
-    locale: string;
-  };
-}
-
-export interface StatesResponse {
-  success: boolean;
-  data: {
-    country: {
-      code: string;
-      name: string;
-    };
-    states: State[];
-  };
-}
+// Re-export types for backward compatibility
+export type { Country, State, CountriesResponse, StatesResponse } from '../types';
 
 /**
  * Location Service

@@ -4,7 +4,7 @@
  * These are only needed after order submission, making them ideal for lazy loading
  */
 import { html, type TemplateResult } from 'lit';
-import type { Money } from '../../types/api';
+import type { Money } from '@shoprocket/core';
 import type { OrderDetails } from './cart-types';
 import { loadingOverlay } from '../loading-spinner';
 

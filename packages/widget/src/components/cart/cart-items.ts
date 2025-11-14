@@ -5,7 +5,7 @@
 import { html, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { keyed } from 'lit/directives/keyed.js';
-import type { Cart } from '../../types/api';
+import type { Cart } from '@shoprocket/core';
 
 export interface CartItemsContext {
   cart: Cart | null;

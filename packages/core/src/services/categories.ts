@@ -1,43 +1,8 @@
 import { ApiClient } from '../api';
+import type { Category, CategoryListParams } from '../types';
 
-export interface Category {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  status: string;
-  parentId: string | null;
-  level: number;
-  sortOrder: number;
-  productsCount: number;
-  imageUrl: string | null;
-  metaTitle: string | null;
-  metaDescription: string | null;
-  children?: Category[];
-  parent?: {
-    id: string;
-    name: string;
-    slug: string;
-    level: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CategoryListParams {
-  filter?: {
-    id?: string | string[];
-    parentId?: string;
-    isRoot?: boolean;
-    status?: string;
-    slug?: string | string[];
-  };
-  include?: string; // 'children,parent'
-  sort?: string;
-  page?: number;
-  perPage?: number;
-  lang?: string;
-}
+// Re-export types for backward compatibility
+export type { Category, CategoryListParams } from '../types';
 
 export class CategoriesService {
   constructor(private api: ApiClient) {}

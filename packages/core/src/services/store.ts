@@ -1,20 +1,8 @@
 import { ApiClient } from '../api';
+import type { Store } from '../types';
 
-export interface Store {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  currency_code: string;
-  locale: string;
-  timezone: string;
-  logo?: {
-    url: string;
-  };
-  settings?: {
-    [key: string]: any;
-  };
-}
+// Re-export types for backward compatibility
+export type { Store } from '../types';
 
 export class StoreService {
   constructor(private api: ApiClient) {}
