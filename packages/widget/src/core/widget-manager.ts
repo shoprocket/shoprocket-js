@@ -309,10 +309,24 @@ export class WidgetManager {
       return;
     }
 
+    // Detect theme from existing embeds to apply consistent styling
+    const themedEmbed = document.querySelector('[data-shoprocket][data-theme]');
+    const theme = themedEmbed?.getAttribute('data-theme');
+    const mode = themedEmbed?.getAttribute('data-mode');
+
     // Create floating cart button
     const floatingCart = document.createElement('div');
     floatingCart.setAttribute('data-shoprocket', 'cart');
     floatingCart.setAttribute('data-floating', 'true');
+
+    // Apply theme from existing embeds if found
+    if (theme) {
+      floatingCart.setAttribute('data-theme', theme);
+    }
+    if (mode) {
+      floatingCart.setAttribute('data-mode', mode);
+    }
+
     document.body.appendChild(floatingCart);
 
     // Mount the cart widget
