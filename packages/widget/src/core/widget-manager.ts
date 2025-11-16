@@ -309,10 +309,11 @@ export class WidgetManager {
       return;
     }
 
-    // Detect theme from existing embeds to apply consistent styling
+    // Detect theme and color scheme from existing embeds to apply consistent styling
     // Query any Shoprocket widget with a theme (all widgets get .shoprocket class)
     const themedEmbed = document.querySelector('.shoprocket[data-theme]');
     const theme = themedEmbed?.getAttribute('data-theme');
+    const mode = themedEmbed?.getAttribute('data-mode');
 
     // Create floating cart button
     const floatingCart = document.createElement('div');
@@ -320,10 +321,13 @@ export class WidgetManager {
     floatingCart.setAttribute('data-floating', 'true');
     document.body.appendChild(floatingCart);
 
-    // Mount the cart widget with theme from existing embeds
+    // Mount the cart widget with theme and color scheme from existing embeds
     const options: Record<string, string> = { floating: 'true' };
     if (theme) {
       options.theme = theme;
+    }
+    if (mode) {
+      options.colorScheme = mode;
     }
     this.mount(floatingCart, 'cart', options);
   }
