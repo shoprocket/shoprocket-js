@@ -672,9 +672,10 @@
 
   /* Cart Panel */
   .sr-cart-panel {
-    @apply fixed shadow-2xl flex flex-col z-[10001] transition-all duration-300 ease-out;
+    @apply fixed flex flex-col z-[10001] transition-all duration-300 ease-out;
     @apply overflow-hidden;
     background: var(--color-surface);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Direct shadow - doesn't affect children */
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
@@ -2596,16 +2597,19 @@
   @apply text-red-500;
 }
 
+/* Base theming for all form inputs - shared by sr-field-input, sr-otp-input, etc. */
+@utility sr-field-base {
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  box-shadow: var(--tw-shadow);
+}
+
 /* Modern Input and Select Styles - Base */
 .sr-field-input,
 .sr-field-select {
-  @apply w-full px-3 pt-5 pb-1.5 border;
-  @apply text-sm;
-  background-color: var(--color-surface);
-  color: var(--color-on-surface);
+  @apply w-full px-3 pt-5 pb-1.5 border text-sm sr-field-base;
   border-radius: var(--sr-radius);
   border-color: var(--color-border);
-  box-shadow: var(--tw-shadow);
   min-height: 2.75rem;
   /* iOS zoom prevention via touch-action is in :host reset */
 }
@@ -3397,9 +3401,9 @@
 }
 
 .sr-otp-input {
-  @apply w-12 h-14 text-center text-xl font-semibold rounded-lg border-2 
+  @apply w-12 h-14 text-center text-xl font-semibold rounded-lg border-2
          border-[var(--color-border)] focus:border-[var(--color-primary)] focus:outline-none
-         transition-colors;
+         transition-colors sr-field-base;
   -webkit-appearance: none;
   -moz-appearance: textfield;
 }
