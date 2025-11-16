@@ -133,12 +133,23 @@
   --color-text-muted: #6b7280;
   --color-border: #e5e7eb;
   --color-hover: #f3f4f6;
-  --color-input-bg: #f8fafc;
   --color-error: #c10007;
   --color-success: #15803d;
   --color-info: #3b82f6;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
+
+  /* RGB variants for alpha transparency (space-separated for CSS rgba) */
+  --color-surface-rgb: 255 255 255;
+  --color-primary-rgb: 17 24 39;
+  --color-text-rgb: 17 24 39;
+
+  /* Overlay colors for modals/dialogs */
+  --color-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Warning/test mode colors */
+  --color-warning-bg: rgba(251, 191, 36, 0.1);
+  --color-warning-text: rgb(180, 83, 9);
 
   /* Text on colored backgrounds */
   --color-on-primary: #ffffff;
@@ -569,7 +580,7 @@
   /* Cart Overlay */
   .sr-cart-overlay {
     @apply fixed inset-0 z-[9998] transition-opacity;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--color-overlay);
   }
 
   .sr-cart-overlay.open {
@@ -1068,8 +1079,8 @@
   /* Cart Test Mode Indicator */
   .sr-cart-test-indicator {
     @apply text-xs text-center mt-2 py-1 px-2 rounded;
-    background: rgba(251, 191, 36, 0.1);
-    color: rgb(180, 83, 9);
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
   }
   
   .sr-cart-test-indicator-checkout {
@@ -1453,8 +1464,9 @@
   /* Zoom Lens */
   .sr-zoom-lens {
     @apply absolute pointer-events-none border rounded-full w-24 h-24 shadow-2xl;
-    border-color: rgba(var(--color-surface), 0.5);
-    background: rgba(var(--color-surface), 0.1);
+    border-color: var(--color-border);
+    background: var(--color-surface);
+    opacity: 0.3;
   }
 }
 
@@ -2200,13 +2212,10 @@
   @apply w-full;
 }
 
-/* Override field styles for filter toolbar context */
+/* Override field styles for filter toolbar context (larger touch targets only) */
 .sr-catalog-filters .sr-field-input,
 .sr-catalog-filters .sr-field-select {
-  @apply text-sm;
-  min-height: 3rem; /* 48px for better touch targets */
-  background-color: var(--color-surface); /* Match product cards and pagination */
-  box-shadow: var(--tw-shadow);
+  min-height: 3rem; /* 48px for better touch targets in toolbar */
 }
 
 /* Show empty value options in catalog filters (Featured, All, etc.) */
@@ -2587,15 +2596,16 @@
   @apply text-red-500;
 }
 
-/* Modern Input and Select Styles */
+/* Modern Input and Select Styles - Base */
 .sr-field-input,
 .sr-field-select {
   @apply w-full px-3 pt-5 pb-1.5 border;
   @apply text-sm;
-  background: var(--color-input-bg);
+  background-color: var(--color-surface);
   color: var(--color-on-surface);
   border-radius: var(--sr-radius);
   border-color: var(--color-border);
+  box-shadow: var(--tw-shadow);
   min-height: 2.75rem;
   /* iOS zoom prevention via touch-action is in :host reset */
 }
@@ -3701,7 +3711,7 @@ shoprocket-product-modal {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
