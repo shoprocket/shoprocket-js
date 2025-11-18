@@ -147,7 +147,26 @@ export class CookieManager {
    * Generate a unique cart token
    */
   private static generateCartToken(): string {
-    return `cart_${crypto.randomUUID()}`;
+    // Use crypto.randomUUID if available (modern browsers, HTTPS only)
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return `cart_${crypto.randomUUID()}`;
+    }
+
+    // Fallback: Generate UUID v4 using crypto.getRandomValues (widely supported)
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const uuid = ([1e7] as any + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c: any) =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+      );
+      return `cart_${uuid}`;
+    }
+
+    // Last resort: Math.random (not cryptographically secure, but works everywhere)
+    const fallbackUuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+    return `cart_${fallbackUuid}`;
   }
   
   /**
