@@ -1278,9 +1278,9 @@ export class CartWidget extends ShoprocketElement {
       });
     }
     
-    if (customer.first_name && customer.last_name && 
-        (customer.first_name !== this.customerData.first_name || 
-         customer.last_name !== this.customerData.last_name)) {
+    if (customer.firstName && customer.lastName &&
+        (customer.firstName !== this.customerData.firstName ||
+         customer.lastName !== this.customerData.lastName)) {
       this.track(EVENTS.CHECKOUT_NAME_ENTERED, {
         step: 'customer',
         is_guest: this.isGuest
@@ -1611,7 +1611,7 @@ export class CartWidget extends ShoprocketElement {
     this.shippingErrors = {}; // Clear errors on change
     
     // Track shipping address entry (only when complete)
-    if (address.line1 && address.city && address.postal_code && address.country) {
+    if (address.line1 && address.city && address.postalCode && address.country) {
       this.track(EVENTS.CHECKOUT_SHIPPING_ENTERED, {
         step: 'shipping',
         country: address.country,
@@ -1628,7 +1628,7 @@ export class CartWidget extends ShoprocketElement {
     this.billingErrors = {}; // Clear errors on change
     
     // Track billing address entry (only when complete and not same as shipping)
-    if (!this.sameAsBilling && address.line1 && address.city && address.postal_code && address.country) {
+    if (!this.sameAsBilling && address.line1 && address.city && address.postalCode && address.country) {
       this.track(EVENTS.CHECKOUT_BILLING_ENTERED, {
         step: 'billing',
         country: address.country,
@@ -1647,8 +1647,8 @@ export class CartWidget extends ShoprocketElement {
       // Basic required field check
       const schema = {
         email: ['required' as const, 'email' as const],
-        first_name: this.isGuest ? ['required' as const] : [],
-        last_name: this.isGuest ? ['required' as const] : []
+        firstName: this.isGuest ? ['required' as const] : [],
+        lastName: this.isGuest ? ['required' as const] : []
       };
       
       this.customerErrors = validateForm(this.customerData, schema) as CustomerFormErrors;
@@ -1662,7 +1662,7 @@ export class CartWidget extends ShoprocketElement {
       const schema = {
         line1: ['required' as const],
         city: ['required' as const],
-        postal_code: ['required' as const],
+        postalCode: ['required' as const],
         country: ['required' as const]
         // State requirement will be validated server-side
       };
@@ -1678,7 +1678,7 @@ export class CartWidget extends ShoprocketElement {
       const schema = {
         line1: ['required' as const],
         city: ['required' as const],
-        postal_code: ['required' as const],
+        postalCode: ['required' as const],
         country: ['required' as const]
         // State requirement will be validated server-side
       };

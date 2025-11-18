@@ -11,20 +11,20 @@ export interface Address {
   line2?: string;
   city: string;
   state?: string;
-  postal_code: string;
+  postalCode: string;
   country: string;
 }
 
 // CheckoutData is temporary session data for the current checkout
 export interface CheckoutData {
   email?: string;
-  first_name?: string;
-  last_name?: string;
+  firstName?: string;
+  lastName?: string;
   phone?: string;
   company?: string;
 }
 
-// Legacy alias for compatibility during refactor
+// Alias for semantic clarity
 export type CustomerData = CheckoutData;
 
 export interface CartState {
@@ -35,7 +35,7 @@ export interface CartState {
   sameAsBilling: boolean;
   loading: boolean;
   error: string | null;
-  // Legacy alias during refactor
+  // Alias for semantic clarity
   customer?: Partial<CheckoutData>;
 }
 
@@ -51,7 +51,7 @@ class CartStateManager {
     sameAsBilling: true,
     loading: false,
     error: null,
-    customer: {} // Legacy alias
+    customer: {} // Alias for checkoutData
   };
 
   private listeners = new Set<StateListener>();
@@ -143,37 +143,33 @@ class CartStateManager {
   setCheckoutData(data: any): void {
     if (!data) return;
 
-    // Update checkout data fields - preserve empty strings from API
-    // API returns camelCase (firstName) but internal state uses snake_case (first_name)
+    // Update checkout data fields - API returns camelCase, we use camelCase internally
     this.state.checkoutData = {
       email: data.email ?? '',
-      first_name: data.firstName ?? data.first_name ?? '',
-      last_name: data.lastName ?? data.last_name ?? '',
+      firstName: data.firstName ?? '',
+      lastName: data.lastName ?? '',
       phone: data.phone ?? '',
       company: data.company ?? ''
     };
 
-    // Keep legacy alias in sync
+    // Keep customer alias in sync
     this.state.customer = this.state.checkoutData;
 
-    // Update addresses
-    // API returns camelCase (shippingAddress) but also support snake_case for flexibility
-    if (data.shippingAddress || data.shipping_address) {
-      this.state.shippingAddress = this.cleanObject(data.shippingAddress ?? data.shipping_address);
+    // Update addresses - API returns camelCase
+    if (data.shippingAddress) {
+      this.state.shippingAddress = this.cleanObject(data.shippingAddress);
     }
 
-    if (data.billingAddress || data.billing_address) {
-      this.state.billingAddress = this.cleanObject(data.billingAddress ?? data.billing_address);
+    if (data.billingAddress) {
+      this.state.billingAddress = this.cleanObject(data.billingAddress);
     }
-    
-    // Don't update same_as_billing from API - it's UI state only
-    // Intelligently set it based on whether addresses match (only on initial load)
+
+    // Intelligently set sameAsBilling based on whether addresses match (only on initial load)
     if (!this.state.checkoutData.email) {
       // First time loading - check if addresses match
-      // Support both camelCase and snake_case
       this.state.sameAsBilling = this.areAddressesEqual(
-        data.shippingAddress ?? data.shipping_address,
-        data.billingAddress ?? data.billing_address
+        data.shippingAddress,
+        data.billingAddress
       );
     }
     // Otherwise keep the current UI state
@@ -181,18 +177,11 @@ class CartStateManager {
     this.notifyListeners();
   }
   
-  /**
-   * Legacy method for backward compatibility
-   * @deprecated Use loadCheckoutData instead
-   */
+  // Alias methods for semantic clarity
   async loadCustomer(): Promise<void> {
     return this.loadCheckoutData();
   }
-  
-  /**
-   * Legacy method for backward compatibility
-   * @deprecated Use setCheckoutData instead
-   */
+
   setCustomer(customer: any): void {
     this.setCheckoutData(customer);
   }
@@ -217,10 +206,7 @@ class CartStateManager {
     this.scheduleApiUpdate();
   }
   
-  /**
-   * Legacy method for backward compatibility
-   * @deprecated Use updateCheckoutData instead
-   */
+  // Alias method for semantic clarity
   updateCustomer(data: Partial<CustomerData>): void {
     this.updateCheckoutData(data);
   }
@@ -331,22 +317,22 @@ class CartStateManager {
       // Always sync checkout data, even if email is empty (user cleared it)
       const payload: any = {
         ...this.state.checkoutData
-        // Don't send same_as_billing - it's UI state only
+        // Don't send sameAsBilling - it's UI state only
       };
-      
+
       // Always send shipping address if valid
       if (this.isAddressValid(this.state.shippingAddress)) {
-        payload.shipping_address = this.state.shippingAddress;
+        payload.shippingAddress = this.state.shippingAddress;
       }
-      
+
       // Always send billing address
-      // If same_as_billing is true in UI, we copy shipping to billing
+      // If sameAsBilling is true in UI, we copy shipping to billing
       if (this.state.sameAsBilling && this.isAddressValid(this.state.shippingAddress)) {
-        payload.billing_address = this.state.shippingAddress;
+        payload.billingAddress = this.state.shippingAddress;
       } else if (this.isAddressValid(this.state.billingAddress)) {
-        payload.billing_address = this.state.billingAddress;
+        payload.billingAddress = this.state.billingAddress;
       }
-      
+
       await this.sdk.cart.updateCheckoutData(payload);
       
       // Don't update UI with response - this prevents race conditions
@@ -366,7 +352,7 @@ class CartStateManager {
    * Check if address has minimum required fields
    */
   private isAddressValid(address: Partial<Address>): boolean {
-    return !!(address.line1 && address.city && address.postal_code && address.country);
+    return !!(address.line1 && address.city && address.postalCode && address.country);
   }
 
   /**
@@ -445,9 +431,9 @@ class CartStateManager {
   
   private areAddressesEqual(addr1: any, addr2: any): boolean {
     if (!addr1 || !addr2) return false;
-    
+
     // Compare relevant address fields
-    const fields = ['line1', 'line2', 'city', 'state', 'postal_code', 'country'];
+    const fields = ['line1', 'line2', 'city', 'state', 'postalCode', 'country'];
     return fields.every(field => addr1[field] === addr2[field]);
   }
 }
