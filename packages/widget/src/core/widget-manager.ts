@@ -6,6 +6,7 @@ import { AnalyticsManager, EVENTS } from './analytics-manager';
 import { internalState } from './internal-state';
 import { cartState } from './cart-state';
 import { SPATracker } from '../utils/spa-tracker';
+import { DEFAULT_FEATURES, type FeatureKey } from '../types/features';
 
 export interface WidgetConfig {
   publicKey?: string;
@@ -412,6 +413,16 @@ export class WidgetManager {
     // Find all elements with data-shoprocket attribute
     const elements = document.querySelectorAll('[data-shoprocket]');
 
+    // Mark the first catalog in DOM order as primary (before any async mounting)
+    let firstCatalog: Element | null = null;
+    elements.forEach(element => {
+      const widgetType = element.getAttribute('data-shoprocket');
+      if (widgetType === 'catalog' && !firstCatalog) {
+        firstCatalog = element;
+        element.setAttribute('data-is-primary', 'true');
+      }
+    });
+
     const mountPromises: Promise<void>[] = [];
 
     elements.forEach(element => {
@@ -447,7 +458,7 @@ export class WidgetManager {
   /**
    * Mount a widget on an element
    */
-  async mount(element: Element, widgetType: string, options: Record<string, any> = {}): Promise<void> {
+  async mount(element: Element, widgetType: string, options: Record<string, any> = {}, embedId?: string): Promise<void> {
     if (!this.initialized || !this.sdk) {
       throw new Error('Shoprocket: Not initialized. Call init() first.');
     }
@@ -475,6 +486,16 @@ export class WidgetManager {
     // Create component instance using document.createElement
     const component = document.createElement(tagName) as BaseComponent;
 
+    // Set embed ID as attribute if provided (for multi-catalog URL routing)
+    if (embedId && component instanceof HTMLElement) {
+      component.setAttribute('data-embed-id', embedId);
+    }
+
+    // Copy data-is-primary attribute from mount point if present
+    if (element.hasAttribute('data-is-primary')) {
+      component.setAttribute('data-is-primary', 'true');
+    }
+
     // Set properties
     // Map 'style' to 'widgetStyle' to avoid conflict with HTMLElement.style
     const mappedOptions: Record<string, any> = { ...options };
@@ -489,9 +510,12 @@ export class WidgetManager {
     const configuredColorScheme = mappedOptions['colorScheme'] || 'auto';
     delete mappedOptions['colorScheme'];
 
-    // Extract features before setting properties (it's used as an attribute, not a property)
+    // Extract features/hide before setting properties (they're used as attributes, not properties)
     const features = mappedOptions['features'];
     delete mappedOptions['features'];
+
+    const hide = mappedOptions['hide'];
+    delete mappedOptions['hide'];
 
     // Set properties directly on the component (not as data-* attributes)
     // Web components expect properties, not data-* attributes
@@ -519,19 +543,39 @@ export class WidgetManager {
       const existingClasses = element.className ? element.className + ' shoprocket' : 'shoprocket';
       component.className = existingClasses;
 
-      // Set theme attribute if provided (for per-embed theming)
-      if (theme) {
-        component.setAttribute('data-theme', theme);
+      // Set theme attribute and load theme CSS
+      const themeName = theme || 'default';
+      component.setAttribute('data-theme', themeName);
+
+      // Auto-load theme CSS if not already loaded (for data-attribute embeds without embed config)
+      if (!theme) {
+        const store = internalState.getStore();
+        if (store?.id) {
+          const themeUrl = this.sdk.themes.getThemeCssUrl(store.id, 'default');
+          await this.injectThemeCSS(themeUrl, 'default');
+        }
       }
 
       // Set features attribute if provided (for feature control)
+      // Priority: features (API config) > hide (data-attribute)
       if (features !== undefined) {
+        // API-provided features list (explicit whitelist from dashboard)
         if (Array.isArray(features)) {
           component.setAttribute('data-features', features.join(','));
+        } else if (typeof features === 'string') {
+          component.setAttribute('data-features', features);
         } else if (features === null || features === '') {
           component.setAttribute('data-features', ''); // Explicitly show nothing
         }
+      } else if (hide !== undefined) {
+        // data-hide attribute: remove specific features from defaults (safe, intuitive)
+        // Get defaults for this widget type and remove hidden features
+        const defaults = new Set(DEFAULT_FEATURES[widgetType] || []);
+        const hideList = hide.split(',').map((s: string) => s.trim()).filter((s: string) => s) as FeatureKey[];
+        hideList.forEach(feature => defaults.delete(feature));
+        component.setAttribute('data-features', Array.from(defaults).join(','));
       }
+      // If neither features nor hide provided, parseFeatures() will use defaults
 
       // Determine and set color scheme attribute (data-mode for CSS selector compatibility)
       const actualColorScheme = this.detectColorScheme(configuredColorScheme);
@@ -665,7 +709,8 @@ export class WidgetManager {
       }
 
       // Mount the widget with the type from attribute and config from API
-      await this.mount(element, widgetType, options);
+      // Pass embed ID for multi-catalog URL routing
+      await this.mount(element, widgetType, options, embedId);
     } catch (error) {
       console.error(`Shoprocket: Failed to load embed ${embedId}:`, error);
 
