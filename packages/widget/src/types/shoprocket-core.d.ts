@@ -64,14 +64,14 @@ declare module '@shoprocket/core' {
     updateItem(itemId: string, quantity: number): Promise<any>;
     removeItem(itemId: string): Promise<any>;
     clear(): Promise<any>;
-    updateCustomer(data: { 
-      email: string; 
-      first_name?: string; 
-      last_name?: string; 
-      phone?: string; 
-      company?: string; 
-      shipping_address?: any; 
-      billing_address?: any; 
+    updateCustomer(data: {
+      email: string;
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      company?: string;
+      shippingAddress?: any;
+      billingAddress?: any; 
       same_as_billing?: boolean; 
     }): Promise<any>;
     checkout(data: { payment_method_type: string; locale: string }): Promise<any>;

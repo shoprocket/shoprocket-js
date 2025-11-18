@@ -7,7 +7,7 @@ export interface AddressData {
   line2?: string;
   city: string;
   state?: string;
-  postal_code: string;
+  postalCode: string;
   country: string;
   name?: string;
   company?: string;
@@ -17,7 +17,7 @@ export interface AddressData {
 export interface AddressFormErrors {
   line1?: string;
   city?: string;
-  postal_code?: string;
+  postalCode?: string;
   country?: string;
   name?: string;
   phone?: string;
@@ -305,7 +305,7 @@ export class AddressForm extends BaseComponent {
 
   private isRequired(field: keyof AddressData): boolean {
     if (!this.required) return false;
-    const requiredFields: (keyof AddressData)[] = ['line1', 'city', 'postal_code', 'country'];
+    const requiredFields: (keyof AddressData)[] = ['line1', 'city', 'postalCode', 'country'];
     return requiredFields.includes(field);
   }
 
@@ -319,7 +319,7 @@ export class AddressForm extends BaseComponent {
     const filledFields = [
       this.address.line1,
       this.address.city,
-      this.address.postal_code,
+      this.address.postalCode,
       this.address.country
     ].filter(v => v).length;
     
@@ -471,20 +471,20 @@ export class AddressForm extends BaseComponent {
         <div class="sr-field-group">
           <input
             type="text"
-            id="postal_code"
-            class="sr-field-input peer ${this.hasValue(this.address.postal_code) ? 'has-value' : ''} ${this.getFieldError('postal_code') ? 'sr-field-error' : ''}"
-            .value="${this.address.postal_code || ''}"
+            id="postalCode"
+            class="sr-field-input peer ${this.hasValue(this.address.postalCode) ? 'has-value' : ''} ${this.getFieldError('postalCode') ? 'sr-field-error' : ''}"
+            .value="${this.address.postalCode || ''}"
             .disabled="${this.disabled}"
             placeholder=" "
             autocomplete="postal-code"
-            @input="${(e: Event) => this.handleInputChange('postal_code', (e.target as HTMLInputElement).value)}"
-            @blur="${() => this.handleBlur('postal_code')}"
+            @input="${(e: Event) => this.handleInputChange('postalCode', (e.target as HTMLInputElement).value)}"
+            @blur="${() => this.handleBlur('postalCode')}"
           >
-          <label class="sr-field-label" for="postal_code">
-            Postal Code${this.isRequired('postal_code') ? html` <span class="sr-field-required">*</span>` : ''}
+          <label class="sr-field-label" for="postalCode">
+            Postal Code${this.isRequired('postalCode') ? html` <span class="sr-field-required">*</span>` : ''}
           </label>
-          ${this.getFieldError('postal_code') ? html`
-            <div class="sr-field-error-message">${this.getFieldError('postal_code')}</div>
+          ${this.getFieldError('postalCode') ? html`
+            <div class="sr-field-error-message">${this.getFieldError('postalCode')}</div>
           ` : ''}
         </div>
 

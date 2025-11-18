@@ -4,16 +4,16 @@ import { BaseComponent } from '../core/base-component';
 
 export interface CustomerData {
   email: string;
-  first_name?: string;
-  last_name?: string;
+  firstName?: string;
+  lastName?: string;
   phone?: string;
   company?: string;
 }
 
 export interface CustomerFormErrors {
   email?: string;
-  first_name?: string;
-  last_name?: string;
+  firstName?: string;
+  lastName?: string;
   phone?: string;
   company?: string;
 }
@@ -131,8 +131,8 @@ export class CustomerForm extends BaseComponent {
     
     // Clear name fields if switching to account creation
     if (!this.isGuest) {
-      this.handleInputChange('first_name', '');
-      this.handleInputChange('last_name', '');
+      this.handleInputChange('firstName', '');
+      this.handleInputChange('lastName', '');
     }
 
     // Dispatch guest mode change
@@ -154,7 +154,7 @@ export class CustomerForm extends BaseComponent {
     if (field === 'email') return true;
     
     // Name fields required for guest checkout
-    if ((field === 'first_name' || field === 'last_name') && this.isGuest) return true;
+    if ((field === 'firstName' || field === 'lastName') && this.isGuest) return true;
     
     return false;
   }
@@ -173,7 +173,7 @@ export class CustomerForm extends BaseComponent {
     if (field === 'email') {
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value as string);
     }
-    if (field === 'first_name' || field === 'last_name') {
+    if (field === 'firstName' || field === 'lastName') {
       return (value as string).length >= 2;
     }
     if (field === 'phone' && value) {
@@ -281,53 +281,53 @@ export class CustomerForm extends BaseComponent {
             <!-- Name Fields Row -->
             <div class="grid grid-cols-2 gap-4">
               <!-- First Name -->
-              <div class="sr-field-group-with-icon ${this.isFieldValid('first_name') ? 'sr-field-valid' : ''}">
+              <div class="sr-field-group-with-icon ${this.isFieldValid('firstName') ? 'sr-field-valid' : ''}">
                 <input
                   type="text"
-                  id="first_name"
-                  name="first_name"
-                  class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.first_name) ? 'has-value' : ''} ${this.getFieldError('first_name') ? 'sr-field-error' : ''}"
-                  .value="${this.customer.first_name || ''}"
+                  id="firstName"
+                  name="firstName"
+                  class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.firstName) ? 'has-value' : ''} ${this.getFieldError('firstName') ? 'sr-field-error' : ''}"
+                  .value="${this.customer.firstName || ''}"
                   .disabled="${this.disabled}"
-                  ?required="${this.getRequiredAttribute('first_name')}"
+                  ?required="${this.getRequiredAttribute('firstName')}"
                   placeholder=" "
                   autocomplete="given-name"
-                  @input="${(e: Event) => this.handleInputChange('first_name', (e.target as HTMLInputElement).value)}"
-                  @blur="${() => this.handleBlur('first_name')}"
+                  @input="${(e: Event) => this.handleInputChange('firstName', (e.target as HTMLInputElement).value)}"
+                  @blur="${() => this.handleBlur('firstName')}"
                 >
                 ${this.renderUserIcon()}
-                <label class="sr-field-label" for="first_name">
+                <label class="sr-field-label" for="firstName">
                   First Name
-                  ${this.getRequiredAttribute('first_name') ? html`<span class="sr-field-required">*</span>` : ''}
+                  ${this.getRequiredAttribute('firstName') ? html`<span class="sr-field-required">*</span>` : ''}
                 </label>
                 ${this.renderCheckIcon()}
-                ${this.getFieldError('first_name') ? html`
-                  <div class="sr-field-error-message">${this.getFieldError('first_name')}</div>
+                ${this.getFieldError('firstName') ? html`
+                  <div class="sr-field-error-message">${this.getFieldError('firstName')}</div>
                 ` : ''}
               </div>
 
               <!-- Last Name -->
-              <div class="sr-field-group-with-icon ${this.isFieldValid('last_name') ? 'sr-field-valid' : ''}">
+              <div class="sr-field-group-with-icon ${this.isFieldValid('lastName') ? 'sr-field-valid' : ''}">
                 <input
                   type="text"
-                  id="last_name"
-                  name="last_name"
-                  class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.last_name) ? 'has-value' : ''} ${this.getFieldError('last_name') ? 'sr-field-error' : ''}"
-                  .value="${this.customer.last_name || ''}"
+                  id="lastName"
+                  name="lastName"
+                  class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.lastName) ? 'has-value' : ''} ${this.getFieldError('lastName') ? 'sr-field-error' : ''}"
+                  .value="${this.customer.lastName || ''}"
                   .disabled="${this.disabled}"
-                  ?required="${this.getRequiredAttribute('last_name')}"
+                  ?required="${this.getRequiredAttribute('lastName')}"
                   placeholder=" "
                   autocomplete="family-name"
-                  @input="${(e: Event) => this.handleInputChange('last_name', (e.target as HTMLInputElement).value)}"
+                  @input="${(e: Event) => this.handleInputChange('lastName', (e.target as HTMLInputElement).value)}"
                 >
                 ${this.renderUserIcon()}
-                <label class="sr-field-label" for="last_name">
+                <label class="sr-field-label" for="lastName">
                   Last Name
-                  ${this.getRequiredAttribute('last_name') ? html`<span class="sr-field-required">*</span>` : ''}
+                  ${this.getRequiredAttribute('lastName') ? html`<span class="sr-field-required">*</span>` : ''}
                 </label>
                 ${this.renderCheckIcon()}
-                ${this.getFieldError('last_name') ? html`
-                  <div class="sr-field-error-message">${this.getFieldError('last_name')}</div>
+                ${this.getFieldError('lastName') ? html`
+                  <div class="sr-field-error-message">${this.getFieldError('lastName')}</div>
                 ` : ''}
               </div>
             </div>

@@ -67,7 +67,7 @@ export class ProductCatalog extends ShoprocketElement {
     return super.createRenderRoot(); // Shadow DOM (default)
   }
 
-  // Track primary instance for routing
+  // Only the first catalog (primary) handles URL routing
   private static primaryInstance: ProductCatalog | null = null;
   private isPrimary = false;
 
@@ -89,6 +89,9 @@ export class ProductCatalog extends ShoprocketElement {
 
   @property({ type: Boolean, attribute: 'data-routable' })
   routable = false;
+
+  @property({ type: String, attribute: 'data-embed-id' })
+  embedId?: string;
 
   @property({ type: Boolean, attribute: 'data-use-light-dom' })
   useLightDom = false;
@@ -214,10 +217,19 @@ export class ProductCatalog extends ShoprocketElement {
 
   private handleHashStateChange = async (event: Event): Promise<void> => {
     const customEvent = event as CustomEvent<HashState>;
-    await this.updateViewFromState(customEvent.detail);
+    const state = customEvent.detail;
+
+    // Filtering is now done in updateViewFromState (handles both initial load and hash changes)
+    await this.updateViewFromState(state);
   };
 
   private async updateViewFromState(state: HashState): Promise<void> {
+    // Only primary catalog responds to hash changes
+    // Secondary catalogs ignore URL routing and work with local state only
+    if (!this.isPrimary) {
+      return;
+    }
+
     if (state.view === 'product' && state.productSlug) {
       // Set view to product immediately to prevent list from showing
       this.currentView = 'product';
@@ -251,7 +263,8 @@ export class ProductCatalog extends ShoprocketElement {
       if (targetPage !== this.currentPage) {
         this.currentPage = targetPage;
         await this.loadProducts(targetPage);
-        this.scrollToTop();
+        // Don't auto-scroll on hash changes - only scroll when user clicks pagination
+        // this prevents unwanted scrolling when multiple catalogs are on the page
       }
     }
   };
@@ -608,16 +621,12 @@ export class ProductCatalog extends ShoprocketElement {
     this.handleCartUpdate = this.handleCartUpdate.bind(this);
     window.addEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.addEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
-    
-    // Determine if this instance should be primary
-    // Light DOM instances are always embedded in another widget, so never primary
+
+    // Determine if this is the primary catalog (handles URL routing)
+    // Check data-is-primary attribute set by widget manager (ensures DOM order)
     if (!this.useLightDom) {
-      if (this.routable && !ProductCatalog.primaryInstance) {
-        // Explicit routable attribute takes precedence
-        ProductCatalog.primaryInstance = this;
-        this.isPrimary = true;
-      } else if (!this.routable && !ProductCatalog.primaryInstance) {
-        // First instance becomes primary by default
+      const isPrimaryAttr = this.getAttribute('data-is-primary');
+      if (isPrimaryAttr === 'true') {
         ProductCatalog.primaryInstance = this;
         this.isPrimary = true;
       }
@@ -629,9 +638,9 @@ export class ProductCatalog extends ShoprocketElement {
       await this.loadCategories();
     }
 
-    // Only primary instance handles routing
+    // Initialize hash router for URL management (primary catalog only)
     if (this.isPrimary) {
-      // Get HashRouter singleton and listen for state changes
+      // Get HashRouter singleton
       this.hashRouter = HashRouter.getInstance();
       this.handleHashStateChange = this.handleHashStateChange.bind(this);
       this.hashRouter.addEventListener('state-change', this.handleHashStateChange);
@@ -653,6 +662,9 @@ export class ProductCatalog extends ShoprocketElement {
         // Product view will be handled by updateViewFromState
         await this.updateViewFromState(initialState);
       }
+    } else {
+      // Secondary catalogs: just load first page
+      await this.loadProducts(this.currentPage);
     }
   }
   
@@ -674,10 +686,14 @@ export class ProductCatalog extends ShoprocketElement {
     window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
 
+    // Clean up hash router listener (primary catalog only)
+    if (this.hashRouter) {
+      this.hashRouter.removeEventListener('state-change', this.handleHashStateChange);
+    }
+
     // Clean up primary instance reference if this was primary
     if (this.isPrimary && ProductCatalog.primaryInstance === this) {
       ProductCatalog.primaryInstance = null;
-      this.hashRouter?.removeEventListener('state-change', this.handleHashStateChange);
     }
   }
 
@@ -767,9 +783,9 @@ export class ProductCatalog extends ShoprocketElement {
       return;
     }
 
-    // If not the primary instance (embedded in another widget), dispatch event
+    // If using Light DOM (embedded in another widget), dispatch event
     // so parent can handle everything (URL routing + product display)
-    if (!this.isPrimary) {
+    if (this.useLightDom) {
       // Calculate prev/next products for parent widget to use
       const prevProduct = targetIndex > 0 ? this.allProducts.get(targetIndex - 1) || null : null;
       const nextProduct = targetIndex < this.totalProducts - 1 ? this.allProducts.get(targetIndex + 1) || null : null;
@@ -785,7 +801,7 @@ export class ProductCatalog extends ShoprocketElement {
       return; // Parent handles product display
     }
 
-    // Primary instance handles product display directly
+    // All Shadow DOM instances handle their own product display
     this.currentProductIndex = targetIndex;
     await this.showProductDetail(product);
   }
@@ -1047,17 +1063,16 @@ export class ProductCatalog extends ShoprocketElement {
     const pageSize = this.actualPageSize || this.perPage;
     const targetPage = Math.floor(targetIndex / pageSize) + 1;
 
-    // Update URL with product and page
+    // Navigate to product
     if (this.isPrimary) {
-      // The hash change will trigger updateViewFromState -> showProductBySlug -> loadFullProduct
+      // Primary catalog: Update URL (hash change will trigger product load)
       this.hashRouter.navigateToProduct(product.slug || product.id, false, { page: targetPage });
-    } else {
-      // Non-primary instances (embedded in other widgets) dispatch event
-      // Calculate prev/next for the new product
+      // Scroll to top of this catalog immediately
+      this.scrollToTop();
+    } else if (this.useLightDom) {
+      // Light DOM catalog (embedded in parent widget): Dispatch event for parent to handle
       const prevProduct = targetIndex > 0 ? this.allProducts.get(targetIndex - 1) || null : null;
       const nextProduct = targetIndex < this.totalProducts - 1 ? this.allProducts.get(targetIndex + 1) || null : null;
-
-      // Convert Map to array for caching in parent widget
       const allProducts = Array.from(this.allProducts.values());
 
       this.dispatchEvent(new CustomEvent('product-click', {
@@ -1066,6 +1081,11 @@ export class ProductCatalog extends ShoprocketElement {
         composed: true,
       }));
       return; // Parent handles navigation
+    } else {
+      // Secondary Shadow DOM catalog: Navigate locally without URL updates
+      await this.showProductBySlug(product.slug || product.id);
+      // Scroll to top of this catalog
+      this.scrollToTop();
     }
 
     // Ensure adjacent products are loaded for smooth navigation
@@ -1164,14 +1184,15 @@ export class ProductCatalog extends ShoprocketElement {
   
   private async goToPage(page: number): Promise<void> {
     if (page < 1 || page > this.totalPages || page === this.currentPage) return;
-    
+
+    // Update URL (primary catalog only)
     if (this.isPrimary) {
-      // Update URL hash with page number - this will trigger updateViewFromState
       // DON'T update currentPage here, let updateViewFromState handle it
       this.hashRouter.updateCatalogState({ page });
-      // The hash change will handle loading and scrolling
+      // Scroll to top of this catalog immediately (don't wait for hash change)
+      this.scrollToTop();
     } else {
-      // Non-primary instances load directly
+      // Secondary catalogs: load directly without URL updates
       this.currentPage = page;
       await this.loadProducts(page);
       this.scrollToTop();
@@ -1203,14 +1224,18 @@ export class ProductCatalog extends ShoprocketElement {
     const pageSize = this.actualPageSize || this.perPage;
     const targetPage = Math.floor(this.currentProductIndex / pageSize) + 1;
 
+    // Update URL (primary catalog only)
     if (this.isPrimary) {
-      // Primary instance updates URL - this will trigger updateViewFromState -> showProductBySlug -> loadFullProduct
       this.hashRouter.navigateToProduct(productSlug, false, { page: targetPage });
+      // Scroll to top of this catalog immediately
+      this.scrollToTop();
     } else {
-      // Non-primary instances need to load the product directly
+      // Secondary catalogs: local state only, no URL updates
       this.currentView = 'product';
       this.savedScrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
       await this.loadFullProduct(productSlug);
+      // Scroll to top of this catalog
+      this.scrollToTop();
     }
 
     // Ensure adjacent products are loaded
@@ -1370,12 +1395,16 @@ export class ProductCatalog extends ShoprocketElement {
 
 
   private async backToList(): Promise<void> {
+    // Update URL (primary catalog only)
     if (this.isPrimary) {
-      // Primary instance updates URL
-      this.hashRouter.navigateToList();
+      this.hashRouter.navigateToList(true);
+      // Scroll to top of this catalog
+      this.scrollToTop();
     } else {
-      // Non-primary instances just update local state
+      // Secondary catalogs: just update local state
       await this.showList();
+      // Scroll to top of this catalog
+      this.scrollToTop();
     }
   }
   

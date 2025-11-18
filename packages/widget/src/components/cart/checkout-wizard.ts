@@ -549,7 +549,7 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
             ${context.shippingAddress.company ? html`<p>${context.shippingAddress.company}</p>` : ''}
             <p>${context.shippingAddress.line1}</p>
             ${context.shippingAddress.line2 ? html`<p>${context.shippingAddress.line2}</p>` : ''}
-            <p>${context.shippingAddress.city}, ${context.shippingAddress.state} ${context.shippingAddress.postal_code}</p>
+            <p>${context.shippingAddress.city}, ${context.shippingAddress.state} ${context.shippingAddress.postalCode}</p>
             <p>${context.shippingAddress.country}</p>
           </div>
         </div>
@@ -586,7 +586,7 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
               ${context.billingAddress.company ? html`<p>${context.billingAddress.company}</p>` : ''}
               <p>${context.billingAddress.line1}</p>
               ${context.billingAddress.line2 ? html`<p>${context.billingAddress.line2}</p>` : ''}
-              <p>${context.billingAddress.city}, ${context.billingAddress.state} ${context.billingAddress.postal_code}</p>
+              <p>${context.billingAddress.city}, ${context.billingAddress.state} ${context.billingAddress.postalCode}</p>
               <p>${context.billingAddress.country}</p>
             </div>
           `}

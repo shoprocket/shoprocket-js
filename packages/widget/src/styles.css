@@ -62,7 +62,7 @@
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 
   /* Define a custom color that maps to color utilities */
-  --color-card-bg: #f3f4f6;
+  --card: #f3f4f6;
 }
 
 /*
@@ -123,44 +123,8 @@
   --tw-border-spacing-y: 0;
 
   /* =====================================================
-   * CORE THEME COLORS - User Customizable
-   * These are the main colors users set in the theme editor
-   * ===================================================== */
-  --color-surface: #ffffff;
-  --color-surface-hover: #f9fafb;
-  --color-primary: #111827;
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-border: #e5e7eb;
-  --color-hover: #f3f4f6;
-  --color-error: #c10007;
-  --color-success: #15803d;
-  --color-info: #3b82f6;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-
-  /* RGB variants for alpha transparency (space-separated for CSS rgba) */
-  --color-surface-rgb: 255 255 255;
-  --color-primary-rgb: 17 24 39;
-  --color-text-rgb: 17 24 39;
-
-  /* Overlay colors for modals/dialogs */
-  --color-overlay: rgba(0, 0, 0, 0.5);
-
-  /* Warning/test mode colors */
-  --color-warning-bg: rgba(251, 191, 36, 0.1);
-  --color-warning-text: rgb(180, 83, 9);
-
-  /* Text on colored backgrounds */
-  --color-on-primary: #ffffff;
-  --color-on-surface: #111827;
-  --color-on-success: #ffffff;
-  --color-on-error: #ffffff;
-
-  /* =====================================================
-   * AUTO-DERIVED COLORS - Calculated Automatically
-   * These adapt based on core colors above
-   * Advanced users can override by setting the specific variable
+   * STRUCTURAL VARIABLES - Non-Color Settings
+   * These don't change between light/dark modes
    * ===================================================== */
 
   /* Spacing - Tailwind v4 uses its own spacing scale internally */
@@ -174,8 +138,7 @@
   /* Themes define: --shadow-color, --shadow-opacity, --shadow-offset-x, --shadow-offset-y, --shadow-blur, --shadow-spread */
   --tw-shadow: var(--shadow-offset-x, 0px) var(--shadow-offset-y, 0px) var(--shadow-blur, 0px) var(--shadow-spread, 0px) color-mix(in srgb, var(--shadow-color, transparent) calc(var(--shadow-opacity, 0) * 100%), transparent);
 
-  /* Skeleton shimmer - ONE gradient and duration for all loading states */
-  --skeleton-shimmer-gradient: linear-gradient(90deg, rgb(243, 244, 246) 0%, rgb(249, 250, 251) 50%, rgb(243, 244, 246) 100%);
+  /* Skeleton shimmer duration (gradient changes per mode) */
   --skeleton-shimmer-duration: 2.5s;
 
   /* Grid columns */
@@ -224,7 +187,7 @@
   /* Product grid responsive columns */
   .sr-product-grid {
     @apply grid gap-4;
-    background: var(--color-surface);
+    background: var(--card);
     padding: var(--sr-product-grid-padding);
     border-radius: var(--sr-radius);
     grid-template-columns: repeat(var(--cols-sm, 2), minmax(0, 1fr));
@@ -426,8 +389,8 @@
   /* Product Card */
   .sr-product-card {
     @apply flex flex-col h-full text-left;
-    background: var(--color-surface);
-    color: var(--color-text);
+    background: var(--card);
+    color: var(--foreground);
     border-radius: var(--sr-radius);
   }
 
@@ -489,7 +452,7 @@
   /* Product Title */
   .sr-product-title {
     @apply font-medium leading-tight transition-colors;
-    color: var(--color-text);
+    color: var(--foreground);
     font-size: var(--sr-product-title-size);
     margin-bottom: 0.5rem;
   }
@@ -505,7 +468,7 @@
   /* Product Price */
   .sr-product-price {
     @apply font-semibold;
-    color: var(--color-text);
+    color: var(--foreground);
     font-size: var(--sr-product-price-size);
   }
 
@@ -539,8 +502,8 @@
 
   /* Primary Button */
   .sr-button-primary {
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -555,8 +518,8 @@
 
   /* Success Button State */
   .sr-button-success {
-    background: var(--color-success, #15803d);
-    color: var(--color-on-success, #ffffff);
+    background: var(--success, #15803d);
+    color: var(--success-foreground, #ffffff);
   }
 
 
@@ -580,7 +543,7 @@
   /* Cart Overlay */
   .sr-cart-overlay {
     @apply fixed inset-0 z-[9998] transition-opacity;
-    background: var(--color-overlay);
+    background: var(--overlay);
   }
 
   .sr-cart-overlay.open {
@@ -624,8 +587,8 @@
   /* Cart Toggle Button */
   .sr-cart-toggle-button {
     @apply border-none flex items-center justify-center cursor-pointer relative transition-all duration-200 transform hover:scale-105;
-    background: var(--color-surface);
-    color: var(--color-on-surface);
+    background: var(--card);
+    color: var(--card-foreground);
     border-radius: var(--sr-radius);
     width: var(--cart-size);
     height: var(--cart-size);
@@ -674,7 +637,7 @@
   .sr-cart-panel {
     @apply fixed flex flex-col z-[10001] transition-all duration-300 ease-out;
     @apply overflow-hidden;
-    background: var(--color-surface);
+    background: var(--card);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Direct shadow - doesn't affect children */
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -774,33 +737,33 @@
   .sr-cart-header {
     @apply px-4 py-4 flex items-center gap-1;
     @apply relative;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--border);
   }
   
   .sr-cart-back-arrow {
-    @apply text-lg leading-none p-1 -ms-2 w-8 h-8 rounded hover:bg-[var(--color-hover)] transition-colors cursor-pointer;
+    @apply text-lg leading-none p-1 -ms-2 w-8 h-8 rounded hover:bg-[var(--secondary)] transition-colors cursor-pointer;
     background: transparent;
     border: none;
-    color: var(--color-text);
+    color: var(--foreground);
     font-weight: 200;
   }
 
   .sr-cart-title {
     @apply flex-1;
     @apply m-0 text-base font-semibold;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   /* Cart Close Button */
   .sr-cart-close {
     @apply bg-transparent border-none p-0 w-8 h-8 flex items-center justify-center rounded transition-all duration-200 cursor-pointer;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     user-select: none;
     -webkit-user-select: none;
   }
 
   .sr-cart-close:hover {
-    background: var(--color-hover);
+    background: var(--secondary);
     /* opacity: 0.6; */
   }
 
@@ -813,7 +776,7 @@
   /* Cart Footer */
   .sr-cart-footer {
     @apply px-4 py-4 space-y-3;
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid var(--border);
   }
 
   /* Cart Subtotal */
@@ -823,13 +786,13 @@
 
   .sr-cart-subtotal-label {
     @apply text-sm;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     opacity: 0.6;
   }
 
   .sr-cart-subtotal-amount {
     @apply text-base font-medium;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   /* Reusable Button Styles */
@@ -844,8 +807,8 @@
 
   .sr-btn-primary {
     @apply border-none;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   .sr-btn-primary:hover:not(:disabled) {
@@ -854,17 +817,17 @@
 
   .sr-btn-secondary {
     @apply bg-transparent;
-    border: 1px solid var(--color-border);
-    color: var(--color-text);
+    border: 1px solid var(--border);
+    color: var(--foreground);
   }
 
   .sr-btn-secondary:hover:not(:disabled) {
-    background: var(--color-surface-hover);
+    background: var(--muted);
   }
 
   .sr-btn-link {
     @apply text-sm font-medium underline cursor-pointer transition-opacity;
-    color: var(--color-primary);
+    color: var(--primary);
   }
 
   .sr-btn-link:hover {
@@ -878,8 +841,8 @@
   /* Cart Checkout Button - extends sr-btn sr-btn-primary */
   .sr-cart-checkout-button {
     @apply border-none py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99];
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
     border-radius: var(--sr-radius);
     user-select: none;
     -webkit-user-select: none;
@@ -896,19 +859,19 @@
 
   .sr-cart-empty-icon {
     @apply w-16 h-16 mb-4;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     opacity: 0.3;
   }
 
   .sr-cart-empty-text {
     @apply text-base mb-6;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     opacity: 0.6;
   }
 
   .sr-cart-empty-button {
     @apply text-sm underline underline-offset-2 bg-transparent border-none cursor-pointer transition-colors;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   .sr-cart-empty-button:hover {
@@ -918,7 +881,7 @@
   /* Cart Item */
   .sr-cart-item {
     @apply flex gap-3 py-3 last:border-b-0;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--border);
   }
 
   .sr-cart-item-image {
@@ -953,7 +916,7 @@
 
   .sr-cart-item-title {
     @apply font-medium text-sm mb-0.5 leading-tight cursor-pointer transition-colors;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   .sr-cart-item-title:hover {
@@ -962,7 +925,7 @@
 
   .sr-cart-item-variant {
     @apply text-xs mb-0;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     opacity: 0.4;
   }
 
@@ -981,22 +944,22 @@
 
   .sr-cart-quantity-button {
     @apply w-7 h-7 rounded border-none flex items-center justify-center cursor-pointer transition-all duration-200;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
     user-select: none;
     -webkit-user-select: none;
   }
 
   @media (hover: hover) and (pointer: fine) {
     .sr-cart-quantity-button:hover:not(:disabled) {
-      background: var(--color-primary);
-      color: var(--color-on-primary);
+      background: var(--primary);
+      color: var(--primary-foreground);
     }
   }
 
   .sr-cart-quantity-button:active:not(:disabled) {
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   .sr-cart-quantity-button:disabled {
@@ -1005,34 +968,34 @@
 
   .sr-cart-quantity-value {
     @apply text-sm font-medium min-w-[20px] text-center;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   /* Cart Item Price */
   .sr-cart-item-price {
     @apply text-sm font-semibold;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   /* Cart Item Remove */
   .sr-cart-item-remove {
     @apply border-none bg-transparent p-1 cursor-pointer transition-colors;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     opacity: 0.4;
     user-select: none;
     -webkit-user-select: none;
   }
 
   .sr-cart-item-remove:hover {
-    color: var(--color-error);
+    color: var(--destructive);
     opacity: 1;
   }
 
   /* Cart Badge */
   .sr-cart-badge {
     @apply absolute -top-2 -end-2 min-w-[1.25rem] h-5 rounded-full flex items-center justify-center text-xs font-bold px-1;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
   
   @media (max-width: 640px) {
@@ -1054,7 +1017,7 @@
   /* Powered by text */
   .sr-cart-powered-by {
     @apply text-xs text-center m-0 flex items-center justify-center gap-1;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     opacity: 0.8;
   }
 
@@ -1101,7 +1064,7 @@
 
   /* Product Detail Container */
   .sr-product-detail {
-    background: var(--color-surface);
+    background: var(--card);
     padding: var(--sr-product-grid-padding);
     border-radius: var(--sr-radius);
   }
@@ -1118,7 +1081,7 @@
 
   .sr-back-button {
     @apply bg-transparent border-none cursor-pointer text-sm font-medium inline-flex items-center gap-2 transition-colors;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     opacity: 0.6;
   }
 
@@ -1132,13 +1095,13 @@
   
   .sr-nav-button {
     @apply px-3 py-1 bg-transparent border rounded-md cursor-pointer text-sm font-medium transition-all;
-    border-color: var(--color-border);
-    color: var(--color-on-surface);
+    border-color: var(--border);
+    color: var(--card-foreground);
     box-shadow: var(--tw-shadow);
   }
   
   .sr-nav-button:hover:not(.disabled) {
-    background: var(--color-hover);
+    background: var(--secondary);
   }
   
   .sr-nav-button.disabled {
@@ -1202,12 +1165,12 @@
   }
 
   .sr-product-detail-thumbnail:hover {
-    border-color: var(--color-primary);
+    border-color: var(--primary);
     opacity: 0.8;
   }
 
   .sr-product-detail-thumbnail.active {
-    border-color: var(--color-primary);
+    border-color: var(--primary);
   }
 
   /* Product Detail Content */
@@ -1217,12 +1180,12 @@
 
   .sr-product-detail-title {
     @apply text-2xl font-medium mb-2 m-0;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   .sr-product-detail-price {
     @apply text-2xl font-medium mb-2;
-    color: var(--color-primary);
+    color: var(--primary);
   }
   
   /* Stock Status Styles */
@@ -1234,26 +1197,26 @@
   }
 
   .sr-in-stock {
-    color: var(--color-success); /* Green-700 for better contrast (4.5:1 ratio) */
+    color: var(--success); /* Green-700 for better contrast (4.5:1 ratio) */
     border-color: var(--color-green-200);
     background-color: var(--color-green-100);
   }
 
   .sr-low-stock {
-    color: var(--color-warning); /* Orange-700 for better contrast (4.6:1 ratio) */
+    color: var(--warning); /* Orange-700 for better contrast (4.6:1 ratio) */
     border-color: var(--color-yellow-200);
     background-color: var(--color-yellow-100);
   }
 
   .sr-out-of-stock {
-    color: var(--color-error); /* Red-700 for better contrast (5.9:1 ratio) */
+    color: var(--destructive); /* Red-700 for better contrast (5.9:1 ratio) */
     border-color: var(--color-red-200);
     background-color: var(--color-red-100);
   }
 
   .sr-product-detail-summary {
     @apply mb-6 text-sm leading-relaxed;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     opacity: 0.6;
   }
 
@@ -1272,7 +1235,7 @@
   
   .sr-product-option-label {
     @apply text-sm font-medium;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
   
   .sr-product-option-values {
@@ -1285,7 +1248,7 @@
 
   .sr-variant-label {
     @apply text-sm font-medium;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   .sr-variant-options {
@@ -1294,20 +1257,20 @@
 
   .sr-variant-option {
     @apply px-4 py-2 rounded border cursor-pointer transition-all text-sm;
-    border-color: var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-on-surface);
+    border-color: var(--border);
+    background: var(--card);
+    color: var(--card-foreground);
     box-shadow: var(--tw-shadow);
   }
 
   .sr-variant-option:hover {
-    border-color: var(--color-primary);
+    border-color: var(--primary);
   }
 
   .sr-variant-option.selected {
-    background: var(--color-primary);
-    color: var(--color-on-primary);
-    border-color: var(--color-primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
   }
 
   .sr-variant-option:disabled {
@@ -1320,8 +1283,8 @@
     background: linear-gradient(
       to bottom right,
       transparent calc(50% - 1px),
-      var(--color-text, #1f2937) calc(50% - 1px),
-      var(--color-text, #1f2937) calc(50% + 1px),
+      var(--foreground, #1f2937) calc(50% - 1px),
+      var(--foreground, #1f2937) calc(50% + 1px),
       transparent calc(50% + 1px)
     );
     opacity: 0.3;
@@ -1342,29 +1305,29 @@
 
   .sr-quantity-label {
     @apply text-sm font-medium block;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   .sr-quantity-controls {
     @apply flex items-center border rounded-lg w-full;
-    border-color: var(--color-border);
+    border-color: var(--border);
     box-shadow: var(--tw-shadow);
   }
 
   .sr-quantity-button {
     @apply w-10 h-10 flex items-center justify-center cursor-pointer transition-colors;
     background: transparent;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   @media (hover: hover) and (pointer: fine) {
     .sr-quantity-button:hover:not(:disabled) {
-      background: var(--color-hover);
+      background: var(--secondary);
     }
   }
 
   .sr-quantity-button:active:not(:disabled) {
-    background: var(--color-hover);
+    background: var(--secondary);
   }
 
   .sr-quantity-button:disabled {
@@ -1373,7 +1336,7 @@
 
   .sr-quantity-input {
     @apply flex-1 min-w-0 text-center font-medium border-0 outline-none;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
     background: transparent;
     -moz-appearance: textfield; /* Remove spinner in Firefox */
   }
@@ -1390,13 +1353,13 @@
 
   .sr-quantity-value {
     @apply w-12 text-center font-medium;
-    color: var(--color-on-surface);
+    color: var(--card-foreground);
   }
 
   /* Add to Cart Button (reuse from existing) */
   .sr-add-to-cart-button {
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   .sr-add-to-cart-button:hover {
@@ -1408,42 +1371,42 @@
   }
 
   .sr-add-to-cart-button.success {
-    background: var(--color-success, #15803d);
-    color: var(--color-on-success, #ffffff);
+    background: var(--success, #15803d);
+    color: var(--success-foreground, #ffffff);
   }
 
   .sr-add-to-cart-button.success:hover {
-    background: var(--color-success, #15803d);
+    background: var(--success, #15803d);
     opacity: 0.9;
   }
 
   /* View Cart Button */
   .sr-view-cart-button {
     @apply border-1;
-    background: var(--color-surface);
-    color: var(--color-text);
-    border-color: var(--color-border);
+    background: var(--card);
+    color: var(--foreground);
+    border-color: var(--border);
   }
 
   .sr-view-cart-button:hover {
-    background: var(--color-hover);
+    background: var(--secondary);
   }
 
 
   /* Product Description */
   .sr-product-description {
     @apply mt-8 pt-8 border-t;
-    border-color: var(--color-border);
+    border-color: var(--border);
   }
 
   .sr-product-description-title {
     @apply text-2xl font-semibold mb-4;
-    color: var(--color-text);
+    color: var(--foreground);
   }
 
   .sr-product-description-content {
     @apply text-base leading-relaxed space-y-4;
-    color: var(--color-text);
+    color: var(--foreground);
   }
 
   .sr-product-description-content p {
@@ -1452,21 +1415,21 @@
 
   .sr-product-description-content strong {
     @apply font-semibold;
-    color: var(--color-text);
+    color: var(--foreground);
   }
 
   /* Product Detail Info Text */
   .sr-product-detail-info-text {
     @apply text-xs text-center mt-6;
-    color: var(--color-text-muted);
+    color: var(--muted-foreground);
     /* Removed opacity: 0.6 to maintain proper contrast (4.5:1 minimum for accessibility) */
   }
 
   /* Zoom Lens */
   .sr-zoom-lens {
     @apply absolute pointer-events-none border rounded-full w-24 h-24 shadow-2xl;
-    border-color: var(--color-border);
-    background: var(--color-surface);
+    border-color: var(--border);
+    background: var(--card);
     opacity: 0.3;
   }
 }
@@ -1549,7 +1512,7 @@
 }
 
 .sr-in-cart-notification.sr-notification-error * {
-  color: var(--color-error, #ef4444);
+  color: var(--destructive, #ef4444);
 }
 
 .sr-in-cart-notification-message {
@@ -1570,7 +1533,7 @@
 .sr-notification-error .sr-notification-content {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.2);
-  color: var(--color-error, #ef4444);
+  color: var(--destructive, #ef4444);
 }
 
 /* Error styling for ALL elements in error notifications */
@@ -1578,7 +1541,7 @@
   background: #fef2f2 !important;
 }
 .sr-add-notification.sr-notification-error * {
-  color: var(--color-error, #ef4444);
+  color: var(--destructive, #ef4444);
 }
 /* Make the arrow match error background */
 .sr-add-notification.sr-notification-error .sr-arrow-inner {
@@ -1588,7 +1551,7 @@
 .sr-notification-success .sr-notification-content {
   background: rgba(21, 128, 61, 0.1);
   border-color: rgba(21, 128, 61, 0.2);
-  color: var(--color-success, #15803d);
+  color: var(--success, #15803d);
 }
 
 .sr-notification-icon {
@@ -1609,14 +1572,14 @@
   @apply bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-3;
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.2);
-  color: var(--color-error, #ef4444);
+  color: var(--destructive, #ef4444);
 }
 
 .sr-success-message {
   @apply flex items-center gap-2 p-3 rounded-lg mb-3;
   background: rgba(21, 128, 61, 0.1);
   border: 1px solid rgba(21, 128, 61, 0.2);
-  color: var(--color-success, #15803d);
+  color: var(--success, #15803d);
 }
 
 
@@ -1697,9 +1660,9 @@
 }
 
 .sr-product-thumbnail.active {
-  border-color: var(--color-primary);
+  border-color: var(--primary);
   @apply ring-2;
-  --tw-ring-color: var(--color-primary);
+  --tw-ring-color: var(--primary);
   --tw-ring-opacity: 0.2;
 }
 
@@ -1741,7 +1704,7 @@
 
 .sr-loading-message {
   @apply text-sm;
-  color: rgba(var(--color-text-rgb, 0, 0, 0), 0.6);
+  color: rgba(var(--foreground-rgb, 0, 0, 0), 0.6);
 }
 
 .sr-loading-spinner {
@@ -1940,7 +1903,7 @@
 /* Add Notification Styles */
 .sr-add-notification {
   @apply absolute px-3 py-3 min-w-[260px] max-w-[320px];
-  background: var(--color-surface);
+  background: var(--card);
   border-radius: var(--sr-radius);
   box-shadow: var(--tw-shadow);
   z-index: -1;
@@ -1965,7 +1928,7 @@
 .sr-add-notification-image {
   @apply w-10 h-10 flex-shrink-0 overflow-hidden;
   border-radius: var(--sr-radius);
-  background: var(--color-hover);
+  background: var(--secondary);
 }
 
 @media (max-width: 640px) {
@@ -1984,7 +1947,7 @@
 
 .sr-add-notification-title {
   @apply text-sm font-medium leading-tight mb-0.5 truncate;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 @media (max-width: 640px) {
@@ -1999,7 +1962,7 @@
 
 .sr-add-notification-price {
   @apply text-xs flex-shrink-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 @media (max-width: 640px) {
@@ -2026,7 +1989,7 @@
 
 .sr-cart-badge-count {
   @apply text-sm font-bold;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 /* Add Notification Position Classes */
@@ -2234,7 +2197,7 @@
   @apply absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 cursor-pointer z-10;
   @apply flex items-center justify-center rounded-md;
   @apply transition-opacity hover:opacity-60;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
   background: transparent;
   border: none;
   padding: 0;
@@ -2256,7 +2219,7 @@
 
 .sr-product-count {
   @apply text-sm whitespace-nowrap;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* Price Range Slider */
@@ -2280,8 +2243,8 @@
 /* Price Range Field - matches field-select styling */
 .sr-price-range-field {
   @apply w-full rounded-md;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background-color: var(--card);
+  border: 1px solid var(--border);
   height: 48px; /* Match other filters exactly */
   transition: border-color 0.2s ease;
   padding: 6px 12px;
@@ -2295,7 +2258,7 @@
 }
 
 .sr-price-range-field:hover {
-  border-color: var(--color-primary);
+  border-color: var(--primary);
 }
 
 .sr-price-range-header {
@@ -2305,13 +2268,13 @@
 
 .sr-price-range-label {
   @apply text-xs font-normal;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
   line-height: 1.2;
 }
 
 .sr-price-range-values {
   @apply text-xs font-normal tabular-nums;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
   line-height: 1.2;
 }
 
@@ -2328,7 +2291,7 @@
   height: 5px; /* Track height for better visibility */
   top: 50%;
   transform: translateY(-50%);
-  background: var(--color-border);
+  background: var(--border);
   pointer-events: none;
 }
 
@@ -2372,7 +2335,7 @@
   width: 20px;
   height: 20px;
   background: #fff;
-  border: 2px solid var(--color-primary);
+  border: 2px solid var(--primary);
   box-shadow: var(--tw-shadow);
   position: relative;
   z-index: 4;
@@ -2384,7 +2347,7 @@
   width: 20px;
   height: 20px;
   background: #fff;
-  border: 2px solid var(--color-primary);
+  border: 2px solid var(--primary);
   box-shadow: var(--tw-shadow);
   position: relative;
   z-index: 4;
@@ -2407,14 +2370,14 @@
   @apply cursor-grabbing;
   transform: scale(1.05);
   box-shadow: var(--tw-shadow);
-  background: var(--color-primary);
+  background: var(--primary);
 }
 
 .sr-price-range-slider input[type="range"]:active::-moz-range-thumb {
   @apply cursor-grabbing;
   transform: scale(1.05);
   box-shadow: var(--tw-shadow);
-  background: var(--color-primary);
+  background: var(--primary);
 }
 
 /* Ensure max slider is above min slider */
@@ -2433,14 +2396,14 @@
 
 .sr-pagination-button {
   @apply px-3 py-2 border rounded-md cursor-pointer text-sm font-medium transition-all;
-  background: var(--color-surface);
-  border-color: var(--color-border);
-  color: var(--color-on-surface);
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--card-foreground);
   box-shadow: var(--tw-shadow);
 }
 
 .sr-pagination-button:hover:not(:disabled):not(.disabled) {
-  background: var(--color-hover);
+  background: var(--secondary);
 }
 
 .sr-pagination-button:disabled,
@@ -2453,36 +2416,36 @@
 }
 
 .sr-pagination-page.active {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border-color: var(--color-primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
   @apply cursor-default opacity-100;
 }
 
 .sr-pagination-page.active:hover {
-  background: var(--color-primary);
+  background: var(--primary);
 }
 
 .sr-pagination-ellipsis {
   @apply px-2 text-sm;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* Empty State */
 .sr-empty-state {
   @apply text-center py-12 px-6;
   grid-column: 1 / -1; /* Span full width of grid */
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-empty-state-title {
   @apply text-xl font-semibold mb-2;
-  color: var(--color-text);
+  color: var(--foreground);
 }
 
 .sr-empty-state-message {
   @apply text-base max-w-md mx-auto;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* Product Detail Error State */
@@ -2504,7 +2467,7 @@
 }
 
 .sr-address-form-title {
-  @apply text-xl font-semibold text-[var(--color-text)] mb-6;
+  @apply text-xl font-semibold text-[var(--foreground)] mb-6;
 }
 
 /* Using space-y-3 directly in components */
@@ -2524,7 +2487,7 @@
   top: 0.875rem; /* Fixed position to match input, stays stable when error messages appear */
   width: 1.125rem;
   height: 1.125rem;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
   opacity: 0.5;
 }
 
@@ -2544,7 +2507,7 @@
   top: 0.875rem;
   width: 1.125rem;
   height: 1.125rem;
-  color: var(--color-success);
+  color: var(--success);
   opacity: 0;
   transition: opacity 200ms;
 }
@@ -2562,7 +2525,7 @@
 /* Floating Label Styles */
 .sr-field-label {
   @apply absolute start-3 transition-all duration-200 pointer-events-none;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* Default position - centered in input */
@@ -2585,12 +2548,12 @@
 .peer.sr-field-select.has-value ~ .sr-field-label {
   @apply text-xs;
   top: 0.25rem;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* Color change on focus */
 .peer:focus ~ .sr-field-label {
-  color: var(--color-primary);
+  color: var(--primary);
 }
 
 .sr-field-required {
@@ -2599,8 +2562,8 @@
 
 /* Base theming for all form inputs - shared by sr-field-input, sr-otp-input, etc. */
 @utility sr-field-base {
-  background-color: var(--color-surface);
-  color: var(--color-on-surface);
+  background-color: var(--card);
+  color: var(--card-foreground);
   box-shadow: var(--tw-shadow);
 }
 
@@ -2609,7 +2572,7 @@
 .sr-field-select {
   @apply w-full px-3 pt-5 pb-1.5 border text-sm sr-field-base;
   border-radius: var(--sr-radius);
-  border-color: var(--color-border);
+  border-color: var(--border);
   min-height: 2.75rem;
   /* iOS zoom prevention via touch-action is in :host reset */
 }
@@ -2621,31 +2584,31 @@
 .sr-field-input:focus,
 .sr-field-select:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border-color: var(--primary);
 }
 
 .sr-field-input:hover:not(:focus):not(:disabled),
 .sr-field-select:hover:not(:focus):not(:disabled) {
-  border-color: var(--color-border);
+  border-color: var(--border);
 }
 
 .sr-field-input:disabled,
 .sr-field-select:disabled {
   @apply cursor-not-allowed;
-  background: var(--color-surface-hover);
-  color: var(--color-text-muted);
+  background: var(--muted);
+  color: var(--muted-foreground);
   opacity: 0.5;
-  border-color: var(--color-border);
+  border-color: var(--border);
 }
 
 .sr-field-input.sr-field-error,
 .sr-field-select.sr-field-error {
-  border-color: var(--color-error, #ef4444);
+  border-color: var(--destructive, #ef4444);
 }
 
 .sr-field-input.sr-field-error:focus,
 .sr-field-select.sr-field-error:focus {
-  border-color: var(--color-error, #ef4444);
+  border-color: var(--destructive, #ef4444);
 }
 
 /* Select dropdown arrow */
@@ -2673,7 +2636,7 @@
 .sr-field-error-message {
   @apply mt-1;
   @apply text-xs;
-  color: var(--color-error, #ef4444);
+  color: var(--destructive, #ef4444);
   line-height: 1.4;
 }
 
@@ -2681,7 +2644,7 @@
 .sr-field-helper-text {
   @apply mt-1.5 -mb-1;
   @apply text-xs;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
   line-height: 1.4;
 }
 
@@ -2703,12 +2666,12 @@
 /* Using Tailwind classes directly in components */
 
 .sr-customer-form-title {
-  @apply text-lg font-semibold text-[var(--color-text)] mb-4;
+  @apply text-lg font-semibold text-[var(--foreground)] mb-4;
 }
 
 .sr-form-intro-text {
   @apply text-xs mb-3;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
   opacity: 0.7;
   line-height: 1.5;
 }
@@ -2725,16 +2688,16 @@
 
 .sr-guest-option {
   @apply flex items-center cursor-pointer p-3 border rounded-md transition-colors duration-200;
-  background: var(--color-surface);
-  border-color: var(--color-border);
+  background: var(--card);
+  border-color: var(--border);
 }
 
 .sr-guest-option:hover {
-  border-color: var(--color-primary);
+  border-color: var(--primary);
 }
 
 .sr-guest-option.sr-guest-active {
-  @apply border-[var(--color-primary)] bg-[var(--color-primary)]/5;
+  @apply border-[var(--primary)] bg-[var(--primary)]/5;
 }
 
 .sr-guest-option input[type="radio"] {
@@ -2742,31 +2705,31 @@
 }
 
 .sr-guest-option-text {
-  @apply text-sm font-medium text-[var(--color-text)] ms-2;
+  @apply text-sm font-medium text-[var(--foreground)] ms-2;
 }
 
 .sr-guest-option.sr-guest-active .sr-guest-option-text {
-  @apply text-[var(--color-primary)];
+  @apply text-[var(--primary)];
 }
 
 /* Field Help Text */
 .sr-field-help {
   @apply mt-0.5;
   @apply text-xs;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
   line-height: 1.3;
 }
 
 /* Account Notice */
 .sr-account-notice {
   @apply flex items-start space-x-3 p-4 rounded-md;
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border);
+  background: var(--muted);
+  border: 1px solid var(--border);
 }
 
 .sr-account-notice-icon {
   @apply w-5 h-5 mt-0.5 flex-shrink-0;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-account-notice-text {
@@ -2775,12 +2738,12 @@
 
 .sr-account-notice-text strong {
   @apply font-medium block mb-1;
-  color: var(--color-text);
+  color: var(--foreground);
 }
 
 .sr-account-notice-text p {
   @apply m-0;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* ==========================================
@@ -2789,16 +2752,16 @@
 
 .sr-checkout-step-header {
   @apply flex justify-between items-center pb-3 mb-3 border-b;
-  border-color: var(--color-border);
+  border-color: var(--border);
 }
 
 .sr-checkout-step-title {
-  @apply text-xl font-semibold text-[var(--color-text)] m-0;
+  @apply text-xl font-semibold text-[var(--foreground)] m-0;
 }
 
 .sr-checkout-progress {
   @apply text-sm;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* Checkout Navigation */
@@ -2812,17 +2775,17 @@
 }
 
 .sr-checkout-button-primary {
-  @apply bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90;
-  @apply focus:ring-[var(--color-primary)];
+  @apply bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90;
+  @apply focus:ring-[var(--primary)];
 }
 
 .sr-checkout-button-secondary {
-  @apply bg-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-hover)];
-  @apply focus:ring-[var(--color-primary)];
+  @apply bg-[var(--border)] text-[var(--foreground)] hover:bg-[var(--secondary)];
+  @apply focus:ring-[var(--primary)];
 }
 
 .sr-checkout-button:disabled {
-  @apply opacity-50 cursor-not-allowed hover:bg-[var(--color-primary)] hover:bg-[var(--color-border)];
+  @apply opacity-50 cursor-not-allowed hover:bg-[var(--primary)] hover:bg-[var(--border)];
 }
 
 /* Same as Shipping Checkbox */
@@ -2831,15 +2794,15 @@
 }
 
 .sr-checkbox-label input[type="checkbox"] {
-  @apply size-5 rounded border-[var(--color-border)] 
-         bg-[var(--color-surface)] transition-all duration-150
-         hover:border-[var(--color-primary)] cursor-pointer
+  @apply size-5 rounded border-[var(--border)] 
+         bg-[var(--card)] transition-all duration-150
+         hover:border-[var(--primary)] cursor-pointer
          focus:outline-none focus:ring-0;
-  accent-color: var(--color-primary);
+  accent-color: var(--primary);
 }
 
 .sr-checkbox-text {
-  @apply ms-2 text-sm font-medium text-[var(--color-text-muted)]
+  @apply ms-2 text-sm font-medium text-[var(--muted-foreground)]
          transition-colors duration-150 select-none;
 }
 
@@ -2850,12 +2813,12 @@
 
 .sr-toggle-container {
   @apply relative block rounded-full transition-colors cursor-pointer flex-shrink-0;
-  background: var(--color-border);
+  background: var(--border);
   -webkit-tap-highlight-color: transparent;
 }
 
 .sr-toggle-container.sr-toggle-checked {
-  background: var(--color-primary);
+  background: var(--primary);
 }
 
 .sr-toggle-container.sr-toggle-disabled {
@@ -2892,7 +2855,7 @@
 /* Toggle thumb (sliding circle) */
 .sr-toggle-thumb {
   @apply absolute inset-y-0 start-0 m-1 grid place-content-center rounded-full bg-white transition-all duration-200 ease-in-out;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* Thumb sizes */
@@ -2923,7 +2886,7 @@
 
 /* Toggle checked state - change thumb color */
 .sr-toggle-checked .sr-toggle-thumb {
-  color: var(--color-primary);
+  color: var(--primary);
 }
 
 /* Toggle icons */
@@ -2964,7 +2927,7 @@
 /* Toggle label */
 .sr-toggle-label {
   @apply cursor-pointer text-sm font-medium min-w-0;
-  color: var(--color-text);
+  color: var(--foreground);
 }
 
 .sr-toggle-label-disabled {
@@ -2973,11 +2936,11 @@
 
 /* Payment Placeholder */
 .sr-payment-placeholder {
-  @apply text-center py-8 px-4 bg-[var(--color-surface-hover)] rounded-md border-2 border-dashed border-[var(--color-border)];
+  @apply text-center py-8 px-4 bg-[var(--muted)] rounded-md border-2 border-dashed border-[var(--border)];
 }
 
 .sr-payment-placeholder p {
-  @apply text-[var(--color-text-muted)] m-0 mb-2;
+  @apply text-[var(--muted-foreground)] m-0 mb-2;
 }
 
 .sr-payment-placeholder p:last-child {
@@ -2992,13 +2955,13 @@
 /* Review Cards */
 .sr-review-card {
   @apply rounded border;
-  background: var(--color-surface);
-  border-color: var(--color-border, #e5e7eb);
+  background: var(--card);
+  border-color: var(--border, #e5e7eb);
 }
 
 .sr-review-card-header {
   @apply flex items-center justify-between px-4 py-3 border-b;
-  border-color: var(--color-border, #f3f4f6);
+  border-color: var(--border, #f3f4f6);
 }
 
 .sr-review-card-title {
@@ -3007,11 +2970,11 @@
 
 .sr-review-card-title h4 {
   @apply text-sm font-medium m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-review-icon {
-  color: var(--color-text);
+  color: var(--foreground);
   opacity: 0.6;
   flex-shrink: 0;
 }
@@ -3019,12 +2982,12 @@
 .sr-review-edit-btn {
   @apply px-2 py-1 text-xs font-medium rounded transition-all cursor-pointer;
   background: transparent;
-  color: var(--color-primary);
+  color: var(--primary);
   border: 1px solid transparent;
 }
 
 .sr-review-edit-btn:hover {
-  border-color: var(--color-primary);
+  border-color: var(--primary);
 }
 
 .sr-review-card-content {
@@ -3071,60 +3034,60 @@
 
 .sr-order-item-name {
   @apply block font-medium text-xs leading-tight;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-order-item-variant {
-  @apply block text-xs text-[var(--color-text-muted)] leading-tight;
+  @apply block text-xs text-[var(--muted-foreground)] leading-tight;
 }
 
 .sr-order-item-quantity {
-  @apply block text-xs text-[var(--color-text-muted)];
+  @apply block text-xs text-[var(--muted-foreground)];
 }
 
 .sr-order-item-price {
   @apply font-medium text-xs;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 /* Order Totals Review */
 .sr-order-totals-review {
   @apply pt-2 border-t space-y-1;
-  border-color: var(--color-border, #f3f4f6);
+  border-color: var(--border, #f3f4f6);
 }
 
 .sr-order-total-line {
   @apply flex justify-between text-xs;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-discount-line {
-  color: var(--color-success, #15803d);
+  color: var(--success, #15803d);
 }
 
 .sr-discount-amount {
-  color: var(--color-success, #15803d);
+  color: var(--success, #15803d);
 }
 
 .sr-order-total-final {
   @apply flex justify-between items-center pt-2 mt-2 border-t;
-  border-color: var(--color-border, #f3f4f6);
+  border-color: var(--border, #f3f4f6);
 }
 
 .sr-order-total-final span:first-child {
   @apply font-medium text-sm;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-order-total-amount {
   @apply font-semibold text-sm;
-  color: var(--color-primary);
+  color: var(--primary);
 }
 
 /* Review Info Rows */
 .sr-review-info-row {
   @apply flex justify-between py-1 border-b;
-  border-color: var(--color-border, #f3f4f6);
+  border-color: var(--border, #f3f4f6);
 }
 
 .sr-review-info-row:last-child {
@@ -3132,12 +3095,12 @@
 }
 
 .sr-review-label {
-  @apply text-xs text-[var(--color-text-muted)];
+  @apply text-xs text-[var(--muted-foreground)];
 }
 
 .sr-review-value {
   @apply text-xs font-medium m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 /* Review Address */
@@ -3147,22 +3110,22 @@
 
 .sr-review-address p {
   @apply text-xs m-0 leading-relaxed;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 /* Same Address Check */
 .sr-review-same-address {
   @apply flex items-center gap-2 text-xs;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-check-icon {
-  color: var(--color-success, #15803d);
+  color: var(--success, #15803d);
 }
 
 /* Payment Placeholder */
 .sr-review-payment-placeholder {
-  @apply text-xs text-[var(--color-text-muted)] m-0;
+  @apply text-xs text-[var(--muted-foreground)] m-0;
 }
 
 /* Test Mode Banner */
@@ -3176,8 +3139,8 @@
 
 .sr-test-banner-content {
   @apply flex items-center gap-2 px-3 py-1.5 text-xs rounded-b-lg shadow-md;
-  background: var(--color-primary);
-  color: var(--color-on-primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
   border-top: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -3208,8 +3171,8 @@
 .sr-test-banner-pill {
   @apply fixed top-2 left-1/2 -translate-x-1/2 z-[99999];
   @apply px-3 py-1.5 text-xs font-medium rounded-full shadow-md cursor-pointer;
-  background: var(--color-primary);
-  color: var(--color-on-primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
   @apply hover:shadow transition-shadow;
 }
 
@@ -3225,11 +3188,11 @@
 
 /* Keep old styles for backward compatibility */
 .sr-order-summary {
-  @apply bg-[var(--color-surface-hover)] rounded-md p-4 mb-6;
+  @apply bg-[var(--muted)] rounded-md p-4 mb-6;
 }
 
 .sr-order-summary h4 {
-  @apply text-lg font-semibold text-[var(--color-text)] mb-4 m-0;
+  @apply text-lg font-semibold text-[var(--foreground)] mb-4 m-0;
 }
 
 .sr-order-items {
@@ -3249,11 +3212,11 @@
 }
 
 .sr-summary-section h5 {
-  @apply text-sm font-semibold text-[var(--color-text)] mb-2 m-0;
+  @apply text-sm font-semibold text-[var(--foreground)] mb-2 m-0;
 }
 
 .sr-summary-section p {
-  @apply text-sm text-[var(--color-text-muted)] m-0;
+  @apply text-sm text-[var(--muted-foreground)] m-0;
 }
 
 .sr-summary-address {
@@ -3261,7 +3224,7 @@
 }
 
 .sr-summary-address p {
-  @apply text-sm text-[var(--color-text-muted)] m-0;
+  @apply text-sm text-[var(--muted-foreground)] m-0;
 }
 
 /* Authentication Section Styles */
@@ -3271,13 +3234,14 @@
 
 .sr-auth-notice {
   @apply flex items-start gap-3 p-4 rounded-lg;
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border);
+  background: var(--muted);
+  border: 1px solid var(--border);
 }
 
 .sr-auth-icon {
   @apply w-6 h-6 flex-shrink-0;
-  color: var(--color-text-muted);
+  color: var(--card-foreground);
+  opacity: 0.6;
 }
 
 .sr-auth-content {
@@ -3286,12 +3250,13 @@
 
 .sr-auth-title {
   @apply font-medium text-base;
-  color: var(--color-text, #1f2937);
+  color: var(--card-foreground);
 }
 
 .sr-auth-subtitle {
   @apply text-sm;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--card-foreground);
+  opacity: 0.8;
 }
 
 .sr-auth-divider {
@@ -3301,12 +3266,12 @@
 .sr-auth-divider::before {
   content: '';
   @apply absolute inset-0 top-1/2 h-[1px];
-  background: var(--color-border, #e5e7eb);
+  background: var(--border, #e5e7eb);
 }
 
 .sr-auth-divider span {
   @apply relative px-2 text-xs uppercase;
-  background: var(--color-surface, #ffffff);
+  background: var(--card, #ffffff);
   color: var(--color-text-secondary, #6b7280);
 }
 
@@ -3318,7 +3283,7 @@
 }
 
 .sr-btn-text:hover {
-  color: var(--color-primary, #3B82F6);
+  color: var(--primary, #3B82F6);
 }
 
 .sr-btn-icon {
@@ -3336,13 +3301,14 @@
 .sr-returning-notice {
   @apply flex items-start gap-3 p-3 mb-4;
   border-radius: var(--sr-radius);
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border);
+  background: var(--muted);
+  border: 1px solid var(--border);
 }
 
 .sr-notice-icon {
   @apply w-5 h-5 flex-shrink-0 mt-0.5;
-  color: var(--color-text-muted);
+  color: var(--card-foreground);
+  opacity: 0.6;
 }
 
 .sr-notice-text {
@@ -3350,16 +3316,19 @@
 }
 
 .sr-notice-text p {
-  @apply font-medium text-[var(--color-text)] m-0;
+  @apply font-medium m-0;
+  color: var(--card-foreground);
 }
 
 .sr-notice-subtitle {
-  @apply text-sm text-[var(--color-text)] font-normal;
+  @apply text-sm font-normal;
+  color: var(--card-foreground);
+  opacity: 0.8;
 }
 
 /* Link-style button */
 .sr-btn-link {
-  @apply inline-flex items-center justify-center gap-2 text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] 
+  @apply inline-flex items-center justify-center gap-2 text-[var(--primary)] hover:text-[var(--color-primary-dark)] 
          underline font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
   background: none;
   border: none;
@@ -3389,11 +3358,11 @@
 }
 
 .sr-otp-title {
-  @apply text-lg font-semibold text-[var(--color-text)] m-0;
+  @apply text-lg font-semibold text-[var(--foreground)] m-0;
 }
 
 .sr-otp-subtitle {
-  @apply text-sm text-[var(--color-text-muted)] m-0;
+  @apply text-sm text-[var(--muted-foreground)] m-0;
 }
 
 .sr-otp-inputs {
@@ -3402,7 +3371,7 @@
 
 .sr-otp-input {
   @apply w-12 h-14 text-center text-xl font-semibold rounded-lg border-2
-         border-[var(--color-border)] focus:border-[var(--color-primary)] focus:outline-none
+         border-[var(--border)] focus:border-[var(--primary)] focus:outline-none
          transition-colors sr-field-base;
   -webkit-appearance: none;
   -moz-appearance: textfield;
@@ -3415,7 +3384,7 @@
 }
 
 .sr-otp-verifying {
-  @apply text-sm text-[var(--color-text-muted)] flex items-center justify-center gap-2;
+  @apply text-sm text-[var(--muted-foreground)] flex items-center justify-center gap-2;
 }
 
 .sr-otp-resend {
@@ -3423,15 +3392,15 @@
 }
 
 .sr-otp-resend p {
-  @apply text-sm text-[var(--color-text-muted)] m-0;
+  @apply text-sm text-[var(--muted-foreground)] m-0;
 }
 .sr-otp-guest-option {
-  @apply text-center mt-6 pt-4 border-t border-[var(--color-border)];
+  @apply text-center mt-6 pt-4 border-t border-[var(--border)];
 }
 
 .sr-notice-text p {
   @apply text-sm;
-  color: var(--color-text, #1f2937);
+  color: var(--foreground, #1f2937);
 }
 
 .sr-notice-subtitle {
@@ -3464,22 +3433,22 @@
 
 .sr-success-icon {
   @apply w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6;
-  background: color-mix(in srgb, var(--color-success, #15803d) 10%, transparent);
+  background: color-mix(in srgb, var(--success, #15803d) 10%, transparent);
 }
 
 .sr-success-icon svg {
   @apply w-10 h-10;
-  color: var(--color-success, #15803d);
+  color: var(--success, #15803d);
 }
 
 .sr-success-title {
   @apply text-2xl font-semibold mb-2 m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-success-subtitle {
   @apply mb-6 m-0;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-email-notice {
@@ -3489,57 +3458,57 @@
 
 .sr-email-label {
   @apply text-sm mb-2 m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-email-address {
   @apply text-sm font-medium m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-order-details {
   @apply text-left rounded-lg p-4 mb-6;
-  border: 1px solid var(--color-border, #e5e7eb);
+  border: 1px solid var(--border, #e5e7eb);
 }
 
 .sr-order-details-title {
   @apply text-sm font-semibold mb-3 m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-order-number-row {
   @apply flex justify-between py-2 mb-2;
-  border-bottom: 1px solid var(--color-border, #f3f4f6);
+  border-bottom: 1px solid var(--border, #f3f4f6);
 }
 
 .sr-order-number-value {
   @apply text-sm font-mono font-medium;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-order-row {
   @apply flex justify-between py-2;
-  border-bottom: 1px solid var(--color-border, #f3f4f6);
+  border-bottom: 1px solid var(--border, #f3f4f6);
 }
 
 .sr-order-label {
   @apply text-xs;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-order-value {
   @apply text-xs;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-order-items-section {
   @apply py-3;
-  border-bottom: 1px solid var(--color-border, #f3f4f6);
+  border-bottom: 1px solid var(--border, #f3f4f6);
 }
 
 .sr-items-header {
   @apply text-xs mb-2;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-order-line-item {
@@ -3548,17 +3517,17 @@
 
 .sr-item-image {
   @apply w-12 h-12 object-cover rounded border;
-  border-color: var(--color-border, #e5e7eb);
+  border-color: var(--border, #e5e7eb);
 }
 
 .sr-item-image-placeholder {
   @apply w-12 h-12 rounded flex items-center justify-center;
-  background: var(--color-surface, #f3f4f6);
+  background: var(--card, #f3f4f6);
 }
 
 .sr-item-image-placeholder svg {
   @apply w-6 h-6;
-  color: var(--color-text-muted, #9ca3af);
+  color: var(--muted-foreground, #9ca3af);
 }
 
 .sr-item-info {
@@ -3567,27 +3536,27 @@
 
 .sr-item-name {
   @apply text-xs font-medium mb-0.5;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-item-variant {
   @apply text-[10px];
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-item-qty {
   @apply text-[10px];
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-item-price {
   @apply text-xs font-medium whitespace-nowrap;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-discount-value {
   @apply text-xs;
-  color: var(--color-success, #15803d);
+  color: var(--success, #15803d);
 }
 
 .sr-order-total-row {
@@ -3596,12 +3565,12 @@
 
 .sr-total-label {
   @apply text-sm font-semibold;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-total-value {
   @apply text-sm font-semibold;
-  color: var(--color-primary);
+  color: var(--primary);
 }
 
 .sr-continue-btn {
@@ -3615,22 +3584,22 @@
 
 .sr-pending-icon {
   @apply w-16 h-16 mx-auto mb-6;
-  color: var(--color-warning, #f59e0b);
+  color: var(--warning, #f59e0b);
 }
 
 .sr-pending-title {
   @apply text-2xl font-semibold mb-2 m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-pending-message {
   @apply mb-6 m-0 max-w-md;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-pending-hint {
   @apply mb-8 m-0 max-w-md text-sm;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-pending-actions {
@@ -3644,17 +3613,17 @@
 
 .sr-failure-icon {
   @apply w-16 h-16 mx-auto mb-6;
-  color: var(--color-error, #ef4444);
+  color: var(--destructive, #ef4444);
 }
 
 .sr-failure-title {
   @apply text-2xl font-semibold mb-2 m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-failure-message {
   @apply mb-6 m-0 max-w-md;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-failure-actions {
@@ -3668,17 +3637,17 @@
 
 .sr-not-found-icon {
   @apply w-16 h-16 mx-auto mb-6;
-  color: var(--color-warning, #f59e0b);
+  color: var(--warning, #f59e0b);
 }
 
 .sr-not-found-title {
   @apply text-2xl font-semibold mb-2 m-0;
-  color: var(--color-on-surface);
+  color: var(--card-foreground);
 }
 
 .sr-not-found-message {
   @apply mb-6 m-0 max-w-md;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 .sr-not-found-actions {
@@ -3715,7 +3684,7 @@ shoprocket-product-modal {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--color-overlay);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3727,7 +3696,7 @@ shoprocket-product-modal {
 
 .sr-modal-content {
   position: relative;
-  background: var(--sr-modal-background, var(--color-surface, white));
+  background: var(--sr-modal-background, var(--card, white));
   border-radius: var(--sr-modal-border-radius, var(--sr-radius));
   max-width: min(90vw, 1200px);
   width: 100%;
@@ -3746,7 +3715,7 @@ shoprocket-product-modal {
   height: 32px;
   border: none;
   background: var(--sr-modal-close-background, rgba(0, 0, 0, 0.1));
-  color: var(--sr-modal-close-color, var(--color-on-surface, #333));
+  color: var(--sr-modal-close-color, var(--card-foreground, #333));
   border-radius: var(--sr-radius);
   cursor: pointer;
   font-size: 20px;
@@ -3846,13 +3815,13 @@ shoprocket-product-modal.closing .sr-modal-content {
 
 .sr-category-title {
   @apply text-2xl font-bold;
-  color: var(--color-text);
+  color: var(--foreground);
 }
 
 /* Back Button */
 .sr-category-back {
   @apply inline-flex items-center gap-2 mb-4 px-0 py-2 bg-transparent border-0 cursor-pointer font-medium text-sm;
-  color: var(--color-primary);
+  color: var(--primary);
   transition: opacity 0.2s;
 }
 
@@ -3869,8 +3838,8 @@ shoprocket-product-modal.closing .sr-modal-content {
 /* Category Card */
 .sr-category-card {
   @apply rounded border p-4 cursor-pointer;
-  background: var(--color-surface);
-  border-color: var(--color-border);
+  background: var(--card);
+  border-color: var(--border);
   border-radius: var(--sr-radius, 8px);
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -3890,12 +3859,12 @@ shoprocket-product-modal.closing .sr-modal-content {
 .sr-category-name {
   @apply font-semibold mb-2;
   font-size: var(--sr-category-title-size, 1.125rem);
-  color: var(--color-text);
+  color: var(--foreground);
 }
 
 .sr-category-description {
   @apply text-sm mb-2;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -3905,14 +3874,14 @@ shoprocket-product-modal.closing .sr-modal-content {
 
 .sr-category-count {
   @apply text-xs;
-  color: var(--color-text-muted);
+  color: var(--muted-foreground);
 }
 
 /* Loading Skeleton */
 .sr-category-skeleton {
   @apply rounded border;
-  background: var(--color-surface);
-  border-color: var(--color-border);
+  background: var(--card);
+  border-color: var(--border);
   border-radius: var(--sr-radius, 8px);
   height: 300px;
   animation: pulse 1.5s ease-in-out infinite;
