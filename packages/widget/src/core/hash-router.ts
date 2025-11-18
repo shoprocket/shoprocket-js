@@ -326,9 +326,19 @@ export class HashRouter extends EventTarget {
   }
   
   // Convenience method for catalog-specific updates
-  updateCatalogState(updates: { page?: number; sort?: string; limit?: number; currency?: string }): void {
+  updateCatalogState(updates: {
+    page?: number;
+    sort?: string;
+    limit?: number;
+    currency?: string;
+    search?: string;
+    category?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    inStock?: boolean;
+  }): void {
     const params: Record<string, string | undefined> = {};
-    
+
     // Convert numbers to strings, handle undefined
     if (updates.page !== undefined) {
       params['page'] = updates.page > 1 ? String(updates.page) : undefined;
@@ -342,7 +352,24 @@ export class HashRouter extends EventTarget {
     if (updates.currency !== undefined) {
       params['currency'] = updates.currency || undefined;
     }
-    
+
+    // Filter parameters
+    if (updates.search !== undefined) {
+      params['search'] = updates.search || undefined;
+    }
+    if (updates.category !== undefined) {
+      params['category'] = updates.category || undefined;
+    }
+    if (updates.minPrice !== undefined) {
+      params['minPrice'] = updates.minPrice ? String(updates.minPrice) : undefined;
+    }
+    if (updates.maxPrice !== undefined) {
+      params['maxPrice'] = updates.maxPrice ? String(updates.maxPrice) : undefined;
+    }
+    if (updates.inStock !== undefined) {
+      params['inStock'] = updates.inStock ? 'true' : undefined;
+    }
+
     this.updateParams(params);
   }
   

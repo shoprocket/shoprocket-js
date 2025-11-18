@@ -549,11 +549,8 @@ export class WidgetManager {
 
       // Auto-load theme CSS if not already loaded (for data-attribute embeds without embed config)
       if (!theme) {
-        const store = internalState.getStore();
-        if (store?.id) {
-          const themeUrl = this.sdk.themes.getThemeCssUrl(store.id, 'default');
-          await this.injectThemeCSS(themeUrl, 'default');
-        }
+        const themeUrl = this.sdk.themes.getThemeCssUrl('default');
+        await this.injectThemeCSS(themeUrl, 'default');
       }
 
       // Set features attribute if provided (for feature control)

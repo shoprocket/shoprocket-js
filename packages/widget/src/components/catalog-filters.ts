@@ -55,6 +55,12 @@ export class CatalogFilters extends ShoprocketElement {
   @property({ type: Array, attribute: 'per-page-options' })
   perPageOptions: readonly number[] = [12, 24, 48, 96];
 
+  @property({ type: String })
+  currency = 'USD';
+
+  @property({ type: Boolean, attribute: 'price-data-loaded' })
+  priceDataLoaded = false;
+
   @state()
   private localMinPrice?: number;
 
@@ -62,6 +68,18 @@ export class CatalogFilters extends ShoprocketElement {
   private localMaxPrice?: number;
 
   private priceDebounceTimer?: number;
+  private isInternalPriceUpdate = false;
+
+  override willUpdate(changedProperties: Map<string, any>): void {
+    // Reset local price state when minPrice or maxPrice props change from external source
+    // This ensures slider positions update when loading from URL or browser navigation
+    // Skip if this is an internal update from the slider itself
+    if (!this.isInternalPriceUpdate && (changedProperties.has('minPrice') || changedProperties.has('maxPrice'))) {
+      this.localMinPrice = undefined;
+      this.localMaxPrice = undefined;
+    }
+    this.isInternalPriceUpdate = false;
+  }
 
   private handleSearchInput(e: InputEvent) {
     const value = (e.target as HTMLInputElement).value;
@@ -93,6 +111,9 @@ export class CatalogFilters extends ShoprocketElement {
       input.value = value.toString();
     }
 
+    // Mark this as an internal update so willUpdate doesn't reset local state
+    this.isInternalPriceUpdate = true;
+
     // Update local state immediately for visual feedback
     this.localMinPrice = value;
     this.requestUpdate();
@@ -112,6 +133,9 @@ export class CatalogFilters extends ShoprocketElement {
       input.value = value.toString();
     }
 
+    // Mark this as an internal update so willUpdate doesn't reset local state
+    this.isInternalPriceUpdate = true;
+
     // Update local state immediately for visual feedback
     this.localMaxPrice = value;
     this.requestUpdate();
@@ -128,12 +152,25 @@ export class CatalogFilters extends ShoprocketElement {
 
     // Set new timer - dispatch after 500ms of no changes
     this.priceDebounceTimer = window.setTimeout(() => {
-      const currentMin = this.localMinPrice ?? this.priceRangeMin;
-      const currentMax = this.localMaxPrice ?? this.priceRangeMax;
+      const currentMin = this.localMinPrice ?? this.minPrice ?? this.priceRangeMin;
+      const currentMax = this.localMaxPrice ?? this.maxPrice ?? this.priceRangeMax;
 
-      // Dispatch a single event with both min and max price to avoid race conditions
-      const minValue = currentMin > this.priceRangeMin ? currentMin.toString() : '';
-      const maxValue = currentMax < this.priceRangeMax ? currentMax.toString() : '';
+      // Only clear filter if BOTH sliders are at their range bounds
+      // This allows partial ranges like (65-500) to work correctly
+      const isAtRangeBounds = currentMin === this.priceRangeMin && currentMax === this.priceRangeMax;
+
+      let minValue = '';
+      let maxValue = '';
+
+      if (isAtRangeBounds) {
+        // Both at full range bounds - clear the filter
+        minValue = '';
+        maxValue = '';
+      } else {
+        // At least one has moved - send actual values
+        minValue = currentMin.toString();
+        maxValue = currentMax.toString();
+      }
 
       this.dispatchFilterChange('priceRange', JSON.stringify({ min: minValue, max: maxValue }));
     }, 500);
@@ -158,14 +195,12 @@ export class CatalogFilters extends ShoprocketElement {
   }
 
   private formatPrice(value: number): string {
-    // Get store currency and user locale for proper formatting
-    const store = (window as any).Shoprocket?.store?.get?.();
-    const currency = store?.base_currency_code || 'USD';
+    // Use currency passed from parent component (from API metadata)
     const locale = navigator.language || 'en-US';
 
     return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: currency,
+      currency: this.currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     }).format(value);
@@ -180,9 +215,11 @@ export class CatalogFilters extends ShoprocketElement {
         <div class="sr-price-range-field">
           <div class="sr-price-range-header">
             <span class="sr-price-range-label">Price Range</span>
-            <span class="sr-price-range-values">
-              ${this.formatPrice(currentMin)} - ${this.formatPrice(currentMax)}
-            </span>
+            ${this.priceDataLoaded ? html`
+              <span class="sr-price-range-values">
+                ${this.formatPrice(currentMin)} - ${this.formatPrice(currentMax)}
+              </span>
+            ` : ''}
           </div>
           <div class="sr-price-range-slider">
             <input

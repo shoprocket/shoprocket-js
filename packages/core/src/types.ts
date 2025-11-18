@@ -351,6 +351,8 @@ export interface ApiResponse<T> {
     country?: string;
     locale?: string;
     displayMode?: string;
+    priceMin?: number; // Store-wide minimum price (for filter bounds)
+    priceMax?: number; // Store-wide maximum price (for filter bounds)
     paymentUrl?: string;
     paymentGateway?: string;
     testMode?: boolean;
