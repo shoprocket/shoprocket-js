@@ -28,6 +28,10 @@ export class ApiClient {
     this.config.locale = locale;
   }
 
+  getLocale(): string {
+    return this.config.locale || 'en';
+  }
+
   private getHeaders(): HeadersInit {
     const headers: HeadersInit = {
       'Accept': 'application/json',
