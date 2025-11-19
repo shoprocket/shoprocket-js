@@ -825,15 +825,6 @@
     background: var(--muted);
   }
 
-  .sr-btn-link {
-    @apply text-sm font-medium underline cursor-pointer transition-opacity;
-    color: var(--primary);
-  }
-
-  .sr-btn-link:hover {
-    opacity: 0.8;
-  }
-
   .sr-btn-icon {
     @apply inline-block w-4 h-4 me-2 align-middle;
   }
@@ -3240,8 +3231,7 @@
 
 .sr-auth-icon {
   @apply w-6 h-6 flex-shrink-0;
-  color: var(--card-foreground);
-  opacity: 0.6;
+  color: var(--muted-foreground);
 }
 
 .sr-auth-content {
@@ -3250,13 +3240,13 @@
 
 .sr-auth-title {
   @apply font-medium text-base;
-  color: var(--card-foreground);
+  color: var(--muted-foreground);
 }
 
 .sr-auth-subtitle {
   @apply text-sm;
-  color: var(--card-foreground);
-  opacity: 0.8;
+  color: var(--muted-foreground);
+  opacity: 0.7;
 }
 
 .sr-auth-divider {
@@ -3307,8 +3297,7 @@
 
 .sr-notice-icon {
   @apply w-5 h-5 flex-shrink-0 mt-0.5;
-  color: var(--card-foreground);
-  opacity: 0.6;
+  color: var(--muted-foreground);
 }
 
 .sr-notice-text {
@@ -3317,34 +3306,29 @@
 
 .sr-notice-text p {
   @apply font-medium m-0;
-  color: var(--card-foreground);
+  color: var(--muted-foreground);
 }
 
 .sr-notice-subtitle {
   @apply text-sm font-normal;
-  color: var(--card-foreground);
-  opacity: 0.8;
+  color: var(--muted-foreground);
+  opacity: 0.7;
 }
 
-/* Link-style button */
-.sr-btn-link {
-  @apply inline-flex items-center justify-center gap-2 text-[var(--primary)] hover:text-[var(--color-primary-dark)] 
-         underline font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+/* Authentication/Notice link button - used in checkout auth flow */
+.sr-auth-link {
+  @apply inline-flex items-center justify-center gap-2 text-sm font-medium underline cursor-pointer transition-opacity disabled:opacity-50 disabled:cursor-not-allowed;
+  color: var(--muted-foreground);
   background: none;
   border: none;
   padding: 0.5rem 0;
-  cursor: pointer;
 }
 
-.sr-btn-link:hover:not(:disabled) {
-  @apply opacity-80;
+.sr-auth-link:hover:not(:disabled) {
+  opacity: 0.7;
 }
 
-.sr-btn-link .sr-btn-icon {
-  @apply w-5 h-5;
-}
-
-.sr-btn-link .sr-spinner {
+.sr-auth-link .sr-spinner {
   @apply w-4 h-4;
 }
 

@@ -240,7 +240,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
           <div class="sr-otp-resend">
             <p>Didn't receive code?
               <button
-                class="sr-btn-link"
+                class="sr-auth-link"
                 @click="${context.handleResendOtp}"
                 ?disabled="${context.resendingOtp}"
               >
@@ -251,7 +251,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
 
           <!-- Proceed as guest option -->
           <div class="sr-otp-guest-option">
-            <button class="sr-btn-link" @click="${() => {
+            <button class="sr-auth-link" @click="${() => {
               context.loginLinkSent = false;
               context.otpCode = '';
               context.otpError = '';
@@ -299,7 +299,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                     <div class="sr-notice-text">
                       <p>Welcome back!</p>
                       <button
-                        class="sr-btn-link"
+                        class="sr-auth-link"
                         ?disabled="${context.sendingLoginLink}"
                         @click="${context.handleSendLoginLink}"
                       >
