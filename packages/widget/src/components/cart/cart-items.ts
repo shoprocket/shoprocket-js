@@ -6,6 +6,7 @@ import { html, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { keyed } from 'lit/directives/keyed.js';
 import type { Cart } from '@shoprocket/core';
+import { t } from '../../utils/i18n';
 
 export interface CartItemsContext {
   cart: Cart | null;
@@ -27,12 +28,12 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
         <svg class="sr-cart-empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
         </svg>
-        <p class="sr-cart-empty-text">Your cart is empty</p>
+        <p class="sr-cart-empty-text">${t('cart.empty', 'Your cart is empty')}</p>
         <button
           class="sr-cart-empty-button"
           @click="${() => context.closeCart()}"
         >
-          Continue shopping
+          ${t('action.continue_shopping', 'Continue shopping')}
         </button>
       </div>
     `;
@@ -95,8 +96,8 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
               <button
                 class="sr-cart-item-remove"
                 @click="${() => context.removeItem(item.id)}"
-                aria-label="Remove item"
-                title="Remove item"
+                aria-label="${t('cart.remove', 'Remove item')}"
+                title="${t('cart.remove', 'Remove item')}"
               >
                 <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -107,7 +108,7 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
                 class="sr-cart-quantity-button"
                 @click="${() => context.updateQuantity(item.id, item.quantity - 1)}"
                 ?disabled="${item.quantity === 1}"
-                aria-label="Decrease quantity"
+                aria-label="${t('cart.decrease_quantity', 'Decrease quantity')}"
               >
                 −
               </button>
@@ -120,7 +121,7 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
                   class="sr-cart-quantity-button"
                   @click="${() => context.updateQuantity(item.id, item.quantity + 1)}"
                   ?disabled="${item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined && item.quantity >= item.inventoryCount}"
-                  aria-label="Increase quantity"
+                  aria-label="${t('cart.increase_quantity', 'Increase quantity')}"
                 >
                   +
                 </button>
