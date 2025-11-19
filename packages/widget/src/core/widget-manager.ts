@@ -224,7 +224,10 @@ export class WidgetManager {
 
       // Load localized strings in background (non-blocking)
       // Strings will be available for components that use t() helper
-      this.sdk.strings.load().catch(error => {
+      this.sdk.strings.load().then(() => {
+        // Strings loaded successfully - trigger re-render of all mounted widgets
+        this.requestUpdateAll();
+      }).catch(error => {
         // Failed to load strings - components will use fallbacks
         console.warn('Failed to load localized strings:', error);
       });
@@ -610,6 +613,18 @@ export class WidgetManager {
     }
 
     this.mountedWidgets.set(component, component);
+  }
+
+  /**
+   * Request update on all mounted widgets
+   * Used to trigger re-renders when strings finish loading
+   */
+  private requestUpdateAll(): void {
+    this.mountedWidgets.forEach(component => {
+      if ('requestUpdate' in component && typeof component.requestUpdate === 'function') {
+        component.requestUpdate();
+      }
+    });
   }
 
   /**
