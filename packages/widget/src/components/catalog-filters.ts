@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Category } from '@shoprocket/core';
 import { formatNumber } from '../utils/formatters';
+import { t } from '../utils/i18n';
 
 /**
  * Catalog Filters Component - Filter toolbar for product catalog
@@ -230,7 +231,7 @@ export class CatalogFilters extends ShoprocketElement {
               step="1"
               .value="${currentMin.toString()}"
               @input="${this.handleMinPriceChange}"
-              aria-label="Minimum price"
+              aria-label="${t('filter.min_price', 'Minimum price')}"
             />
             <input
               type="range"
@@ -240,7 +241,7 @@ export class CatalogFilters extends ShoprocketElement {
               step="1"
               .value="${currentMax.toString()}"
               @input="${this.handleMaxPriceChange}"
-              aria-label="Maximum price"
+              aria-label="${t('filter.max_price', 'Maximum price')}"
             />
           </div>
         </div>
@@ -267,13 +268,13 @@ export class CatalogFilters extends ShoprocketElement {
             <svg class="sr-field-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <label class="sr-field-label" for="search">Search</label>
+            <label class="sr-field-label" for="search">${t('filter.search', 'Search')}</label>
             ${this.search ? html`
               <button
                 type="button"
                 class="sr-search-clear"
                 @click="${this.clearSearch}"
-                aria-label="Clear search"
+                aria-label="${t('filter.clear_search', 'Clear search')}"
               >
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
