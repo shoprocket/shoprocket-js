@@ -8,6 +8,7 @@ import { ProductListTemplates } from './product-list';
 import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import { injectProductSchema, removeProductSchema } from '../utils/structured-data';
 import './catalog-filters'; // Register filter component
+import { t } from '../utils/i18n';
 
 /**
  * Product Catalog Component - Displays a grid of products with pagination
@@ -337,7 +338,7 @@ export class ProductCatalog extends ShoprocketElement {
       if (pageProducts.length > 0) {
         this.track(EVENTS.VIEW_ITEM_LIST, {
           items: pageProducts,
-          item_list_name: this.categories || 'All Products',
+          item_list_name: this.categories || t('category.all_products', 'All Products'),
           item_list_id: `page_${this.currentPage}`
         });
         this.currentTrackedPage = this.currentPage;
@@ -509,7 +510,7 @@ export class ProductCatalog extends ShoprocketElement {
         this.clearError();
       } catch (err) {
         console.error('Failed to load products:', err);
-        this.showError('Unable to load products. Please try again later.');
+        this.showError(t('error.products_load_failed', 'Unable to load products. Please try again later.'));
       } finally {
         // Clean up the loading promise
         this.loadingPages.delete(page);
@@ -1405,9 +1406,9 @@ export class ProductCatalog extends ShoprocketElement {
         
         console.error('Failed to load product:', err);
         if (err.response?.status === 404 || err.status === 404) {
-          this.showError('Product not found. This product may no longer be available.');
+          this.showError(t('error.product_not_found_unavailable', 'Product not found. This product may no longer be available.'));
         } else {
-          this.showError('Unable to load product details. Please try again later.');
+          this.showError(t('error.product_details_load_failed', 'Unable to load product details. Please try again later.'));
         }
       }
     });

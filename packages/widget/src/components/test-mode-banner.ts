@@ -1,6 +1,7 @@
 import { html, TemplateResult } from 'lit';
 import { state } from 'lit/decorators.js';
 import { BaseComponent } from '../core/base-component';
+import { t } from '../utils/i18n';
 
 export class TestModeBanner extends BaseComponent {
   @state() private isMinimized = true;
@@ -30,8 +31,8 @@ export class TestModeBanner extends BaseComponent {
           <button 
             class="sr-test-banner-minimize"
             @click="${() => this.toggleMinimize()}"
-            aria-label="${this.isMinimized ? 'Show test mode banner' : 'Hide test mode banner'}"
-            title="${this.isMinimized ? 'Show banner' : 'Hide banner'}"
+            aria-label="${this.isMinimized ? t('banner.show', 'Show test mode banner') : t('banner.hide', 'Hide test mode banner')}"
+            title="${this.isMinimized ? t('banner.show_short', 'Show banner') : t('banner.hide_short', 'Hide banner')}"
           >
             ×
           </button>

@@ -2,6 +2,7 @@ import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import type { Product } from '@shoprocket/core';
+import { t } from '../utils/i18n';
 
 /**
  * Product Modal - Reusable modal overlay for displaying product details
@@ -107,7 +108,7 @@ export class ProductModal extends ShoprocketElement {
           <button
             class="sr-modal-close"
             @click=${this.close}
-            aria-label="Close modal"
+            aria-label="${t('modal.close', 'Close modal')}"
           >
             ×
           </button>

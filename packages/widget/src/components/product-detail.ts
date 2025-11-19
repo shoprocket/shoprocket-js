@@ -8,6 +8,7 @@ import { formatProductPrice, getMediaSizes, formatNumber } from '../utils/format
 import { isAllStockInCart } from '../utils/cart-utils';
 import { TIMEOUTS, STOCK_THRESHOLDS, IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 import './tooltip'; // Register tooltip component
+import { t } from '../utils/i18n';
 
 export class ProductDetail extends ShoprocketElement {
   // Render in light DOM so merchant CSS variables flow directly into content
@@ -157,7 +158,7 @@ export class ProductDetail extends ShoprocketElement {
                   ${this.renderMediaContainer(
                     this.getSelectedMedia(),
                     IMAGE_SIZES.MAIN,
-                    this.product?.name || 'Product image',
+                    this.product?.name || t('product.image', 'Product image'),
                     'sr-product-detail-image-main',
                     !this.product
                   )}
@@ -335,11 +336,11 @@ export class ProductDetail extends ShoprocketElement {
 
     // Tooltip messages
     const decreaseTooltip = allStockInCart
-      ? `All available stock (${totalInventory}) is in your cart`
+      ? t('product.all_stock_in_cart', 'All available stock ({count}) is in your cart', { count: totalInventory })
       : '';
     const increaseTooltip = allStockInCart
-      ? `All available stock (${totalInventory}) is in your cart`
-      : `Maximum available (${maxQuantity})`;
+      ? t('product.all_stock_in_cart', 'All available stock ({count}) is in your cart', { count: totalInventory })
+      : t('product.max_available', 'Maximum available ({count})', { count: maxQuantity });
 
     const decreaseButton = html`
       <button
@@ -425,10 +426,10 @@ export class ProductDetail extends ShoprocketElement {
 
   private getButtonText(product: Product, canAdd: boolean): string {
     // If we can add, always show "Add to Cart"
-    if (canAdd) return 'Add to Cart';
+    if (canAdd) return t('cart.add_to_cart', 'Add to Cart');
 
     // If out of stock
-    if (product.inStock === false) return 'Out of Stock';
+    if (product.inStock === false) return t('product.out_of_stock', 'Out of Stock');
 
     // During loading, determine text based on catalog data
     const hasRequiredOptions = product.hasRequiredOptions === true;
@@ -439,9 +440,9 @@ export class ProductDetail extends ShoprocketElement {
     if ((hasRequiredOptions || hasVariants) && !this.product) {
       // Still loading, but we can make educated guess
       if (product.quickAddEligible === true) {
-        return 'Add to Cart';
+        return t('cart.add_to_cart', 'Add to Cart');
       }
-      return hasRequiredOptions ? 'Select Options' : 'Add to Cart';
+      return hasRequiredOptions ? t('product.select_options', 'Select Options') : t('cart.add_to_cart', 'Add to Cart');
     }
 
     // If product has no required options or variants, or is quick add eligible
@@ -450,7 +451,7 @@ export class ProductDetail extends ShoprocketElement {
     }
 
     // Has required options that need selection
-    return 'Select Options';
+    return t('product.select_options', 'Select Options');
   }
   
   private renderAddToCartButton = (): TemplateResult => {
@@ -532,7 +533,7 @@ export class ProductDetail extends ShoprocketElement {
 
     const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
     if (!variantId) {
-      this.showError('Please select all options before adding to cart.');
+      this.showError(t('error.select_options_required', 'Please select all options before adding to cart.'));
       return;
     }
 
@@ -723,10 +724,10 @@ export class ProductDetail extends ShoprocketElement {
     return html`
       <div class="sr-stock-status ${isLowStock ? 'sr-low-stock' : 'sr-in-stock'}">
         ${isLowStock ? html`
-          <sr-tooltip text="Limited availability - order soon to avoid disappointment">
-            Only ${formatNumber(stockQuantity)} left in stock
+          <sr-tooltip text="${t('product.limited_availability', 'Limited availability - order soon to avoid disappointment')}">
+            ${t('product.stock_count_low', 'Only {count} left in stock', { count: formatNumber(stockQuantity) })}
           </sr-tooltip>
-        ` : `${formatNumber(stockQuantity)} in stock`}
+        ` : t('product.stock_count', '{count} in stock', { count: formatNumber(stockQuantity) })}
       </div>
     `;
   }

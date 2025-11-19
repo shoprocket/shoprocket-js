@@ -1,6 +1,7 @@
 import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { BaseComponent } from '../core/base-component';
+import { t } from '../utils/i18n';
 
 export interface CustomerData {
   email: string;
@@ -48,7 +49,7 @@ export class CustomerForm extends BaseComponent {
   }
 
   @property({ type: String })
-  override title = 'Contact Information';
+  override title = t('checkout.contact_info', 'Contact Information');
 
   @property({ type: Object })
   customer: Partial<CustomerData> = {};
