@@ -4,6 +4,7 @@ import { ShoprocketElement } from '../core/base-component';
 import type { Product } from '@shoprocket/core';
 import { TIMEOUTS } from '../constants';
 import { getMediaSizes, formatNumber } from '../utils/formatters';
+import { t } from '../utils/i18n';
 
 // Import Category type from core
 import type { Category } from '@shoprocket/core';
@@ -197,7 +198,7 @@ export class CategoriesWidget extends ShoprocketElement {
       this.navigationStack = [{ type: 'root' }];
     } catch (error) {
       console.error('Failed to load categories:', error);
-      this.showError('Failed to load categories');
+      this.showError(t('error.categories_load_failed', 'Failed to load categories'));
     } finally {
       this.loading = false;
     }
@@ -252,7 +253,7 @@ export class CategoriesWidget extends ShoprocketElement {
       }
     } catch (error) {
       console.error('Failed to load category:', error);
-      this.showError('Category not found');
+      this.showError(t('error.category_not_found', 'Category not found'));
     } finally {
       this.loading = false;
     }
@@ -342,7 +343,7 @@ export class CategoriesWidget extends ShoprocketElement {
       await this.loadProductWithNavigation(productSlug, categoryId);
     } catch (error) {
       console.error('Failed to load category and product:', error);
-      this.showError('Failed to load content');
+      this.showError(t('error.content_load_failed', 'Failed to load content'));
     } finally {
       this.loading = false;
     }
@@ -448,44 +449,7 @@ export class CategoriesWidget extends ShoprocketElement {
       this.currentView = 'product-detail';
     } catch (error) {
       console.error('[Categories] Failed to load product:', error);
-      this.showError('Product not found');
-    } finally {
-      this.loadingProduct = false;
-    }
-  }
-
-  /**
-   * Load a specific product (without navigation context)
-   * Used when we don't need prev/next buttons
-   */
-  private async loadProduct(productSlug: string) {
-    this.loadingProduct = true;
-
-    try {
-      // Lazy load product-detail component if not already loaded
-      // Note: We use 'shoprocket-product' (not 'shoprocket-product-detail') to match
-      // the name used by catalog and product-view components
-      if (!customElements.get('shoprocket-product')) {
-        try {
-          const { ProductDetail } = await import('./product-detail');
-          customElements.define('shoprocket-product', ProductDetail);
-        } catch (err) {
-          // Ignore if element was already defined by another component (race condition)
-          if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
-            throw err;
-          }
-        }
-      }
-
-      // Wait for element to be fully defined before setting properties
-      await customElements.whenDefined('shoprocket-product');
-
-      const product = await this.sdk.products.get(productSlug);
-      this.currentProduct = product;
-      this.currentView = 'product-detail';
-    } catch (error) {
-      console.error('[Categories] Failed to load product:', error);
-      this.showError('Product not found');
+      this.showError(t('error.product_not_found', 'Product not found'));
     } finally {
       this.loadingProduct = false;
     }
@@ -600,7 +564,7 @@ export class CategoriesWidget extends ShoprocketElement {
     } else {
       // Back from category to parent
       const previous = this.navigationStack[this.navigationStack.length - 2];
-      label = previous && previous.type === 'root' ? 'All Categories' : previous?.category?.name || 'Back';
+      label = previous && previous.type === 'root' ? t('category.all', 'All Categories') : previous?.category?.name || t('action.back', 'Back');
     }
 
     return html`

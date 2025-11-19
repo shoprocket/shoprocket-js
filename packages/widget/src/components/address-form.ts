@@ -1,6 +1,7 @@
 import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { BaseComponent } from '../core/base-component';
+import { t } from '../utils/i18n';
 
 export interface AddressData {
   line1: string;
@@ -607,7 +608,7 @@ export class AddressForm extends BaseComponent {
       <shoprocket-toggle
         id="same-as-billing-${this.id || 'default'}"
         name="same_as_billing"
-        label="Use same address for billing"
+        label="${t('checkout.same_address_billing', 'Use same address for billing')}"
         .checked="${this.sameAsBilling}"
         @change="${(e: CustomEvent) => {
           this.dispatchEvent(new CustomEvent('same-as-billing-change', {

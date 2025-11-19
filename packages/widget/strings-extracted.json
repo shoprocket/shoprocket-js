@@ -1,0 +1,145 @@
+{
+  "summary": {
+    "totalWrapped": 69,
+    "totalCandidates": 0,
+    "filesProcessed": 24,
+    "filesWithStrings": 16
+  },
+  "wrapped": {
+    "action.back": "Back",
+    "action.continue_shopping": "Continue shopping",
+    "action.resend": "Resend",
+    "action.sending": "Sending...",
+    "banner.hide": "Hide test mode banner",
+    "banner.hide_short": "Hide banner",
+    "banner.show": "Show test mode banner",
+    "banner.show_short": "Show banner",
+    "cart.add_to_cart": "Add to Cart",
+    "cart.close": "Close cart",
+    "cart.decrease_quantity": "Decrease quantity",
+    "cart.empty": "Your cart is empty",
+    "cart.increase_quantity": "Increase quantity",
+    "cart.item_added": "Added",
+    "cart.open": "Open shopping cart",
+    "cart.remove": "Remove item",
+    "cart.subtotal": "Subtotal",
+    "cart.taxes_shipping_calculated": "Taxes and shipping calculated at checkout",
+    "cart.title": "Cart",
+    "category.all": "All Categories",
+    "category.all_products": "All Products",
+    "checkout.billing_address": "Billing Address",
+    "checkout.complete_order": "Complete Order",
+    "checkout.contact_info": "Contact Information",
+    "checkout.enter_code": "Enter verification code",
+    "checkout.load_saved_details": "Load my saved details",
+    "checkout.payment": "Payment",
+    "checkout.proceed": "Checkout",
+    "checkout.review_order": "Review Order",
+    "checkout.same_address_billing": "Use same address for billing",
+    "checkout.shipping_address": "Shipping Address",
+    "checkout.use_email_verification": "Use email verification instead",
+    "error.cart_load_failed": "Failed to load cart data",
+    "error.categories_load_failed": "Failed to load categories",
+    "error.category_not_found": "Category not found",
+    "error.checkout_failed": "Checkout failed. Please try again.",
+    "error.content_load_failed": "Failed to load content",
+    "error.invalid_code": "Invalid verification code. Please try again.",
+    "error.order_expired": "Order expired. Please start a new order or contact support if you need assistance.",
+    "error.out_of_stock": "Sorry, this item is out of stock",
+    "error.payment_declined": "Payment was declined. Please try again or use a different payment method.",
+    "error.payment_processing_failed": "There was a problem processing your payment",
+    "error.payment_status_unknown": "Unable to verify payment status. Please check your email for confirmation.",
+    "error.product_details_load_failed": "Unable to load product details. Please try again later.",
+    "error.product_load_failed": "Failed to load product",
+    "error.product_load_failed_retry": "Unable to load product. Please try again later.",
+    "error.product_not_found": "Product not found",
+    "error.product_not_found_unavailable": "Product not found. This product may no longer be available.",
+    "error.products_load_failed": "Unable to load products. Please try again later.",
+    "error.rate_limit": "Too many attempts. Please wait a moment before trying again.",
+    "error.resend_failed": "Failed to resend code. Please try again.",
+    "error.select_options_required": "Please select all options before adding to cart.",
+    "error.verification_failed": "Verification failed. Please try again.",
+    "error.verification_send_failed": "Failed to send verification code. Please try again.",
+    "filter.clear_search": "Clear search",
+    "filter.max_price": "Maximum price",
+    "filter.min_price": "Minimum price",
+    "filter.search": "Search",
+    "modal.close": "Close modal",
+    "product.all_stock_in_cart": "All available stock ({count}) is in your cart",
+    "product.image": "Product image",
+    "product.limited_availability": "Limited availability - order soon to avoid disappointment",
+    "product.max_available": "Maximum available ({count})",
+    "product.max_quantity_in_cart": "Maximum quantity ({count}) in cart",
+    "product.only_more_available": "Only {count} more available",
+    "product.out_of_stock": "Out of Stock",
+    "product.select_options": "Select Options",
+    "product.stock_count": "{count} in stock",
+    "product.stock_count_low": "Only {count} left in stock"
+  },
+  "fileStats": {
+    "components/cart.ts": {
+      "wrapped": 26,
+      "candidates": 0
+    },
+    "components/product-detail.ts": {
+      "wrapped": 14,
+      "candidates": 0
+    },
+    "components/cart/cart-items.ts": {
+      "wrapped": 7,
+      "candidates": 0
+    },
+    "components/cart/checkout-wizard.ts": {
+      "wrapped": 7,
+      "candidates": 0
+    },
+    "components/categories.ts": {
+      "wrapped": 6,
+      "candidates": 0
+    },
+    "components/buy-button.ts": {
+      "wrapped": 5,
+      "candidates": 0
+    },
+    "components/catalog-filters.ts": {
+      "wrapped": 4,
+      "candidates": 0
+    },
+    "components/product-catalog.ts": {
+      "wrapped": 4,
+      "candidates": 0
+    },
+    "components/product-list.ts": {
+      "wrapped": 4,
+      "candidates": 0
+    },
+    "components/test-mode-banner.ts": {
+      "wrapped": 4,
+      "candidates": 0
+    },
+    "components/cart/cart-footer.ts": {
+      "wrapped": 3,
+      "candidates": 0
+    },
+    "components/product-view.ts": {
+      "wrapped": 2,
+      "candidates": 0
+    },
+    "components/address-form.ts": {
+      "wrapped": 1,
+      "candidates": 0
+    },
+    "components/cart/order-result.ts": {
+      "wrapped": 1,
+      "candidates": 0
+    },
+    "components/customer-form.ts": {
+      "wrapped": 1,
+      "candidates": 0
+    },
+    "components/product-modal.ts": {
+      "wrapped": 1,
+      "candidates": 0
+    }
+  }
+}

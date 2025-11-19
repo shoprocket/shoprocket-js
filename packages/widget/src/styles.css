@@ -2564,6 +2564,8 @@
   @apply w-full px-3 pt-5 pb-1.5 border text-sm sr-field-base;
   border-radius: var(--sr-radius);
   border-color: var(--border);
+  background-color: var(--input, var(--card));
+  color: var(--foreground);
   min-height: 2.75rem;
   /* iOS zoom prevention via touch-action is in :host reset */
 }
@@ -2785,10 +2787,11 @@
 }
 
 .sr-checkbox-label input[type="checkbox"] {
-  @apply size-5 rounded border-[var(--border)] 
-         bg-[var(--card)] transition-all duration-150
+  @apply size-5 rounded border-[var(--border)]
+         transition-all duration-150
          hover:border-[var(--primary)] cursor-pointer
          focus:outline-none focus:ring-0;
+  background-color: var(--input, var(--card));
   accent-color: var(--primary);
 }
 
@@ -2845,7 +2848,8 @@
 
 /* Toggle thumb (sliding circle) */
 .sr-toggle-thumb {
-  @apply absolute inset-y-0 start-0 m-1 grid place-content-center rounded-full bg-white transition-all duration-200 ease-in-out;
+  @apply absolute inset-y-0 start-0 m-1 grid place-content-center rounded-full transition-all duration-200 ease-in-out;
+  background-color: var(--card);
   color: var(--muted-foreground);
 }
 
@@ -2875,8 +2879,9 @@
   inset-inline-start: calc(100% - 36px); /* 28px thumb + 8px margin */
 }
 
-/* Toggle checked state - change thumb color */
+/* Toggle checked state - change thumb background and icon color */
 .sr-toggle-checked .sr-toggle-thumb {
+  background-color: var(--primary-foreground);
   color: var(--primary);
 }
 

@@ -8,6 +8,7 @@ import type { CheckoutStep, CustomerCheckResult } from './cart-types';
 import type { CustomerData, CustomerFormErrors } from '../customer-form';
 import type { AddressData, AddressFormErrors } from '../address-form';
 import type { Cart } from '@shoprocket/core';
+import { t } from '../../utils/i18n';
 
 export interface CheckoutWizardContext {
   // Cart state
@@ -157,7 +158,7 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
         @click="${context.handleCheckoutComplete}"
         ?disabled="${context.checkoutLoading || !canProceed}"
       >
-        ${context.checkoutLoading ? loadingSpinner('sm') : 'Complete Order'}
+        ${context.checkoutLoading ? loadingSpinner('sm') : t('checkout.complete_order', 'Complete Order')}
       </button>
     ` : html`
       <button
@@ -244,7 +245,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                 @click="${context.handleResendOtp}"
                 ?disabled="${context.resendingOtp}"
               >
-                ${context.resendingOtp ? 'Sending...' : 'Resend'}
+                ${context.resendingOtp ? t('action.sending', 'Sending...') : t('action.resend', 'Resend')}
               </button>
             </p>
           </div>
@@ -304,8 +305,8 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                         @click="${context.handleSendLoginLink}"
                       >
                         ${context.sendingLoginLink ? html`
-                          <span class="sr-spinner"></span> Sending...
-                        ` : 'Load my saved details'}
+                          <span class="sr-spinner"></span> ${t('action.sending', 'Sending...')}
+                        ` : t('checkout.load_saved_details', 'Load my saved details')}
                       </button>
                     </div>
                   </div>
@@ -361,8 +362,8 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                   @click="${context.handleSendLoginLink}"
                 >
                   ${context.sendingLoginLink ? html`
-                    <span class="sr-spinner"></span> Sending...
-                  ` : context.showPasswordField ? 'Use email verification instead' : html`
+                    <span class="sr-spinner"></span> ${t('action.sending', 'Sending...')}
+                  ` : context.showPasswordField ? t('checkout.use_email_verification', 'Use email verification instead') : html`
                     <svg class="sr-btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                     </svg>

@@ -7,6 +7,7 @@ import { html, type TemplateResult } from 'lit';
 import type { Money } from '@shoprocket/core';
 import type { OrderDetails } from './cart-types';
 import { loadingOverlay } from '../loading-spinner';
+import { t } from '../../utils/i18n';
 
 export interface OrderResultContext {
   formatPrice: (money: Money | undefined) => string;
@@ -186,7 +187,7 @@ export function renderOrderFailure(
       </svg>
       <h2 class="sr-failure-title">Payment Failed</h2>
       <p class="sr-failure-message">
-        ${orderFailureReason || 'There was a problem processing your payment'}
+        ${orderFailureReason || t('error.payment_processing_failed', 'There was a problem processing your payment')}
       </p>
       <div class="sr-failure-actions">
         <button class="sr-btn sr-btn-primary" @click="${context.handleRetryPayment}">

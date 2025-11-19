@@ -11,6 +11,7 @@ import { cartState } from '../core/cart-state';
 import { internalState } from '../core/internal-state';
 import { CookieManager } from '../utils/cookie-manager';
 import { validateForm, hasErrors } from '../core/validation';
+import { t } from '../utils/i18n';
 
 // Lazy import checkout components only when needed
 import type { CustomerData, CustomerFormErrors } from './customer-form';
@@ -561,7 +562,7 @@ export class CartWidget extends ShoprocketElement {
         window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
           detail: {
             type: 'out_of_stock',
-            message: 'Sorry, this item is out of stock'
+            message: t('error.out_of_stock', 'Sorry, this item is out of stock')
           }
         }));
         return;
@@ -576,9 +577,9 @@ export class CartWidget extends ShoprocketElement {
         window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
           detail: {
             type: 'insufficient_stock',
-            message: canAdd > 0 ? 
-              `Only ${canAdd} more available` : 
-              `Maximum quantity (${availableQuantity}) already in cart`,
+            message: canAdd > 0 ?
+              t('product.only_more_available', 'Only {count} more available', { count: canAdd }) :
+              t('product.max_quantity_in_cart', 'Maximum quantity ({count}) already in cart', { count: availableQuantity }),
             available_quantity: availableQuantity,
             current_quantity: currentQuantityInCart
           }
@@ -801,7 +802,7 @@ export class CartWidget extends ShoprocketElement {
       } catch (err) {
         console.error('Failed to load cart:', err);
         this.cart = null;
-        this.showInCartError('Failed to load cart data');
+        this.showInCartError(t('error.cart_load_failed', 'Failed to load cart data'));
       }
     });
     return loadedCart;
@@ -931,7 +932,7 @@ export class CartWidget extends ShoprocketElement {
         // FAILURE: Payment failed/declined by gateway - allow retry
         this.showOrderFailureMessage = true;
         this.isPaymentFailure = true;
-        this.orderFailureReason = 'Payment was declined. Please try again or use a different payment method.';
+        this.orderFailureReason = t('error.payment_declined', 'Payment was declined. Please try again or use a different payment method.');
         this.orderDetails = cart;
 
         // Return to checkout review step to allow retry
@@ -952,7 +953,7 @@ export class CartWidget extends ShoprocketElement {
         // UNKNOWN: Status we don't recognize
         console.warn('Unknown order status:', status);
         this.showOrderFailureMessage = true;
-        this.orderFailureReason = 'Unable to verify payment status. Please check your email for confirmation.';
+        this.orderFailureReason = t('error.payment_status_unknown', 'Unable to verify payment status. Please check your email for confirmation.');
         this.orderDetails = cart;
       }
     } else {
@@ -1195,16 +1196,16 @@ export class CartWidget extends ShoprocketElement {
   private getCheckoutStepTitle(): string {
     // Special case: if we're on customer step and showing OTP form
     if (this.checkoutStep === 'customer' && this.loginLinkSent) {
-      return 'Enter verification code';
+      return t('checkout.enter_code', 'Enter verification code');
     }
     
     switch (this.checkoutStep) {
-      case 'customer': return 'Contact Info';
-      case 'shipping': return 'Shipping Address';
-      case 'billing': return 'Billing Address';
-      case 'payment': return 'Payment';
-      case 'review': return 'Review Order';
-      default: return 'Checkout';
+      case 'customer': return t('checkout.contact_info', 'Contact Info');
+      case 'shipping': return t('checkout.shipping_address', 'Shipping Address');
+      case 'billing': return t('checkout.billing_address', 'Billing Address');
+      case 'payment': return t('checkout.payment', 'Payment');
+      case 'review': return t('checkout.review_order', 'Review Order');
+      default: return t('checkout.proceed', 'Checkout');
     }
   }
 
@@ -1378,11 +1379,11 @@ export class CartWidget extends ShoprocketElement {
       console.error('Failed to send authentication:', error);
 
       // Handle specific error types
-      let errorMessage = 'Failed to send verification code. Please try again.';
+      let errorMessage = t('error.verification_send_failed', 'Failed to send verification code. Please try again.');
 
       // API wrapper returns { status, message, code } directly (not response.status)
       if (error.status === 429) {
-        errorMessage = 'Too many attempts. Please wait a moment before trying again.';
+        errorMessage = t('error.rate_limit', 'Too many attempts. Please wait a moment before trying again.');
       } else if (error.message && error.message !== 'API request failed') {
         errorMessage = error.message;
       }
@@ -1513,7 +1514,7 @@ export class CartWidget extends ShoprocketElement {
         });
         
         // Invalid OTP
-        const errorMessage = result.message || 'Invalid verification code. Please try again.';
+        const errorMessage = result.message || t('error.invalid_code', 'Invalid verification code. Please try again.');
         this.otpError = errorMessage;
         this.showAnimatedError(errorMessage);
         this.otpCode = ''; // Clear the code
@@ -1529,7 +1530,7 @@ export class CartWidget extends ShoprocketElement {
     } catch (error: any) {
       console.error('OTP verification failed:', error);
       // Handle API error response
-      let errorMessage = 'Verification failed. Please try again.';
+      let errorMessage = t('error.verification_failed', 'Verification failed. Please try again.');
 
       // API wrapper returns { status, message, code } directly
       if (error.message && error.message !== 'API request failed') {
@@ -1588,11 +1589,11 @@ export class CartWidget extends ShoprocketElement {
       console.error('Failed to resend authentication:', error);
 
       // Handle specific error types
-      let errorMessage = 'Failed to resend code. Please try again.';
+      let errorMessage = t('error.resend_failed', 'Failed to resend code. Please try again.');
 
       // API wrapper returns { status, message, code } directly (not response.status)
       if (error.status === 429) {
-        errorMessage = 'Too many attempts. Please wait a moment before trying again.';
+        errorMessage = t('error.rate_limit', 'Too many attempts. Please wait a moment before trying again.');
       } else if (error.message && error.message !== 'API request failed') {
         errorMessage = error.message;
       }
@@ -1826,7 +1827,7 @@ export class CartWidget extends ShoprocketElement {
       });
       
       // Extract error message
-      let errorMessage = 'Checkout failed. Please try again.';
+      let errorMessage = t('error.checkout_failed', 'Checkout failed. Please try again.');
       if (error.response?.data?.error?.message) {
         errorMessage = error.response.data.error.message;
       } else if (error.data?.error?.message) {
@@ -1840,7 +1841,7 @@ export class CartWidget extends ShoprocketElement {
       // Check if order expired (not found error)
       const isExpiredOrder = errorMessage.includes('not found') || errorMessage.includes('expired');
       if (isExpiredOrder) {
-        errorMessage = 'Order expired. Please start a new order or contact support if you need assistance.';
+        errorMessage = t('error.order_expired', 'Order expired. Please start a new order or contact support if you need assistance.');
       }
 
       // Show error in cart view, not as floating notification
@@ -1880,7 +1881,7 @@ export class CartWidget extends ShoprocketElement {
         <button
           class="sr-cart-toggle-button ${this.isOpen ? 'hidden' : ''}"
           @click="${this.toggleCart}"
-          aria-label="Open shopping cart"
+          aria-label="${t('cart.open', 'Open shopping cart')}"
         >
           ${this.renderTriggerContent(totalQuantity)}
         </button>
@@ -1901,9 +1902,9 @@ export class CartWidget extends ShoprocketElement {
             </button>
           ` : ''}
           <h2 class="sr-cart-title">
-            ${this.isCheckingOut ? this.getCheckoutStepTitle() : 'Cart'}
+            ${this.isCheckingOut ? this.getCheckoutStepTitle() : t('cart.title', 'Cart')}
           </h2>
-          <button class="sr-cart-close" @click="${() => this.closeCart()}" aria-label="Close cart">
+          <button class="sr-cart-close" @click="${() => this.closeCart()}" aria-label="${t('cart.close', 'Close cart')}">
             <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
@@ -2322,8 +2323,8 @@ export class CartWidget extends ShoprocketElement {
         if (quantity > item.inventoryCount) {
           // Show error notification
           const message = item.inventoryCount === 0
-            ? 'Out of stock'
-            : `Maximum quantity (${item.inventoryCount}) already in cart`;
+            ? t('product.out_of_stock', 'Out of Stock')
+            : t('product.max_quantity_in_cart', 'Maximum quantity ({count}) already in cart', { count: item.inventoryCount });
           
           window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
             detail: { message }

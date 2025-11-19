@@ -196,11 +196,11 @@ export class BuyButton extends ShoprocketElement {
       // Show user-friendly error message
       if (err.response?.status === 404 || err.status === 404) {
         // 404 is expected for invalid product IDs - don't log to console
-        this.showError('Product not found', 0);
+        this.showError(t('error.product_not_found', 'Product not found'), 0);
       } else {
         // Unexpected error - log for debugging
         console.error('Failed to load product for buy button:', err);
-        this.showError('Failed to load product', 0);
+        this.showError(t('error.product_load_failed', 'Failed to load product'), 0);
       }
     } finally {
       this.loading = false;

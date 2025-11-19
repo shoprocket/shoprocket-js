@@ -114,7 +114,7 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
               </button>
               <span class="sr-cart-quantity-value">${item.quantity}</span>
               <sr-tooltip
-                text="${item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined && item.quantity >= item.inventoryCount ? `Maximum quantity (${item.inventoryCount}) in cart` : ''}"
+                text="${item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined && item.quantity >= item.inventoryCount ? t('product.max_quantity_in_cart', 'Maximum quantity ({count}) in cart', { count: item.inventoryCount }) : ''}"
                 position="top"
               >
                 <button
