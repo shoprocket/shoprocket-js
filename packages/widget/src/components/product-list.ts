@@ -4,6 +4,7 @@ import type { FeatureKey } from '../types/features';
 import { formatProductPrice, getMediaSrcSet, getMediaSizes } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
+import { t } from '../utils/i18n';
 
 /**
  * Product List Template Helper
@@ -202,14 +203,14 @@ export class ProductListTemplates {
             >
               <span class="sr-button-content">
                 ${isSkeleton ? '' :
-                  isOutOfStock ? 'Out of Stock' :
+                  isOutOfStock ? t('product.out_of_stock', 'Out of Stock') :
                   allStockInCart ? html`<span class="sr-button-text">Max (${product.inventoryCount}) in cart</span>` :
                   isAdded ? html`
                     <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <span class="sr-button-text">Added</span>
-                  ` : isLoading ? loadingSpinner('sm') : html`<span class="sr-button-text">${needsOptions ? 'Select Options' : 'Add to Cart'}</span>`}
+                    <span class="sr-button-text">${t('cart.item_added', 'Added')}</span>
+                  ` : isLoading ? loadingSpinner('sm') : html`<span class="sr-button-text">${needsOptions ? t('product.select_options', 'Select Options') : t('cart.add_to_cart', 'Add to Cart')}</span>`}
               </span>
               </button>
             </div>
