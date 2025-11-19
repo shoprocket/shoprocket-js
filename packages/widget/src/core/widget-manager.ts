@@ -221,7 +221,14 @@ export class WidgetManager {
         // Store fetch failed, continue without third-party tracking
         console.warn('Failed to fetch store tracking config:', error);
       }
-      
+
+      // Load localized strings in background (non-blocking)
+      // Strings will be available for components that use t() helper
+      this.sdk.strings.load().catch(error => {
+        // Failed to load strings - components will use fallbacks
+        console.warn('Failed to load localized strings:', error);
+      });
+
       // Track initial page view
       AnalyticsManager.track(EVENTS.PAGE_VIEW, { store_id: storeId || publicKey });
 
