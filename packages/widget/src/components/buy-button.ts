@@ -7,6 +7,7 @@ import { loadingSpinner } from './loading-spinner';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { HashRouter } from '../core/hash-router';
+import { t } from '../utils/i18n';
 
 /**
  * Buy Button Component - Quick add-to-cart button for products
@@ -479,12 +480,12 @@ export class BuyButton extends ShoprocketElement {
               <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
               </svg>
-              Added
+              ${t('cart.item_added', 'Added')}
             </span>
-          ` : isOutOfStock ? html`<span class="shrink-0">Out of Stock</span>` :
+          ` : isOutOfStock ? html`<span class="shrink-0">${t('product.out_of_stock', 'Out of Stock')}</span>` :
             allStockInCart ? html`<span class="shrink-0">Max (${inventoryCount}) in cart</span>` :
             this.action === 'view' ? html`<span class="shrink-0">View Product</span>` :
-            needsOptions && !this.variant ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">Add to Cart</span>`}
+            needsOptions && !this.variant ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">${t('cart.add_to_cart', 'Add to Cart')}</span>`}
         </div>
       </button>
 
