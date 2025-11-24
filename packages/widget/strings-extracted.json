@@ -1,6 +1,6 @@
 {
   "summary": {
-    "totalWrapped": 69,
+    "totalWrapped": 72,
     "totalCandidates": 0,
     "filesProcessed": 24,
     "filesWithStrings": 16
@@ -44,6 +44,7 @@
     "error.checkout_failed": "Checkout failed. Please try again.",
     "error.content_load_failed": "Failed to load content",
     "error.invalid_code": "Invalid verification code. Please try again.",
+    "error.invalid_variant": "Invalid variant",
     "error.order_expired": "Order expired. Please start a new order or contact support if you need assistance.",
     "error.out_of_stock": "Sorry, this item is out of stock",
     "error.payment_declined": "Payment was declined. Please try again or use a different payment method.",
@@ -58,8 +59,10 @@
     "error.rate_limit": "Too many attempts. Please wait a moment before trying again.",
     "error.resend_failed": "Failed to resend code. Please try again.",
     "error.select_options_required": "Please select all options before adding to cart.",
+    "error.variant_not_found": "Variant not found",
     "error.verification_failed": "Verification failed. Please try again.",
     "error.verification_send_failed": "Failed to send verification code. Please try again.",
+    "error.widget_not_initialized": "Widget not initialized. Please check your configuration.",
     "filter.clear_search": "Clear search",
     "filter.max_price": "Maximum price",
     "filter.min_price": "Minimum price",
@@ -82,7 +85,11 @@
       "candidates": 0
     },
     "components/product-detail.ts": {
-      "wrapped": 14,
+      "wrapped": 15,
+      "candidates": 0
+    },
+    "components/buy-button.ts": {
+      "wrapped": 7,
       "candidates": 0
     },
     "components/cart/cart-items.ts": {
@@ -95,10 +102,6 @@
     },
     "components/categories.ts": {
       "wrapped": 6,
-      "candidates": 0
-    },
-    "components/buy-button.ts": {
-      "wrapped": 5,
       "candidates": 0
     },
     "components/catalog-filters.ts": {
@@ -122,7 +125,7 @@
       "candidates": 0
     },
     "components/product-view.ts": {
-      "wrapped": 2,
+      "wrapped": 3,
       "candidates": 0
     },
     "components/address-form.ts": {

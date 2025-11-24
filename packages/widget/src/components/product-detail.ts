@@ -299,7 +299,7 @@ export class ProductDetail extends ShoprocketElement {
 
                   // Wrap disabled buttons in tooltip
                   return isDisabled ? html`
-                    <sr-tooltip text="Out of stock" position="top">
+                    <sr-tooltip text="${t('product.out_of_stock', 'Out of Stock')}" position="top">
                       ${button}
                     </sr-tooltip>
                   ` : button;
