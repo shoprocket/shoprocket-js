@@ -150,7 +150,7 @@ export class ProductView extends ShoprocketElement {
   private async loadProductByIdentifier(identifier: string): Promise<void> {
     if (!this.sdk) {
       console.error('SDK not available');
-      this.showError('Widget not initialized. Please check your configuration.');
+      this.showError(t('error.widget_not_initialized', 'Widget not initialized. Please check your configuration.'));
       return;
     }
 

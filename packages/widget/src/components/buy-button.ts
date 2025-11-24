@@ -213,7 +213,7 @@ export class BuyButton extends ShoprocketElement {
     // Check if product has variants
     if (!this.productData.variants || this.productData.variants.length === 0) {
       console.warn(`Product ${this.product} has no variants, but data-variant="${this.variant}" was specified`);
-      this.showError('Invalid variant', 0);
+      this.showError(t('error.invalid_variant', 'Invalid variant'), 0);
       return;
     }
 
@@ -221,7 +221,7 @@ export class BuyButton extends ShoprocketElement {
     const variantExists = this.productData.variants.some(v => v.id === this.variant);
     if (!variantExists) {
       console.warn(`Variant ${this.variant} not found for product ${this.product}`);
-      this.showError('Variant not found', 0);
+      this.showError(t('error.variant_not_found', 'Variant not found'), 0);
       return;
     }
   }
