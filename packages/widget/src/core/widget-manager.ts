@@ -74,7 +74,7 @@ export class WidgetManager {
      * @example Shoprocket.store.get()
      */
     get: () => internalState.getStore(),
-    
+
     /**
      * Get the current store data (property access)
      * @example Shoprocket.store.data
@@ -84,6 +84,45 @@ export class WidgetManager {
     }
   };
 
+  /**
+   * Product namespace - for opening product views programmatically
+   */
+  public product = {
+    /**
+     * Opens a product detail view by product ID, or first product if no ID provided
+     * @param productId - Optional product ID (e.g., 'prod_123'). If omitted, opens first available product.
+     * @example Shoprocket.product.open('prod_123')  // Open specific product
+     * @example Shoprocket.product.open()            // Open first product
+     */
+    open: (productId?: string) => {
+      window.dispatchEvent(new CustomEvent('shoprocket:product:open', {
+        detail: productId ? { productId } : { openFirst: true },
+        bubbles: true
+      }));
+    },
+
+    /**
+     * Opens a product detail view by product slug
+     * @param slug - The product slug (e.g., 'my-product')
+     * @example Shoprocket.product.openBySlug('my-product')
+     */
+    openBySlug: (slug: string) => {
+      window.dispatchEvent(new CustomEvent('shoprocket:product:open', {
+        detail: { slug },
+        bubbles: true
+      }));
+    },
+
+    /**
+     * Closes the product detail view and returns to catalog list
+     * @example Shoprocket.product.close()
+     */
+    close: () => {
+      window.dispatchEvent(new CustomEvent('shoprocket:product:close', {
+        bubbles: true
+      }));
+    }
+  };
 
   /**
    * Authentication namespace

@@ -633,6 +633,14 @@ export class ProductCatalog extends ShoprocketElement {
     window.addEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.addEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
 
+    // Listen for programmatic product open requests
+    this.handleProductOpenRequest = this.handleProductOpenRequest.bind(this);
+    window.addEventListener('shoprocket:product:open', this.handleProductOpenRequest as EventListener);
+
+    // Listen for programmatic product close requests
+    this.handleProductCloseRequest = this.handleProductCloseRequest.bind(this);
+    window.addEventListener('shoprocket:product:close', this.handleProductCloseRequest as EventListener);
+
     // Determine if this is the primary catalog (handles URL routing)
     // Check data-is-primary attribute set by widget manager (ensures DOM order)
     if (!this.useLightDom) {
@@ -716,6 +724,8 @@ export class ProductCatalog extends ShoprocketElement {
     window.removeEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
+    window.removeEventListener('shoprocket:product:open', this.handleProductOpenRequest as EventListener);
+    window.removeEventListener('shoprocket:product:close', this.handleProductCloseRequest as EventListener);
 
     // Clean up hash router listener (primary catalog only)
     if (this.hashRouter) {
@@ -915,7 +925,66 @@ export class ProductCatalog extends ShoprocketElement {
     // The product list will check cart state during render
     this.requestUpdate();
   }
-  
+
+  /**
+   * Handle programmatic product open requests from Shoprocket.product API
+   */
+  private handleProductOpenRequest = async (event: CustomEvent): Promise<void> => {
+    const { productId, slug, openFirst } = event.detail;
+
+    // Handle openFirst flag - open first available product
+    if (openFirst) {
+      const firstProduct = this.allProducts.values().next().value;
+      if (firstProduct) {
+        await this.showProductBySlug(firstProduct.slug || firstProduct.id);
+      } else {
+        console.warn('Shoprocket.product.open() called with openFirst but no products loaded');
+      }
+      return;
+    }
+
+    // Use slug if provided, otherwise use productId as slug
+    const productSlug = slug || productId;
+
+    if (!productSlug) {
+      console.warn('Shoprocket.product.open() called without productId or slug');
+      return;
+    }
+
+    // Try to find product in current loaded products (allProducts is a Map)
+    let product: Product | undefined;
+    for (const prod of this.allProducts.values()) {
+      if (prod.id === productSlug || prod.slug === productSlug) {
+        product = prod;
+        break;
+      }
+    }
+
+    // If product not found in loaded products, fetch it
+    if (!product) {
+      try {
+        product = await this.sdk.products.get(productSlug);
+      } catch (error) {
+        console.error('Failed to load product:', error);
+        return;
+      }
+    }
+
+    // Show the product
+    if (product) {
+      await this.showProductBySlug(product.slug || product.id);
+    }
+  }
+
+  /**
+   * Handle programmatic product close requests from Shoprocket.product API
+   */
+  private handleProductCloseRequest = async (): Promise<void> => {
+    if (this.currentView === 'product') {
+      await this.backToList();
+    }
+  }
+
   private async handleAddToCart(product: Product): Promise<void> {
     // Check if product needs options selected
     if (!product.quickAddEligible || !product.defaultVariantId) {
@@ -1444,14 +1513,13 @@ export class ProductCatalog extends ShoprocketElement {
     // Update URL (primary catalog only)
     if (this.isPrimary) {
       this.hashRouter.navigateToList(true);
-      // Scroll to top of this catalog
-      this.scrollToTop();
-    } else {
-      // Secondary catalogs: just update local state
-      await this.showList();
-      // Scroll to top of this catalog
-      this.scrollToTop();
     }
+
+    // Always update local state directly (don't wait for hash change event)
+    await this.showList();
+
+    // Scroll to top of this catalog
+    this.scrollToTop();
   }
   
   private scrollToTop(): void {
