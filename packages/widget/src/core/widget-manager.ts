@@ -324,7 +324,7 @@ export class WidgetManager {
     // Query any Shoprocket widget with a theme (all widgets get .shoprocket class)
     const themedEmbed = document.querySelector('.shoprocket[data-theme]');
     const theme = themedEmbed?.getAttribute('data-theme');
-    const mode = themedEmbed?.getAttribute('data-mode');
+    const mode = themedEmbed?.getAttribute('data-color-scheme');
 
     // Create floating cart button
     const floatingCart = document.createElement('div');
@@ -584,16 +584,16 @@ export class WidgetManager {
       }
       // If neither features nor hide provided, parseFeatures() will use defaults
 
-      // Determine and set color scheme attribute (data-mode for CSS selector compatibility)
+      // Determine and set color scheme attribute (data-color-scheme for CSS selector compatibility)
       const actualColorScheme = this.detectColorScheme(configuredColorScheme);
-      component.setAttribute('data-mode', actualColorScheme);
+      component.setAttribute('data-color-scheme', actualColorScheme);
 
       // Listen for system preference changes if using auto color scheme
       if (configuredColorScheme === 'auto') {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         const updateColorScheme = (e: MediaQueryListEvent | MediaQueryList) => {
           const newColorScheme = e.matches ? 'dark' : 'light';
-          component.setAttribute('data-mode', newColorScheme);
+          component.setAttribute('data-color-scheme', newColorScheme);
         };
         // Modern browsers
         mediaQuery.addEventListener('change', updateColorScheme);
