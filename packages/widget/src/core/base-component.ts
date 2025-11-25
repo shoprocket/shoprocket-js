@@ -19,22 +19,27 @@ export class BaseComponent extends LitElement {
   // Apply shared styles to all components
   // Base styles reset font-size to prevent parent page scaling
   static override styles: CSSResultGroup = [baseStyles, sharedStyles];
-  
+
   // Use constructable stylesheets for better performance
   // This method can be overridden by child components to use Light DOM
   protected override createRenderRoot(): HTMLElement | ShadowRoot {
     // Default behavior: create shadow root
     const root = super.createRenderRoot() as HTMLElement | ShadowRoot;
-    
+
     // Only adopt stylesheets if it's actually a shadow root (not 'this' element)
     if (root !== this && 'adoptedStyleSheets' in root) {
       (root as any).adoptedStyleSheets = [sharedStylesheet];
     }
-    
+
     return root;
   }
   @property({ attribute: false })
   sdk!: ShoprocketCore;
+
+  // Track data-features attribute for hot-swapping
+  // Using a private property to trigger updates when attribute changes
+  @property({ type: String, attribute: 'data-features' })
+  private _dataFeatures?: string;
 
   @state()
   private loadingStates = new Map<string, boolean>();
@@ -44,18 +49,25 @@ export class BaseComponent extends LitElement {
 
   @state()
   protected successMessage: string | null = null;
-  
+
   override connectedCallback(): void {
     super.connectedCallback();
     this.initializeFeatures();
   }
-  
+
+  override willUpdate(changedProperties: Map<string, any>): void {
+    // Re-initialize features when data-features attribute changes
+    if (changedProperties.has('_dataFeatures')) {
+      this.initializeFeatures();
+    }
+  }
+
   private initializeFeatures(): void {
     // Get widget type from data attribute
-    const widgetType = this.getAttribute('data-shoprocket') || 
-                      this.getAttribute('data-widget-type') || 
+    const widgetType = this.getAttribute('data-shoprocket') ||
+                      this.getAttribute('data-widget-type') ||
                       this.tagName.toLowerCase().replace('shoprocket-', '');
-    
+
     // Parse features from attributes
     this.features = parseFeatures(this, widgetType);
   }
