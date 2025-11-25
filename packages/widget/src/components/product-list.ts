@@ -203,7 +203,7 @@ export class ProductListTemplates {
             >
               <span class="sr-button-content">
                 ${isSkeleton ? '' :
-                  isOutOfStock ? t('product.out_of_stock', 'Out of Stock') :
+                  isOutOfStock ? html`<span class="sr-button-text">${t('product.out_of_stock', 'Out of Stock')}</span>` :
                   allStockInCart ? html`<span class="sr-button-text">Max (${product.inventoryCount}) in cart</span>` :
                   isAdded ? html`
                     <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
