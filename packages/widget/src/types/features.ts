@@ -103,6 +103,15 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
   'buy-button': [
     'name',   // Product name on button
     'price'   // Product price on button
+  ],
+  // Categories widget
+  'categories': [
+    // Product list features (use products: prefix for product cards in category)
+    'products:media', 'products:title', 'products:price', 'products:add-to-cart',
+    // Product detail features (use detail: prefix for product detail view)
+    'detail:navigation', 'detail:back-button', 'detail:prev-next', 'detail:media', 'detail:gallery',
+    'detail:zoom', 'detail:title', 'detail:price', 'detail:stock', 'detail:sku', 'detail:summary',
+    'detail:quantity', 'detail:add-to-cart', 'detail:description', 'detail:reviews', 'detail:share', 'detail:scroll'
   ]
 };
 
