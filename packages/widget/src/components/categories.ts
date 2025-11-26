@@ -148,6 +148,9 @@ export class CategoriesWidget extends ShoprocketElement {
       window.addEventListener('hashchange', this.handleHashChange);
       // Sync with current URL on mount
       this.syncWithUrl();
+    } else {
+      // In iframe - skip URL routing but still load initial categories
+      this.loadInitialCategories();
     }
   }
 
