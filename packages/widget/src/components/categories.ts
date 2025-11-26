@@ -25,7 +25,9 @@ interface NavigationItem {
  * @attr {boolean} [data-show-images=true] - Show category images
  * @attr {boolean} [data-show-counts=true] - Show product counts
  * @attr {boolean} [data-show-description=true] - Show category descriptions
+ * @attr {boolean} [data-show-names=true] - Show category names
  * @attr {number} [data-limit=12] - Products per page when showing products
+ * @attr {number} [data-product-columns=4] - Number of columns in product grid
  *
  * @example
  * <!-- Show all root categories -->
@@ -35,6 +37,14 @@ interface NavigationItem {
  * <!-- Show specific categories -->
  * <div data-shoprocket="categories"
  *      data-categories="clothing,accessories">
+ * </div>
+ *
+ * @example
+ * <!-- Image-only category grid -->
+ * <div data-shoprocket="categories"
+ *      data-show-names="false"
+ *      data-show-description="false"
+ *      data-show-counts="false">
  * </div>
  */
 export class CategoriesWidget extends ShoprocketElement {
@@ -66,6 +76,10 @@ export class CategoriesWidget extends ShoprocketElement {
     attribute: 'data-show-description',
     converter: (value) => value !== 'false'
   }) showDescription = true;
+  @property({
+    attribute: 'data-show-names',
+    converter: (value) => value !== 'false'
+  }) showNames = true;
 
   // Configuration - Product List View
   @property({ type: Number, attribute: 'data-limit' }) limit = 12;
@@ -619,7 +633,8 @@ export class CategoriesWidget extends ShoprocketElement {
     return html`
       <div
         class="sr-category-card"
-        @click="${() => this.handleCategoryClick(category)}">
+        @click="${() => this.handleCategoryClick(category)}"
+        aria-label="${category.name}">
         ${this.showImages && category.imageUrl ? html`
           <img
             class="sr-category-image"
@@ -634,7 +649,9 @@ export class CategoriesWidget extends ShoprocketElement {
             loading="lazy">
         ` : ''}
 
-        <h3 class="sr-category-name">${category.name}</h3>
+        ${this.showNames ? html`
+          <h3 class="sr-category-name">${category.name}</h3>
+        ` : ''}
 
         ${this.showDescription && category.description ? html`
           <p class="sr-category-description">${category.description}</p>
