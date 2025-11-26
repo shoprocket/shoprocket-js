@@ -592,7 +592,7 @@
     border-radius: var(--sr-radius);
     width: var(--cart-size);
     height: var(--cart-size);
-    box-shadow: var(--cart-trigger-shadow, 0 4px 30px rgba(0, 0, 0, 0.05));
+    box-shadow: var(--sr-shadow, 0 4px 30px rgba(0, 0, 0, 0.05));
     user-select: none;
     -webkit-user-select: none;
   }
@@ -605,7 +605,7 @@
   }
 
   .sr-cart-toggle-button:hover {
-    @apply shadow;
+    box-shadow: var(--sr-shadow-hover, 0 8px 40px rgba(0, 0, 0, 0.1));
   }
 
   .sr-cart-toggle-button.hidden {
@@ -2422,6 +2422,145 @@
   color: var(--muted-foreground);
 }
 
+/* ==========================================
+ * CAROUSEL STYLES
+ * ========================================== */
+
+.sr-carousel-wrapper {
+  @apply relative w-full;
+  @apply rounded-lg p-6;
+  background: var(--card);
+  overflow: visible; /* Allow arrows to show outside */
+}
+
+.sr-carousel-container {
+  @apply flex gap-4 overflow-x-scroll;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -webkit-overflow-scrolling: touch;
+  /* Ensure scroll works */
+  overflow-y: hidden;
+  /* Force scrollable */
+  -webkit-overflow-scrolling: touch;
+}
+
+.sr-carousel-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.sr-carousel-item {
+  flex: 0 0 calc((100% - (var(--cols, 4) - 1) * 1rem) / var(--cols, 4));
+  scroll-snap-align: start;
+  /* Removed scroll-snap-stop: always to allow programmatic scrolling past multiple items */
+}
+
+/* Responsive carousel items */
+@media (max-width: 1023px) {
+  .sr-carousel-item {
+    flex: 0 0 calc((100% - (var(--cols-md, 3) - 1) * 1rem) / var(--cols-md, 3));
+  }
+}
+
+@media (max-width: 767px) {
+  .sr-carousel-item {
+    flex: 0 0 calc((100% - (var(--cols-sm, 2) - 1) * 1rem) / var(--cols-sm, 2));
+  }
+}
+
+/* Carousel navigation arrows */
+.sr-carousel-arrow {
+  @apply absolute top-1/2 -translate-y-1/2 z-10;
+  @apply w-12 h-12;
+  @apply flex items-center justify-center;
+  @apply transition-all duration-200;
+  @apply cursor-pointer;
+  background: var(--card);
+  color: var(--card-foreground);
+  border-radius: var(--sr-radius);
+  box-shadow: var(--sr-shadow, 0 4px 30px rgba(0, 0, 0, 0.05));
+  border: none;
+}
+
+.sr-carousel-arrow:hover:not(:disabled) {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: var(--sr-shadow-hover, 0 8px 40px rgba(0, 0, 0, 0.1));
+}
+
+.sr-carousel-arrow:disabled {
+  @apply opacity-40 cursor-not-allowed;
+}
+
+.sr-carousel-arrow-prev {
+  @apply left-0;
+}
+
+.sr-carousel-arrow-next {
+  @apply right-0;
+}
+
+/* Hide arrows on small screens */
+@media (max-width: 640px) {
+  .sr-carousel-arrow {
+    @apply hidden;
+  }
+}
+
+/* Carousel dots indicator */
+.sr-carousel-dots {
+  @apply flex justify-center gap-2 mt-6;
+}
+
+.sr-carousel-dot {
+  @apply w-2 h-2 rounded-full transition-all duration-200;
+  background: var(--muted);
+}
+
+.sr-carousel-dot.active {
+  background: var(--primary);
+  @apply w-6;
+}
+
+.sr-carousel-dot:hover:not(.active) {
+  background: var(--muted-foreground);
+  @apply opacity-70;
+}
+
+/* Product modal overlay */
+.sr-product-modal-overlay {
+  @apply fixed inset-0 z-50;
+  @apply flex items-center justify-center;
+  @apply p-4;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.sr-product-modal {
+  @apply relative w-full max-w-4xl;
+  @apply rounded-lg overflow-hidden;
+  @apply max-h-[90vh] overflow-y-auto;
+  background: var(--background);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.sr-product-modal-close {
+  @apply absolute top-4 right-4 z-10;
+  @apply w-10 h-10 rounded-full;
+  @apply flex items-center justify-center;
+  @apply transition-all duration-200;
+  background: var(--background);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}
+
+.sr-product-modal-close:hover {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  border-color: var(--destructive);
+  transform: scale(1.1);
+}
+
 /* Empty State */
 .sr-empty-state {
   @apply text-center py-12 px-6;
@@ -3821,7 +3960,7 @@ shoprocket-product-modal.closing .sr-modal-content {
 /* Category Grid */
 .sr-category-grid {
   @apply grid gap-6;
-  grid-template-columns: repeat(var(--sr-category-cols, 3), 1fr);
+  grid-template-columns: repeat(var(--sr-category-cols-sm, 2), 1fr);
 }
 
 /* Category Card */
@@ -3890,30 +4029,15 @@ shoprocket-product-modal.closing .sr-modal-content {
   @apply text-center py-8;
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
+/* Responsive - mobile-first with CSS variables */
+@media (min-width: 768px) {
   .sr-category-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(var(--sr-category-cols-md, 3), 1fr);
   }
 }
 
-@media (max-width: 768px) {
+@media (min-width: 1024px) {
   .sr-category-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-  }
-
-  .sr-category-card {
-    @apply p-3;
-  }
-
-  .sr-category-name {
-    font-size: 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .sr-category-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(var(--sr-category-cols, 3), 1fr);
   }
 }

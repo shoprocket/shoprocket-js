@@ -54,6 +54,8 @@ export class CategoriesWidget extends ShoprocketElement {
   // Configuration - Category Grid View
   @property({ type: String, attribute: 'data-categories' }) categories?: string;
 
+  // Use prefixed CSS variables (--sr-category-cols) to avoid conflicts with nested catalog component
+  // Categories embeds <shoprocket-catalog> which uses unprefixed --cols variables
   private _columns = 3;
   @property({ type: Number, attribute: 'data-columns' })
   set columns(value: number) {
@@ -62,6 +64,30 @@ export class CategoriesWidget extends ShoprocketElement {
   }
   get columns(): number {
     return this._columns;
+  }
+
+  private _columnsMd?: number;
+  @property({ type: Number, attribute: 'data-columns-md' })
+  set columnsMd(value: number | undefined) {
+    this._columnsMd = value;
+    if (value) {
+      this.style.setProperty('--sr-category-cols-md', String(value));
+    }
+  }
+  get columnsMd(): number | undefined {
+    return this._columnsMd;
+  }
+
+  private _columnsSm?: number;
+  @property({ type: Number, attribute: 'data-columns-sm' })
+  set columnsSm(value: number | undefined) {
+    this._columnsSm = value;
+    if (value) {
+      this.style.setProperty('--sr-category-cols-sm', String(value));
+    }
+  }
+  get columnsSm(): number | undefined {
+    return this._columnsSm;
   }
 
   @property({
@@ -1009,10 +1035,10 @@ export class CategoriesWidget extends ShoprocketElement {
       <div class="sr-categories-widget">
         ${this.renderBackButton()}
 
-        ${currentCategory ? html`
+        ${currentCategory && this.currentView === 'products' ? html`
           <div class="sr-category-header">
             <h2 class="sr-category-title">${currentCategory.name}</h2>
-            ${this.currentView === 'products' && currentCategory.description ? html`
+            ${currentCategory.description ? html`
               <p class="sr-category-description">${currentCategory.description}</p>
             ` : ''}
           </div>

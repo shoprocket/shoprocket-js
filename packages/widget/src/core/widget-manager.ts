@@ -566,6 +566,17 @@ export class WidgetManager {
     const hide = mappedOptions['hide'];
     delete mappedOptions['hide'];
 
+    // Copy inline styles from mount point FIRST (baseline)
+    // Properties set after will override conflicting CSS variables
+    // This ensures config properties have priority over inline styles
+    if (element instanceof HTMLElement && component instanceof HTMLElement) {
+      // Copy inline styles only if they exist
+      const inlineStyles = element.getAttribute('style');
+      if (inlineStyles) {
+        component.setAttribute('style', inlineStyles);
+      }
+    }
+
     // Set properties directly on the component (not as data-* attributes)
     // Web components expect properties, not data-* attributes
     // Convert kebab-case keys to camelCase for proper Lit property mapping
@@ -581,13 +592,8 @@ export class WidgetManager {
       (component as BaseComponent).sdk = this.sdk;
     }
 
-    // Copy over any custom CSS variables or styles from the mount point
+    // Apply additional attributes and theming
     if (element instanceof HTMLElement && component instanceof HTMLElement) {
-      // Copy inline styles only if they exist
-      const inlineStyles = element.getAttribute('style');
-      if (inlineStyles) {
-        component.setAttribute('style', inlineStyles);
-      }
       // Add shoprocket class for consistent theme targeting
       const existingClasses = element.className ? element.className + ' shoprocket' : 'shoprocket';
       component.className = existingClasses;
