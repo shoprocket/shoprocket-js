@@ -759,7 +759,7 @@ export class CategoriesWidget extends ShoprocketElement {
   /**
    * Handle product click from embedded catalog
    */
-  private handleCatalogProductClick = (event: CustomEvent) => {
+  private handleCatalogProductClick = async (event: CustomEvent) => {
     const { product, prevProduct, nextProduct, allProducts } = event.detail;
     const currentCategory = this.getCurrentCategory();
 
@@ -770,6 +770,20 @@ export class CategoriesWidget extends ShoprocketElement {
 
     // Mark this widget as the active one (it initiated this navigation)
     CategoriesWidget.activeWidget = this;
+
+    // Lazy load product-detail component if not already loaded
+    if (!customElements.get('shoprocket-product')) {
+      try {
+        const { ProductDetail } = await import('./product-detail');
+        customElements.define('shoprocket-product', ProductDetail);
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
+          throw err;
+        }
+      }
+    }
+
+    await customElements.whenDefined('shoprocket-product');
 
     // Cache the products list from catalog for navigation
     if (allProducts && allProducts.length > 0) {
