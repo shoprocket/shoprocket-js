@@ -41,9 +41,19 @@ export class CategoriesWidget extends ShoprocketElement {
   // Track active widget for routing (only the active widget responds to hash changes)
   private static activeWidget: CategoriesWidget | null = null;
 
-  // Configuration
+  // Configuration - Category Grid View
   @property({ type: String, attribute: 'data-categories' }) categories?: string;
-  @property({ type: Number, attribute: 'data-columns' }) columns = 3;
+
+  private _columns = 3;
+  @property({ type: Number, attribute: 'data-columns' })
+  set columns(value: number) {
+    this._columns = value;
+    this.style.setProperty('--sr-category-cols', String(value));
+  }
+  get columns(): number {
+    return this._columns;
+  }
+
   @property({
     attribute: 'data-show-images',
     converter: (value) => value !== 'false'
@@ -56,7 +66,19 @@ export class CategoriesWidget extends ShoprocketElement {
     attribute: 'data-show-description',
     converter: (value) => value !== 'false'
   }) showDescription = true;
+
+  // Configuration - Product List View
   @property({ type: Number, attribute: 'data-limit' }) limit = 12;
+
+  private _productColumns = 4;
+  @property({ type: Number, attribute: 'data-product-columns' })
+  set productColumns(value: number) {
+    this._productColumns = value;
+    this.requestUpdate();
+  }
+  get productColumns(): number {
+    return this._productColumns;
+  }
 
   // State
   @state() private currentView: 'categories' | 'products' | 'product-detail' = 'categories';
@@ -188,7 +210,7 @@ export class CategoriesWidget extends ShoprocketElement {
       } else {
         // Load root categories
         response = await this.sdk.categories.list({
-          filter: { is_root: true },
+          filter: { isRoot: true },
           include: 'children',
         });
       }
@@ -670,7 +692,7 @@ export class CategoriesWidget extends ShoprocketElement {
     const skeletonCount = this.columns * 2; // Show 2 rows
 
     return html`
-      <div class="sr-category-grid" style="--sr-category-cols: ${this.columns}">
+      <div class="sr-category-grid">
         ${Array.from({ length: skeletonCount }).map(() => html`
           <div class="sr-category-skeleton"></div>
         `)}
@@ -749,16 +771,53 @@ export class CategoriesWidget extends ShoprocketElement {
       `;
     }
 
+    // Get product list features (strip 'products:' prefix)
+    const productFeatures = this.getProductFeatures();
+
     return html`
       <shoprocket-catalog
         .sdk="${this.sdk}"
+        .columns="${this.productColumns}"
         data-categories="${currentCategory.slug}"
         data-limit="${this.limit}"
         data-routable="false"
         data-use-light-dom="true"
+        data-features="${productFeatures.join(',')}"
         @product-click="${this.handleCatalogProductClick}"
       ></shoprocket-catalog>
     `;
+  }
+
+  /**
+   * Extract products: prefixed features for product list view
+   * Strips the 'products:' prefix and returns clean feature names
+   */
+  private getProductFeatures(): string[] {
+    const allFeatures = this.getFeatures();
+    const prefixedFeatures = allFeatures.filter(f => f.startsWith('products:'));
+
+    // If no prefixed features, return default product card features
+    if (prefixedFeatures.length === 0) {
+      return ['media', 'title', 'price', 'add-to-cart'];
+    }
+
+    return prefixedFeatures.map(f => f.replace('products:', ''));
+  }
+
+  /**
+   * Extract detail: prefixed features for product detail view
+   * Strips the 'detail:' prefix and returns clean feature names
+   */
+  private getDetailFeatures(): string[] {
+    const allFeatures = this.getFeatures();
+    const prefixedFeatures = allFeatures.filter(f => f.startsWith('detail:'));
+
+    // If no prefixed features, return all non-prefixed features for detail view
+    if (prefixedFeatures.length === 0) {
+      return allFeatures.filter(f => !f.startsWith('products:'));
+    }
+
+    return prefixedFeatures.map(f => f.replace('detail:', ''));
   }
 
   /**
@@ -846,6 +905,8 @@ export class CategoriesWidget extends ShoprocketElement {
         .product="${this.currentProduct}"
         .prevProduct="${this.prevProduct}"
         .nextProduct="${this.nextProduct}"
+        data-widget-type="categories"
+        data-features="${this.getDetailFeatures().join(',')}"
         @navigate-product="${this.handleProductNavigation}"
       ></shoprocket-product>
     `;
@@ -889,7 +950,7 @@ export class CategoriesWidget extends ShoprocketElement {
 
         ${this.currentView === 'categories' ? html`
           ${this.currentCategories.length > 0 ? html`
-            <div class="sr-category-grid" style="--sr-category-cols: ${this.columns}">
+            <div class="sr-category-grid">
               ${this.currentCategories.map(cat => this.renderCategoryCard(cat))}
             </div>
           ` : this.renderEmptyState()}
