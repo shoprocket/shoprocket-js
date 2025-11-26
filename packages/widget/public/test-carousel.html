@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Shoprocket Widget demo page - embeddable e-commerce components for product catalogs, categories, cart, and checkout">
+  <link rel="icon" href="https://dev.shoprocket.io/img/favicon/favicon-32x32.png">
+  <title>Shoprocket Widget - Modern Embed</title>
+  <style>
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 1rem;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .intro {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+    .example {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 1rem;
+      margin: 1rem 0;
+      font-family: monospace;
+      font-size: 0.875rem;
+      overflow: auto;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+    }
+    li {
+      margin-right: 1rem;
+      margin-bottom: 1rem;
+    }
+    a {
+      color: #0056b3;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+      color: #003d82;
+    }
+
+    /* Minimal theme */
+    /* .shoprocket {
+      --color-primary: #000000;
+      --color-surface: #ffffff;
+      --color-text: #000000;
+      --color-border: #000000;
+      --color-error: #ef4444;
+      --sr-radius: 0px;
+      --cols: 4;
+      --sr-product-title-size: 14px;
+      --sr-button-font-size: 13px;
+    } */
+
+
+  </style>
+</head>
+<body>
+
+  <main>
+  
+
+
+  <div class="container">
+
+    
+<!-- Shoprocket Carousel Widget -->
+    <h2>Shoprocket Carousel Widget</h2>
+      <!-- Basic carousel with 4 products per view on desktop -->
+  <div
+    data-shoprocket="catalog"
+    data-display-mode="carousel"
+    data-arrows="false"
+    data-limit="20"
+  ></div>
+
+    <!-- Single script tag with public key in data attribute (relative URL which will also work on dev server)-->
+    <script src="shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>
+
+  </div>
+
+
+</body>
+</html>
+
+
+

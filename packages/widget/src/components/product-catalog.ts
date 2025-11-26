@@ -100,6 +100,22 @@ export class ProductCatalog extends ShoprocketElement {
   @property({ type: String, attribute: 'data-filter-position' })
   filterPosition: 'top' | 'left' = 'top';
 
+  @property({ type: String, attribute: 'data-display-mode' })
+  displayMode: 'grid' | 'carousel' = 'grid';
+
+  @property({ type: String, attribute: 'data-detail-mode' })
+  detailMode: 'inline' | 'modal' = 'inline';
+
+  // Carousel-specific options
+  @property({ type: Boolean, attribute: 'data-arrows' })
+  arrows = true;
+
+  @property({ type: Boolean, attribute: 'data-dots' })
+  dots = false;
+
+  @property({ type: Boolean, attribute: 'data-infinite' })
+  infinite = true;
+
   // Grid columns for different breakpoints
   private _columns?: number;
   private _columnsMd?: number;
@@ -221,6 +237,19 @@ export class ProductCatalog extends ShoprocketElement {
 
   // Track products with injected schemas for cleanup
   private productsWithSchemas: Set<string> = new Set();
+
+  // Carousel state
+  @state()
+  private carouselScrollPosition = 0;
+
+  @state()
+  private showingProductModal = false;
+
+  @state()
+  private modalProduct?: Product;
+
+  private carouselContainer?: HTMLElement;
+  private carouselObserver?: IntersectionObserver;
 
   private handleHashStateChange = async (event: Event): Promise<void> => {
     const customEvent = event as CustomEvent<HashState>;
@@ -345,6 +374,11 @@ export class ProductCatalog extends ShoprocketElement {
       }
     }
 
+    // Setup carousel observer when in carousel mode
+    if (this.displayMode === 'carousel' && this.carouselContainer) {
+      requestAnimationFrame(() => this.setupCarouselObserver());
+    }
+
     // Note: view_item tracking is handled by the product-detail component itself
   }
 
@@ -434,9 +468,14 @@ export class ProductCatalog extends ShoprocketElement {
         }
         // If filterMode='all' or no filterMode → undefined (all products)
 
+        // In carousel mode, load more products per page so there's content to scroll to
+        const effectivePerPage = this.displayMode === 'carousel'
+          ? Math.max(this.perPage * 3, 20) // Load at least 3 pages worth or 20 products
+          : this.perPage;
+
         const response = await this.sdk.products.list({
           page,
-          perPage: this.perPage,
+          perPage: effectivePerPage,
           category: categoryParam,
           products: productsParam,
           search: this.searchQuery || undefined,
@@ -747,13 +786,14 @@ export class ProductCatalog extends ShoprocketElement {
     }
 
     const pageProducts = this.getPageProducts();
-    // Only use sidebar layout if filters are enabled AND position is left
-    const layoutMode = this.hasFeature('filters') && this.filterPosition === 'left' ? 'sidebar' : 'horizontal';
+    // Only use sidebar layout if filters are enabled AND position is left AND not carousel
+    const layoutMode = this.hasFeature('filters') && this.filterPosition === 'left' && this.displayMode === 'grid' ? 'sidebar' : 'horizontal';
 
     return html`
       <div class="sr-catalog-list-view ${this.currentView === 'list' ? 'visible' : 'hidden'}"
-           data-layout="${layoutMode}">
-        ${this.hasFeature('filters') ? html`
+           data-layout="${layoutMode}"
+           data-display-mode="${this.displayMode}">
+        ${this.displayMode === 'grid' && this.hasFeature('filters') ? html`
           <shoprocket-catalog-filters
             .search="${this.searchQuery}"
             .sort="${this.sortBy}"
@@ -774,30 +814,33 @@ export class ProductCatalog extends ShoprocketElement {
           ></shoprocket-catalog-filters>
         ` : ''}
         <div class="sr-catalog-content">
-          ${ProductListTemplates.renderProductList(
-            pageProducts,
-            this.loadedPages.size === 0 || this.isLoading('products'),
-            this.perPage,
-            this.errorMessage,
-            this.successMessage,
-            this.addedToCartProducts,
-            this.getFeatures(),
-            this.hasFeature('product-detail'),
-            {
-              handleProductClick: (product) => this.handleProductClick(product),
-              handleAddToCart: (product) => this.handleAddToCart(product),
-              formatPrice: (price) => this.formatPrice(price),
-              getMediaUrl: (media) => this.getMediaUrl(media),
-              getMediaSrcSet: (media) => this.getMediaSrcSet(media),
-              handleImageError: (e) => this.handleImageError(e),
-              isLoadingItem: (key) => this.isLoading(key),
-              sdk: this.sdk
-            }
-          )}
-          ${this.currentView === 'list' && this.totalPages > 1 ? this.renderPagination() : ''}
+          ${this.displayMode === 'carousel'
+            ? this.renderCarousel(pageProducts)
+            : ProductListTemplates.renderProductList(
+              pageProducts,
+              this.loadedPages.size === 0 || this.isLoading('products'),
+              this.perPage,
+              this.errorMessage,
+              this.successMessage,
+              this.addedToCartProducts,
+              this.getFeatures(),
+              this.hasFeature('product-detail'),
+              {
+                handleProductClick: (product) => this.detailMode === 'modal' ? this.handleProductClickModal(product) : this.handleProductClick(product),
+                handleAddToCart: (product) => this.handleAddToCart(product),
+                formatPrice: (price) => this.formatPrice(price),
+                getMediaUrl: (media) => this.getMediaUrl(media),
+                getMediaSrcSet: (media) => this.getMediaSrcSet(media),
+                handleImageError: (e) => this.handleImageError(e),
+                isLoadingItem: (key) => this.isLoading(key),
+                sdk: this.sdk
+              }
+            )
+          }
+          ${this.currentView === 'list' && this.displayMode === 'grid' && this.totalPages > 1 ? this.renderPagination() : ''}
         </div>
       </div>
-      ${this.currentView === 'product' ? html`
+      ${this.currentView === 'product' && this.detailMode === 'inline' ? html`
         <shoprocket-product
           .sdk="${this.sdk}"
           .product="${this.getCurrentProduct()}"
@@ -809,6 +852,7 @@ export class ProductCatalog extends ShoprocketElement {
           @navigate-product="${(e: CustomEvent) => this.handleProductNavigation(e)}"
         ></shoprocket-product>
       ` : ''}
+      ${this.renderProductModal()}
     `;
   }
 
@@ -1526,6 +1570,262 @@ export class ProductCatalog extends ShoprocketElement {
     requestAnimationFrame(() => {
       this.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+  }
+
+  // ============================================================================
+  // Carousel Methods
+  // ============================================================================
+
+  private handleCarouselNext(): void {
+    console.log('[Carousel] Next button clicked!');
+    const container = this.renderRoot.querySelector('.sr-carousel-container') as HTMLElement;
+    console.log('[Carousel] Container found:', !!container);
+    if (!container) {
+      console.error('[Carousel] No container found!');
+      return;
+    }
+
+    const items = container.querySelectorAll('.sr-carousel-item');
+    if (items.length < 2) return;
+
+    // Calculate actual distance between items (includes gap)
+    const item1Rect = items[0].getBoundingClientRect();
+    const item2Rect = items[1].getBoundingClientRect();
+    const slideWidth = item2Rect.left - item1Rect.left;
+
+    const slidesToScroll = this.getSlidesToShow();
+    const scrollAmount = slideWidth * slidesToScroll;
+
+    console.log('[Carousel] Scrolling:', { slideWidth, slidesToScroll, scrollAmount, currentScrollLeft: container.scrollLeft });
+
+    // Try scrollTo instead of scrollBy
+    const targetScroll = container.scrollLeft + scrollAmount;
+    console.log('[Carousel] Target scrollLeft:', targetScroll);
+
+    container.scrollTo({
+      left: targetScroll,
+      behavior: 'smooth'
+    });
+
+    // Log after a short delay to see the result
+    setTimeout(() => {
+      console.log('[Carousel] After scroll, scrollLeft:', container.scrollLeft);
+    }, 100);
+  }
+
+  private handleCarouselPrev(): void {
+    console.log('[Carousel] Prev button clicked!');
+    const container = this.renderRoot.querySelector('.sr-carousel-container') as HTMLElement;
+    console.log('[Carousel] Container found:', !!container);
+    if (!container) {
+      console.error('[Carousel] No container found!');
+      return;
+    }
+
+    const items = container.querySelectorAll('.sr-carousel-item');
+    if (items.length < 2) return;
+
+    // Calculate actual distance between items (includes gap)
+    const item1Rect = items[0].getBoundingClientRect();
+    const item2Rect = items[1].getBoundingClientRect();
+    const slideWidth = item2Rect.left - item1Rect.left;
+
+    const slidesToScroll = this.getSlidesToShow();
+    const scrollAmount = slideWidth * slidesToScroll;
+
+    console.log('[Carousel] Scrolling:', { slideWidth, slidesToScroll, scrollAmount, currentScrollLeft: container.scrollLeft });
+
+    // Try scrollTo instead of scrollBy
+    const targetScroll = Math.max(0, container.scrollLeft - scrollAmount);
+    console.log('[Carousel] Target scrollLeft:', targetScroll);
+
+    container.scrollTo({
+      left: targetScroll,
+      behavior: 'smooth'
+    });
+
+    // Log after a short delay to see the result
+    setTimeout(() => {
+      console.log('[Carousel] After scroll, scrollLeft:', container.scrollLeft);
+    }, 100);
+  }
+
+  private getSlidesToShow(): number {
+    const width = window.innerWidth;
+    if (width >= 1024) return this.columns || 4;
+    if (width >= 768) return this.columnsMd || 3;
+    return this.columnsSm || 2;
+  }
+
+  private handleCarouselScroll(e: Event): void {
+    const container = e.target as HTMLElement;
+    if (!container) return;
+
+    // Store reference to container
+    this.carouselContainer = container;
+
+    // Update scroll position for dots
+    const slideWidth = container.querySelector('.sr-carousel-item')?.clientWidth || 0;
+    if (slideWidth > 0) {
+      this.carouselScrollPosition = Math.round(container.scrollLeft / slideWidth);
+    }
+  }
+
+  private setupCarouselObserver(): void {
+    if (this.carouselObserver) {
+      this.carouselObserver.disconnect();
+    }
+
+    if (this.displayMode !== 'carousel') return;
+
+    const container = this.renderRoot.querySelector('.sr-carousel-container') as HTMLElement;
+    if (!container) return;
+
+    // Lazy load more products when user scrolls near the end
+    this.carouselObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            // User is near the end of carousel, load next page if available
+            if (this.currentPage < this.totalPages) {
+              this.loadProducts(this.currentPage + 1);
+            }
+          }
+        });
+      },
+      {
+        root: container,
+        threshold: 0.5,
+        rootMargin: '0px 200px 0px 0px' // Trigger 200px before the end
+      }
+    );
+
+    // Observe the last few items
+    const items = container.querySelectorAll('.sr-carousel-item');
+    if (items.length > 3) {
+      this.carouselObserver.observe(items[items.length - 3]);
+    }
+  }
+
+  private renderCarousel(products: Product[]): TemplateResult {
+    const handleClick = this.detailMode === 'modal' ? this.handleProductClickModal.bind(this) : this.handleProductClick.bind(this);
+
+    return html`
+      <div class="sr-carousel-wrapper">
+        ${this.arrows ? html`
+          <button
+            class="sr-carousel-arrow sr-carousel-arrow-prev"
+            @click="${this.handleCarouselPrev}"
+            aria-label="Previous products"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+        ` : ''}
+
+        <div class="sr-carousel-container" @scroll="${this.handleCarouselScroll}">
+          ${products.map((product, index) => html`
+            <div class="sr-carousel-item">
+              ${ProductListTemplates.renderProduct(
+                product,
+                index,
+                this.addedToCartProducts,
+                this.getFeatures(),
+                this.hasFeature('product-detail'),
+                {
+                  handleProductClick: handleClick,
+                  handleAddToCart: (p) => this.handleAddToCart(p),
+                  formatPrice: (price) => this.formatPrice(price),
+                  getMediaUrl: (media) => this.getMediaUrl(media),
+                  getMediaSrcSet: (media) => this.getMediaSrcSet(media),
+                  handleImageError: (e) => this.handleImageError(e),
+                  isLoadingItem: (key) => this.isLoading(key),
+                  sdk: this.sdk
+                }
+              )}
+            </div>
+          `)}
+        </div>
+
+        ${this.arrows ? html`
+          <button
+            class="sr-carousel-arrow sr-carousel-arrow-next"
+            @click="${this.handleCarouselNext}"
+            aria-label="Next products"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>
+        ` : ''}
+
+        ${this.dots ? html`
+          <div class="sr-carousel-dots">
+            ${Array.from({ length: Math.ceil(products.length / this.getSlidesToShow()) }, (_, i) => html`
+              <button
+                class="sr-carousel-dot ${i === Math.floor(this.carouselScrollPosition / this.getSlidesToShow()) ? 'active' : ''}"
+                @click="${() => this.scrollToSlide(i)}"
+                aria-label="Go to slide ${i + 1}"
+              ></button>
+            `)}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private scrollToSlide(index: number): void {
+    const container = this.renderRoot.querySelector('.sr-carousel-container') as HTMLElement;
+    if (!container) return;
+
+    const slideWidth = container.querySelector('.sr-carousel-item')?.clientWidth || 0;
+    const slidesToShow = this.getSlidesToShow();
+
+    container.scrollTo({
+      left: slideWidth * slidesToShow * index,
+      behavior: 'smooth'
+    });
+  }
+
+  private handleProductClickModal(product: Product): void {
+    if (this.detailMode === 'modal') {
+      this.modalProduct = product;
+      this.showingProductModal = true;
+      document.body.style.overflow = 'hidden'; // Lock scroll
+    } else {
+      this.handleProductClick(product);
+    }
+  }
+
+  private closeProductModal(): void {
+    this.showingProductModal = false;
+    this.modalProduct = undefined;
+    document.body.style.overflow = ''; // Unlock scroll
+  }
+
+  private renderProductModal(): TemplateResult {
+    if (!this.showingProductModal || !this.modalProduct) {
+      return html``;
+    }
+
+    return html`
+      <div class="sr-product-modal-overlay" @click="${this.closeProductModal}">
+        <div class="sr-product-modal" @click="${(e: Event) => e.stopPropagation()}">
+          <button class="sr-product-modal-close" @click="${this.closeProductModal}" aria-label="Close">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+          <shoprocket-product
+            .sdk="${this.sdk}"
+            .product="${this.modalProduct}"
+            data-features="${this.getDetailFeatures().join(',')}"
+            data-use-light-dom="true"
+          ></shoprocket-product>
+        </div>
+      </div>
+    `;
   }
 
 }

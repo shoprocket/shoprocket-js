@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Categories Widget - iframe Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    .test-section {
+      margin: 30px 0;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .test-section h2 {
+      margin-top: 0;
+      font-size: 18px;
+      color: #374151;
+    }
+    iframe {
+      width: 100%;
+      height: 600px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Categories Widget - iframe Test</h1>
+  <p>Testing product detail view in iframe context</p>
+
+  <div class="test-section">
+    <h2>Normal Page (Not in iframe) - Should Work</h2>
+    <div data-shoprocket="categories"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Inside iframe - Testing Product Click</h2>
+    <iframe src="iframe-content.html"></iframe>
+  </div>
+
+  <script src="/shoprocket.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>
+
+  <script>
+    // Log all console messages for debugging
+    console.log('[TEST PAGE] Test page loaded');
+
+    // Listen for messages from iframe
+    window.addEventListener('message', (event) => {
+      console.log('[TEST PAGE] Message from iframe:', event.data);
+    });
+  </script>
+</body>
+</html>

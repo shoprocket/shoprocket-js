@@ -292,11 +292,30 @@ export interface LocationData {
 // Embed Types
 // ============================================================================
 
+export interface CatalogConfiguration {
+  colorScheme?: 'auto' | 'light' | 'dark';
+  displayMode?: 'grid' | 'carousel';
+  detailMode?: 'inline' | 'modal';
+  filterMode?: 'all' | 'categories' | 'products';
+  categories?: string;
+  products?: string;
+  limit?: number;
+  columns?: number;
+  columnsMd?: number;
+  columnsSm?: number;
+  routable?: boolean;
+  filterPosition?: 'top' | 'left';
+  arrows?: boolean;
+  dots?: boolean;
+  infinite?: boolean;
+  features?: string[] | Record<string, boolean>;
+}
+
 export interface EmbedConfig {
   widgetType: string;
   theme?: string;
   themeCssUrl?: string;
-  configuration: Record<string, any>;
+  configuration: CatalogConfiguration | Record<string, any>;
   store?: {
     publishableKey: string;
     [key: string]: any;
