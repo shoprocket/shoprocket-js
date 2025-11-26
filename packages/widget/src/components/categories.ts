@@ -105,14 +105,50 @@ export class CategoriesWidget extends ShoprocketElement {
   @state() private loadingProduct = false;
   @state() private cachedProducts: Product[] = []; // Cache products list for navigation
 
+  /**
+   * Check if widget is running inside an iframe
+   * Hash routing doesn't work properly in iframes due to browser security restrictions
+   */
+  private isInIframe(): boolean {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      // Cross-origin iframe - access denied to window.top
+      return true;
+    }
+  }
+
+  /**
+   * Update URL hash for routing (only works outside iframes)
+   * In iframes, this is skipped but internal state management still works
+   */
+  private updateUrlHash(newHash: string): void {
+    if (!this.isInIframe()) {
+      window.location.hash = newHash;
+    }
+  }
+
+  /**
+   * Update URL using replaceState (only works outside iframes)
+   * In iframes, this is skipped but internal state management still works
+   */
+  private replaceUrlState(url: string): void {
+    if (!this.isInIframe()) {
+      history.replaceState(null, '', url);
+    }
+  }
+
   override connectedCallback(): void {
     super.connectedCallback();
 
-    // Always enable routing - namespace filtering prevents conflicts
-    window.addEventListener('hashchange', this.handleHashChange);
-
-    // Sync with current URL on mount
-    this.syncWithUrl();
+    // Only enable hash routing if NOT in iframe
+    // In iframes, hash changes are blocked/ignored by browser security
+    // Widget will still work via internal state management
+    if (!this.isInIframe()) {
+      window.addEventListener('hashchange', this.handleHashChange);
+      // Sync with current URL on mount
+      this.syncWithUrl();
+    }
   }
 
   override disconnectedCallback(): void {
@@ -527,7 +563,7 @@ export class CategoriesWidget extends ShoprocketElement {
 
     // Update URL for bookmarking (don't trigger another load via hash change)
     const identifier = category.slug || category.id;
-    window.location.hash = `#!/categories/${identifier}`;
+    this.updateUrlHash(`#!/categories/${identifier}`);
   }
 
   /**
@@ -547,7 +583,7 @@ export class CategoriesWidget extends ShoprocketElement {
 
         // Update URL for bookmarking
         const identifier = currentCategory.slug || currentCategory.id;
-        window.location.hash = `#!/categories/${identifier}`;
+        this.updateUrlHash(`#!/categories/${identifier}`);
       }
       return;
     }
@@ -563,12 +599,12 @@ export class CategoriesWidget extends ShoprocketElement {
     if (previous.type === 'root') {
       // Back to root - clear URL properly (without leaving trailing #)
       const cleanUrl = window.location.pathname + window.location.search;
-      history.replaceState(null, '', cleanUrl);
+      this.replaceUrlState(cleanUrl);
       this.loadInitialCategories();
     } else if (previous.category) {
       // Back to parent category
       const identifier = previous.category.slug || previous.category.id;
-      window.location.hash = `#!/categories/${identifier}`;
+      this.updateUrlHash(`#!/categories/${identifier}`);
       this.currentCategories = previous.category.children || [];
       this.currentView = 'categories';
     }
@@ -748,7 +784,7 @@ export class CategoriesWidget extends ShoprocketElement {
     const categoryIdentifier = currentCategory.slug || currentCategory.id;
     const productIdentifier = product.slug || product.id;
     const newHash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
-    history.replaceState(null, '', newHash);
+    this.replaceUrlState(newHash);
 
     // Check if we have full product details (description, variants, etc.)
     // Products from list API only have basic data
@@ -815,7 +851,7 @@ export class CategoriesWidget extends ShoprocketElement {
 
     // If no prefixed features, return default product card features
     if (prefixedFeatures.length === 0) {
-      return ['media', 'title', 'price', 'add-to-cart'];
+      return ['media', 'title', 'price', 'add-to-cart', 'product-detail'];
     }
 
     return prefixedFeatures.map(f => f.replace('products:', ''));
@@ -869,7 +905,7 @@ export class CategoriesWidget extends ShoprocketElement {
         const categoryIdentifier = currentCategory.slug || currentCategory.id;
         const productIdentifier = product.slug || product.id;
         const newHash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
-        history.replaceState(null, '', newHash);
+        this.replaceUrlState(newHash);
 
         // Check if we have full product details (description, variants, etc.)
         // Products from list API only have basic data
@@ -896,7 +932,7 @@ export class CategoriesWidget extends ShoprocketElement {
     // Fallback: Navigate via URL (will trigger loadCategoryAndProduct)
     const categoryIdentifier = currentCategory.slug || currentCategory.id;
     const productIdentifier = product.slug || product.id;
-    window.location.hash = `#!/categories/${categoryIdentifier}/product/${productIdentifier}`;
+    this.updateUrlHash(`#!/categories/${categoryIdentifier}/product/${productIdentifier}`);
   };
 
   /**
