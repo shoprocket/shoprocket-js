@@ -1303,7 +1303,7 @@
   }
 
   .sr-quantity-controls {
-    @apply flex items-center border rounded-lg w-full;
+    @apply flex items-center border rounded-lg w-full overflow-hidden;
     border-color: var(--border);
     box-shadow: var(--tw-shadow);
   }
@@ -2239,16 +2239,16 @@
 
 /* Price Range Field - matches field-select styling EXACTLY */
 .sr-price-range-field {
-  @apply w-full border text-sm relative; /* Add relative positioning */
+  @apply w-full border text-sm relative;
   background: var(--card);
+  color: var(--foreground);
   border-radius: var(--radius);
   border-color: var(--border);
   height: 3.25rem; /* Fixed height to match other filters exactly */
   transition: border-color 0.2s ease;
   padding: 1.25rem 12px 0 12px; /* Top padding for header, no bottom padding */
-  color: var(--foreground);
-  box-shadow: var(--tw-shadow); /* Match other inputs */
   box-sizing: border-box; /* Ensure consistent sizing */
+  /* NO box-shadow here - sr-field-group already has it */
 
   /* Only apply min-width on desktop */
   @media (min-width: 1024px) {
