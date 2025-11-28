@@ -69,9 +69,9 @@
  * Shoprocket Design System
  *
  * CUSTOMIZATION: Users can override these CSS variables:
- * 1. Inline styles: <shoprocket-catalog style="--color-primary: #ff0000;">
- * 2. CSS: shoprocket-catalog { --color-primary: #ff0000; }
- * 3. JavaScript: element.style.setProperty('--color-primary', '#ff0000')
+ * 1. Inline styles: <shoprocket-catalog style="--primary: #ff0000;">
+ * 2. CSS: shoprocket-catalog { --primary: #ff0000; }
+ * 3. JavaScript: element.style.setProperty('--primary', '#ff0000')
  */
 :host {
   /* Tailwind CSS reset variables - required for utilities to work in Shadow DOM */
@@ -132,7 +132,7 @@
   --spacing: 0.25rem; /* Base unit: 4px - matches Tailwind default */
 
   /* Border radius - ONE value for consistency across all elements */
-  --sr-radius: 0.3125rem; /* 5px - change this once to update all corners */
+  /* Radius uses theme variable --radius (from shadcn standard) */
 
   /* Shadow - Theme provides individual variables, we combine them like Tailwind does */
   /* Themes define: --shadow-color, --shadow-opacity, --shadow-offset-x, --shadow-offset-y, --shadow-blur, --shadow-spread */
@@ -189,7 +189,7 @@
     @apply grid gap-4;
     background: var(--card);
     padding: var(--sr-product-grid-padding);
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     grid-template-columns: repeat(var(--cols-sm, 2), minmax(0, 1fr));
   }
 
@@ -245,7 +245,7 @@
     background: var(--skeleton-shimmer-gradient);
     background-size: 200% 100%;
     animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     z-index: 1;
   }
 
@@ -299,7 +299,7 @@
     background: var(--skeleton-shimmer-gradient);
     background-size: 200% 100%;
     animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     z-index: 1;
   }
 
@@ -319,7 +319,7 @@
     background: var(--skeleton-shimmer-gradient);
     background-size: 200% 100%;
     animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     z-index: 1;
   }
 
@@ -391,7 +391,7 @@
     @apply flex flex-col h-full text-left;
     background: var(--card);
     color: var(--foreground);
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
   }
 
   /* Product Image Container */
@@ -486,7 +486,7 @@
   .sr-button {
     @apply font-medium transition-all transform cursor-pointer w-full h-11;
     padding: var(--sr-button-padding-y) var(--sr-button-padding-x);
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     font-size: var(--sr-button-font-size);
     box-shadow: var(--tw-shadow);
   }
@@ -543,7 +543,8 @@
   /* Cart Overlay */
   .sr-cart-overlay {
     @apply fixed inset-0 z-[9998] transition-opacity;
-    background: var(--overlay);
+    /* Hardcoded overlay - critical UI element for cart drawer backdrop */
+    background: rgba(0, 0, 0, 0.5);
   }
 
   .sr-cart-overlay.open {
@@ -589,10 +590,11 @@
     @apply border-none flex items-center justify-center cursor-pointer relative transition-all duration-200 transform hover:scale-105;
     background: var(--card);
     color: var(--card-foreground);
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     width: var(--cart-size);
     height: var(--cart-size);
-    box-shadow: var(--sr-shadow, 0 4px 30px rgba(0, 0, 0, 0.05));
+    /* Hardcoded shadow for visibility - critical UI element needs to stand out */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     user-select: none;
     -webkit-user-select: none;
   }
@@ -605,7 +607,8 @@
   }
 
   .sr-cart-toggle-button:hover {
-    box-shadow: var(--sr-shadow-hover, 0 8px 40px rgba(0, 0, 0, 0.1));
+    /* Enhanced shadow on hover - critical UI element */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   }
 
   .sr-cart-toggle-button.hidden {
@@ -800,7 +803,7 @@
     @apply py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 
            transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 
            disabled:cursor-not-allowed disabled:transform-none;
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     user-select: none;
     -webkit-user-select: none;
   }
@@ -834,7 +837,7 @@
     @apply border-none py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99];
     background: var(--primary);
     color: var(--primary-foreground);
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     user-select: none;
     -webkit-user-select: none;
   }
@@ -877,7 +880,7 @@
 
   .sr-cart-item-image {
     @apply w-16 h-16 flex-shrink-0 overflow-hidden cursor-pointer relative;
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
     background: var(--skeleton-shimmer-gradient);
     background-size: 200% 100%;
     animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
@@ -1034,8 +1037,8 @@
   /* Cart Test Mode Indicator */
   .sr-cart-test-indicator {
     @apply text-xs text-center mt-2 py-1 px-2 rounded;
-    background: var(--color-warning-bg);
-    color: var(--color-warning-text);
+    background: var(--muted);
+    color: var(--muted-foreground);
   }
   
   .sr-cart-test-indicator-checkout {
@@ -1057,7 +1060,7 @@
   .sr-product-detail {
     background: var(--card);
     padding: var(--sr-product-grid-padding);
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
   }
 
   /* Reserve space during loading to prevent CLS */
@@ -1152,7 +1155,7 @@
   .sr-product-detail-thumbnail {
     @apply relative aspect-square overflow-hidden cursor-pointer transition-all;
     border: 2px solid transparent;
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
   }
 
   .sr-product-detail-thumbnail:hover {
@@ -1184,25 +1187,25 @@
     @apply text-xs mb-4 p-1;
     display: inline-flex;
     width: fit-content;
-    border-radius: var(--sr-radius);
+    border-radius: var(--radius);
   }
 
   .sr-in-stock {
-    color: var(--success); /* Green-700 for better contrast (4.5:1 ratio) */
-    border-color: var(--color-green-200);
-    background-color: var(--color-green-100);
+    color: var(--success, #16a34a); /* Green-700 for better contrast (4.5:1 ratio) - fallback if theme doesn't define --success */
+    border-color: color-mix(in srgb, var(--success, #16a34a) 20%, transparent);
+    background-color: color-mix(in srgb, var(--success, #16a34a) 10%, transparent);
   }
 
   .sr-low-stock {
-    color: var(--warning); /* Orange-700 for better contrast (4.6:1 ratio) */
-    border-color: var(--color-yellow-200);
-    background-color: var(--color-yellow-100);
+    color: var(--warning, #ea580c); /* Orange-700 for better contrast (4.6:1 ratio) - fallback if theme doesn't define --warning */
+    border-color: color-mix(in srgb, var(--warning, #ea580c) 20%, transparent);
+    background-color: color-mix(in srgb, var(--warning, #ea580c) 10%, transparent);
   }
 
   .sr-out-of-stock {
     color: var(--destructive); /* Red-700 for better contrast (5.9:1 ratio) */
-    border-color: var(--color-red-200);
-    background-color: var(--color-red-100);
+    border-color: color-mix(in srgb, var(--destructive) 20%, transparent);
+    background-color: color-mix(in srgb, var(--destructive) 10%, transparent);
   }
 
   .sr-product-detail-summary {
@@ -1516,7 +1519,7 @@
 
 .sr-notification-content {
   @apply rounded-lg p-4 shadow flex items-start gap-3;
-  border-radius: var(--sr-radius);
+  border-radius: var(--radius);
   padding: var(--spacing);
   box-shadow: var(--tw-shadow);
 }
@@ -1577,13 +1580,13 @@
 /* Unified Media Container System */
 .sr-media-container {
   @apply relative w-full h-full overflow-hidden;
-  background: var(--media-bg, var(--color-surface-secondary, #f9fafb));
+  background: var(--media-bg, var(--muted));
   box-shadow: var(--tw-shadow);
 }
 
 /* Only apply border-radius when media container is the outermost element */
 .sr-media-container.sr-product-detail-image-main {
-  border-radius: var(--sr-radius);
+  border-radius: var(--radius);
 }
 
 /* For containers inside bordered elements, no border-radius needed - parent's overflow:hidden handles it */
@@ -1646,8 +1649,8 @@
 
 .sr-product-thumbnail {
   @apply relative aspect-square overflow-hidden cursor-pointer border-2 border-transparent;
-  border-radius: var(--sr-radius);
-  background-color: var(--color-surface-secondary, var(--color-gray-50));
+  border-radius: var(--radius);
+  background-color: var(--muted);
 }
 
 .sr-product-thumbnail.active {
@@ -1658,7 +1661,7 @@
 }
 
 .sr-product-thumbnail:hover:not(.active) {
-  border-color: var(--color-border-hover, var(--color-gray-300));
+  border-color: var(--border);
 }
 
 .sr-product-thumbnail-image {
@@ -1879,7 +1882,7 @@
 .sr-cart-item-subtotal,
 .sr-cart-total-price {
   @apply inline-block px-1 -mx-1;
-  border-radius: var(--sr-radius);
+  border-radius: var(--radius);
 }
 
 .sr-cart-item-subtotal.price-changed,
@@ -1895,7 +1898,7 @@
 .sr-add-notification {
   @apply absolute px-3 py-3 min-w-[260px] max-w-[320px];
   background: var(--card);
-  border-radius: var(--sr-radius);
+  border-radius: var(--radius);
   box-shadow: var(--tw-shadow);
   z-index: -1;
 }
@@ -1918,7 +1921,7 @@
 
 .sr-add-notification-image {
   @apply w-10 h-10 flex-shrink-0 overflow-hidden;
-  border-radius: var(--sr-radius);
+  border-radius: var(--radius);
   background: var(--secondary);
 }
 
@@ -1964,7 +1967,7 @@
 
 .sr-add-notification-variant {
   @apply text-xs truncate;
-  color: rgba(var(--color-on-surface-rgb, 0, 0, 0), 0.4);
+  color: var(--muted-foreground);
 }
 
 .sr-arrow-inner {
@@ -2119,6 +2122,9 @@
     @apply sticky top-4;
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
+    /* Padding prevents shadow clipping from overflow */
+    padding: 1rem;
+    margin: -1rem;
   }
 }
 
@@ -2231,16 +2237,18 @@
   box-shadow: var(--tw-shadow);
 }
 
-/* Price Range Field - matches field-select styling */
+/* Price Range Field - matches field-select styling EXACTLY */
 .sr-price-range-field {
-  @apply w-full rounded-md;
-  background-color: var(--card);
-  border: 1px solid var(--border);
-  height: 48px; /* Match other filters exactly */
+  @apply w-full border text-sm;
+  background: var(--card);
+  border-radius: var(--radius);
+  border-color: var(--border);
+  min-height: 2.75rem; /* Match inputs exactly (44px) */
   transition: border-color 0.2s ease;
   padding: 6px 12px;
-  position: relative;
-  overflow: visible; /* Allow thumbs to overflow */
+  color: var(--foreground);
+  box-shadow: var(--tw-shadow); /* Match other inputs */
+  box-sizing: border-box; /* Ensure consistent sizing */
 
   /* Only apply min-width on desktop */
   @media (min-width: 1024px) {
@@ -2248,7 +2256,12 @@
   }
 }
 
-.sr-price-range-field:hover {
+.sr-price-range-field:hover:not(:focus) {
+  border-color: var(--border);
+}
+
+.sr-price-range-field:focus-within {
+  outline: none;
   border-color: var(--primary);
 }
 
@@ -2271,8 +2284,9 @@
 
 .sr-price-range-slider {
   @apply relative w-full;
-  height: 20px; /* Visual height - compact */
-  /* margin: 12px 0; Vertical spacing to create touch target area */
+  height: 28px; /* Increased height for better touch targets */
+  display: flex;
+  align-items: center;
 }
 
 /* Background track - always visible */
@@ -2290,12 +2304,12 @@
 .sr-price-range-slider input[type="range"] {
   @apply absolute w-full appearance-none bg-transparent;
   -webkit-appearance: none;
-  height: 20px; /* Match container visual height */
-  top: 50%;
-  transform: translateY(-50%);
+  height: 28px; /* Match container height */
+  top: 0;
+  left: 0;
   pointer-events: none;
   margin: 0;
-  padding: 14px 0; /* Expand touch target vertically (20 + 14*2 = 48px total) */
+  padding: 0;
 }
 
 /* Make the thumbs interactive */
@@ -2325,8 +2339,8 @@
   -webkit-appearance: none;
   width: 20px;
   height: 20px;
-  background: #fff;
-  border: 2px solid var(--primary);
+  background: var(--background);
+  border: 2px solid var(--border);
   box-shadow: var(--tw-shadow);
   position: relative;
   z-index: 4;
@@ -2337,8 +2351,8 @@
   @apply rounded-full cursor-grab;
   width: 20px;
   height: 20px;
-  background: #fff;
-  border: 2px solid var(--primary);
+  background: var(--background);
+  border: 2px solid var(--border);
   box-shadow: var(--tw-shadow);
   position: relative;
   z-index: 4;
@@ -2361,14 +2375,14 @@
   @apply cursor-grabbing;
   transform: scale(1.05);
   box-shadow: var(--tw-shadow);
-  background: var(--primary);
+  border-color: var(--foreground);
 }
 
 .sr-price-range-slider input[type="range"]:active::-moz-range-thumb {
   @apply cursor-grabbing;
   transform: scale(1.05);
   box-shadow: var(--tw-shadow);
-  background: var(--primary);
+  border-color: var(--foreground);
 }
 
 /* Ensure max slider is above min slider */
@@ -2477,15 +2491,17 @@
   @apply cursor-pointer;
   background: var(--card);
   color: var(--card-foreground);
-  border-radius: var(--sr-radius);
-  box-shadow: var(--sr-shadow, 0 4px 30px rgba(0, 0, 0, 0.05));
+  border-radius: var(--radius);
+  /* Hardcoded shadow for visibility - critical navigation element */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border: none;
 }
 
 .sr-carousel-arrow:hover:not(:disabled) {
   background: var(--primary);
   color: var(--primary-foreground);
-  box-shadow: var(--sr-shadow-hover, 0 8px 40px rgba(0, 0, 0, 0.1));
+  /* Enhanced shadow on hover - critical navigation element */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .sr-carousel-arrow:disabled {
@@ -2692,8 +2708,8 @@
 
 /* Base theming for all form inputs - shared by sr-field-input, sr-otp-input, etc. */
 @utility sr-field-base {
-  background-color: var(--card);
-  color: var(--card-foreground);
+  background: var(--card);
+  color: var(--foreground);
   box-shadow: var(--tw-shadow);
 }
 
@@ -2701,10 +2717,8 @@
 .sr-field-input,
 .sr-field-select {
   @apply w-full px-3 pt-5 pb-1.5 border text-sm sr-field-base;
-  border-radius: var(--sr-radius);
+  border-radius: var(--radius);
   border-color: var(--border);
-  background-color: var(--input, var(--card));
-  color: var(--foreground);
   min-height: 2.75rem;
   /* iOS zoom prevention via touch-action is in :host reset */
 }
@@ -3406,14 +3420,14 @@
 .sr-auth-divider span {
   @apply relative px-2 text-xs uppercase;
   background: var(--card, #ffffff);
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--muted-foreground);
 }
 
 /* Removed duplicate - using definition at line 821 */
 
 .sr-btn-text {
   @apply text-sm underline transition-colors;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--muted-foreground);
 }
 
 .sr-btn-text:hover {
@@ -3434,7 +3448,7 @@
 
 .sr-returning-notice {
   @apply flex items-start gap-3 p-3 mb-4;
-  border-radius: var(--sr-radius);
+  border-radius: var(--radius);
   background: var(--muted);
   border: 1px solid var(--border);
 }
@@ -3533,19 +3547,19 @@
 
 .sr-notice-subtitle {
   @apply text-xs;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--muted-foreground);
 }
 
 /* Checking customer state */
 .sr-checking-customer {
   @apply flex items-center gap-2 mt-3 text-sm;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--muted-foreground);
 }
 
 /* Helper text for secondary information */
 .sr-helper-text {
   @apply text-xs text-center mt-2;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--muted-foreground);
 }
 
 .sr-checking-text {
@@ -3581,7 +3595,7 @@
 
 .sr-email-notice {
   @apply rounded-lg p-4 mb-6;
-  background: var(--color-surface-accent, #f9fafb);
+  background: var(--muted);
 }
 
 .sr-email-label {
@@ -3825,7 +3839,7 @@ shoprocket-product-modal {
 .sr-modal-content {
   position: relative;
   background: var(--sr-modal-background, var(--card, white));
-  border-radius: var(--sr-modal-border-radius, var(--sr-radius));
+  border-radius: var(--sr-modal-border-radius, var(--radius));
   max-width: min(90vw, 1200px);
   width: 100%;
   max-height: 90vh;
@@ -3844,7 +3858,7 @@ shoprocket-product-modal {
   border: none;
   background: var(--sr-modal-close-background, rgba(0, 0, 0, 0.1));
   color: var(--sr-modal-close-color, var(--card-foreground, #333));
-  border-radius: var(--sr-radius);
+  border-radius: var(--radius);
   cursor: pointer;
   font-size: 20px;
   line-height: 1;
