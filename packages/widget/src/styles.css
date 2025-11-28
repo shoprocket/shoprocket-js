@@ -2176,7 +2176,7 @@
 /* Override field styles for filter toolbar context (larger touch targets only) */
 .sr-catalog-filters .sr-field-input,
 .sr-catalog-filters .sr-field-select {
-  min-height: 3rem; /* 48px for better touch targets in toolbar */
+  min-height: 3.25rem; /* 52px to match price range slider height */
 }
 
 /* Show empty value options in catalog filters (Featured, All, etc.) */
@@ -2239,13 +2239,13 @@
 
 /* Price Range Field - matches field-select styling EXACTLY */
 .sr-price-range-field {
-  @apply w-full border text-sm;
+  @apply w-full border text-sm relative; /* Add relative positioning */
   background: var(--card);
   border-radius: var(--radius);
   border-color: var(--border);
-  min-height: 2.75rem; /* Match inputs exactly (44px) */
+  height: 3.25rem; /* Fixed height to match other filters exactly */
   transition: border-color 0.2s ease;
-  padding: 6px 12px;
+  padding: 1.25rem 12px 0 12px; /* Top padding for header, no bottom padding */
   color: var(--foreground);
   box-shadow: var(--tw-shadow); /* Match other inputs */
   box-sizing: border-box; /* Ensure consistent sizing */
@@ -2266,27 +2266,33 @@
 }
 
 .sr-price-range-header {
-  @apply flex justify-between items-center;
-  margin-bottom: 2px;
+  @apply flex justify-between items-center absolute;
+  top: 0.25rem; /* 4px - match floating label position */
+  left: 0.75rem; /* 12px - match label left position */
+  right: 0.75rem; /* 12px - match padding */
+  gap: 0.5rem;
 }
 
 .sr-price-range-label {
   @apply text-xs font-normal;
   color: var(--muted-foreground);
-  line-height: 1.2;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .sr-price-range-values {
   @apply text-xs font-normal tabular-nums;
   color: var(--muted-foreground);
-  line-height: 1.2;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .sr-price-range-slider {
   @apply relative w-full;
-  height: 28px; /* Increased height for better touch targets */
+  height: 28px; /* Match input height so track aligns with thumbs */
   display: flex;
   align-items: center;
+  margin-top: 0; /* Remove margin */
 }
 
 /* Background track - always visible */
