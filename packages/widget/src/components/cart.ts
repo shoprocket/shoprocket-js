@@ -2344,11 +2344,12 @@ export class CartWidget extends ShoprocketElement {
     this.updateCartTotals();
     this.requestUpdate();
     
-    // Track quantity change
-    const eventType = quantity > originalQuantity ? EVENTS.ADD_TO_CART : EVENTS.REMOVE_FROM_CART;
-    this.track(eventType, { 
-      ...item, 
-      quantity: Math.abs(quantity - originalQuantity) 
+    // Track quantity change with dedicated event
+    this.track(EVENTS.CART_QUANTITY_UPDATED, {
+      ...item,
+      old_quantity: originalQuantity,
+      new_quantity: quantity,
+      delta: quantity - originalQuantity  // positive = increase, negative = decrease
     });
     
     // Cancel any pending update for this item
