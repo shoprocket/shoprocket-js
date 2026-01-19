@@ -925,12 +925,22 @@ export class CartWidget extends ShoprocketElement {
         // Clear stored order ID
         sessionStorage.removeItem('shoprocket_order_id');
 
+        // Clear cart state and checkout data
+        cartState.clear();
+
+        // Reset the UI to show empty cart
+        this.cart = null;
+        this.exitCheckout();
+
         // Regenerate cart token (order is complete, start fresh cart)
         const newToken = CookieManager.regenerateCartToken();
         internalState.setCartToken(newToken);
         if (this.sdk) {
           this.sdk.setCartToken(newToken);
         }
+
+        // Force refresh of cart state to ensure clean slate
+        await this.loadCart();
       } else if (status === 'failed' || status === 'cancelled' || status === 'pending') {
         // FAILURE: Payment failed/declined by gateway - allow retry
         this.showOrderFailureMessage = true;
