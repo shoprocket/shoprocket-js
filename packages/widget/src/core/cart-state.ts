@@ -164,15 +164,15 @@ class CartStateManager {
       this.state.billingAddress = this.cleanObject(data.billingAddress);
     }
 
-    // Intelligently set sameAsBilling based on whether addresses match (only on initial load)
-    if (!this.state.checkoutData.email) {
-      // First time loading - check if addresses match
+    // Set sameAsBilling based on whether saved addresses match
+    if (data.shippingAddress && data.billingAddress) {
+      // Both addresses exist - check if they match
       this.state.sameAsBilling = this.areAddressesEqual(
         data.shippingAddress,
         data.billingAddress
       );
     }
-    // Otherwise keep the current UI state
+    // Otherwise keep default (true) - new customers or no billing address saved
 
     this.notifyListeners();
   }
