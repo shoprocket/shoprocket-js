@@ -1250,7 +1250,8 @@
   }
 
   .sr-variant-option {
-    @apply px-4 py-2 rounded border cursor-pointer transition-all text-sm;
+    @apply px-4 py-2 border cursor-pointer transition-all text-sm;
+    border-radius: var(--radius); /* Match global border radius */
     border-color: var(--border);
     background: var(--card);
     color: var(--card-foreground);
@@ -1303,7 +1304,8 @@
   }
 
   .sr-quantity-controls {
-    @apply flex items-center border rounded-lg w-full overflow-hidden;
+    @apply flex items-center border w-full overflow-hidden;
+    border-radius: var(--radius); /* Match global border radius */
     border-color: var(--border);
     box-shadow: var(--tw-shadow);
   }
