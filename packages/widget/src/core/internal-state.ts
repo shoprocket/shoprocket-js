@@ -6,6 +6,7 @@
 interface InternalState {
   store: any | null;
   cartToken: string | null;
+  customerId: string | null;
   cart: {
     data: any;
     open: () => void;
@@ -19,6 +20,7 @@ interface InternalState {
 const state: InternalState = {
   store: null,
   cartToken: null,
+  customerId: null,
   cart: null,
   sdk: null
 };
@@ -35,7 +37,11 @@ export const internalState = {
   setCartToken(token: string) {
     state.cartToken = token;
   },
-  
+
+  setCustomerId(customerId: string | null) {
+    state.customerId = customerId;
+  },
+
   setCart(cart: any) {
     if (cart && typeof cart === 'object' && !cart.open) {
       // Just cart data - preserve existing methods if any
@@ -63,7 +69,11 @@ export const internalState = {
   getCartToken() {
     return state.cartToken;
   },
-  
+
+  getCustomerId() {
+    return state.customerId;
+  },
+
   getCart() {
     return state.cart;
   },
@@ -80,6 +90,7 @@ export const internalState = {
   clear() {
     state.store = null;
     state.cartToken = null;
+    state.customerId = null;
     state.cart = null;
     // Don't clear SDK as it's needed for operations
   }
