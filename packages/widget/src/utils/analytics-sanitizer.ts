@@ -147,6 +147,14 @@ export class AnalyticsSanitizer {
       case 'add_to_cart':
       case 'remove_from_cart':
         return this.sanitizeCartItem(data);
+
+      case 'cart_quantity_updated':
+        return {
+          ...this.sanitizeCartItem(data),
+          old_quantity: data.old_quantity,
+          new_quantity: data.new_quantity,
+          delta: data.delta
+        };
       
       case 'view_cart':
       case 'begin_checkout':

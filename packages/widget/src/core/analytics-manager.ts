@@ -18,6 +18,7 @@ export const EVENTS = {
   VIEW_CART: 'view_cart',
   ADD_TO_CART: 'add_to_cart',
   REMOVE_FROM_CART: 'remove_from_cart',
+  CART_QUANTITY_UPDATED: 'cart_quantity_updated',
   CART_OPENED: 'cart_opened',
   CART_CLOSED: 'cart_closed',
   BEGIN_CHECKOUT: 'begin_checkout',
