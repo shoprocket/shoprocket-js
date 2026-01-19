@@ -133,12 +133,16 @@ export class AnalyticsManager {
     const cartToken = CookieManager.getCartToken();
     const attribution = CookieManager.getAttribution();
     
+    // Get customer ID if authenticated
+    const customerId = internalState.getCustomerId();
+
     const payload = {
       event,
       data,
       store_id: storeId, // Required by backend
       store_mode: store?.store_mode || null, // Store mode (test/live)
       cart_token: cartToken,
+      customer_id: customerId, // Only set when customer is authenticated
       url: location.href,
       page_title: document.title,
       page_path: window.location.pathname,

@@ -777,7 +777,11 @@ export class CartWidget extends ShoprocketElement {
           // Update cart state - this will trigger subscription and update UI
           cartState.setCart(cart);
           loadedCart = cart;
-          
+
+          // Extract and store customerId for analytics (if authenticated)
+          const customerId = (cart as any)?.customer?.customerId || null;
+          internalState.setCustomerId(customerId);
+
           // Don't auto-set visitorCountry as default - this causes unnecessary API calls on page load
           // The user can select their country when they get to checkout
           // if (cart?.visitorCountry && !cart.hasShippingAddress && !cart.hasBillingAddress) {
