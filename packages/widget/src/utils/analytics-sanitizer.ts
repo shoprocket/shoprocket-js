@@ -112,12 +112,21 @@ export class AnalyticsSanitizer {
 
   /**
    * Sanitize order/purchase event
+   *
+   * Handles two data structures:
+   * 1. Direct order: { id, totals, items, ... }
+   * 2. Cart-as-order: { type: 'order', order: { number, paymentStatus }, items: [...], totals: {...} }
+   *    In this case, items/totals are at root level, not under 'order'
    */
   static sanitizeOrder(order: any): any {
     if (!order) return null;
 
-    // Unwrap if order data is nested under 'order' key
-    const orderData = order.order || order;
+    // Determine where the actual order data is:
+    // - If order.order has totals/items, use order.order (nested order data)
+    // - Otherwise use order itself (cart-as-order or direct order)
+    const nestedOrder = order.order;
+    const hasNestedTotals = nestedOrder?.totals?.total !== undefined;
+    const orderData = hasNestedTotals ? nestedOrder : order;
 
     const { value_cents, currency } = this.extractTotal(orderData);
 
@@ -125,8 +134,15 @@ export class AnalyticsSanitizer {
     const tax_cents = orderData.tax?.amount ?? orderData.totals?.tax?.amount ?? 0;
     const shipping_cents = orderData.shipping?.amount ?? orderData.totals?.shipping?.amount ?? 0;
 
+    // Get order identifiers:
+    // - order_id: Shoprocket internal ID (ord_xxx) for API lookups
+    // - transaction_id: Customer-facing order number for display/GA
+    const order_id = order.id || orderData.id;
+    const transaction_id = nestedOrder?.number || orderData.orderNumber || order_id;
+
     return {
-      transaction_id: orderData.id || orderData.order_number,
+      order_id,
+      transaction_id,
       value_cents,
       tax_cents,
       shipping_cents,
