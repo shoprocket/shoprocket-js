@@ -115,20 +115,23 @@ export class AnalyticsSanitizer {
    */
   static sanitizeOrder(order: any): any {
     if (!order) return null;
-    
-    const { value_cents, currency } = this.extractTotal(order);
-    
+
+    // Unwrap if order data is nested under 'order' key
+    const orderData = order.order || order;
+
+    const { value_cents, currency } = this.extractTotal(orderData);
+
     // Extract tax and shipping from Money objects
-    const tax_cents = order.tax?.amount ?? 0;
-    const shipping_cents = order.shipping?.amount ?? 0;
-    
+    const tax_cents = orderData.tax?.amount ?? orderData.totals?.tax?.amount ?? 0;
+    const shipping_cents = orderData.shipping?.amount ?? orderData.totals?.shipping?.amount ?? 0;
+
     return {
-      transaction_id: order.id || order.order_number,
+      transaction_id: orderData.id || orderData.order_number,
       value_cents,
       tax_cents,
       shipping_cents,
       currency,
-      items: order.items?.map((item: any) => this.sanitizeCartItem(item)) || []
+      items: orderData.items?.map((item: any) => this.sanitizeCartItem(item)) || []
     };
   }
 
