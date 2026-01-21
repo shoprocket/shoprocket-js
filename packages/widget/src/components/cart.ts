@@ -920,7 +920,7 @@ export class CartWidget extends ShoprocketElement {
       if (status === 'paid' || status === 'completed' || status === 'processing') {
         // SUCCESS: Payment completed
         // Track purchase event for gateway payments
-        this.track(EVENTS.PURCHASE, { order: cart });
+        this.track(EVENTS.PURCHASE, { order });
 
         this.showOrderSuccessMessage = true;
         this.orderDetails = cart;
