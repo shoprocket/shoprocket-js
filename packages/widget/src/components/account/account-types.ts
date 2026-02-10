@@ -4,7 +4,7 @@ import type { TemplateResult } from 'lit';
 export interface AccountLoginContext {
   sdk: ShoprocketCore;
   loginEmail: string;
-  loginMode: 'check' | 'password' | 'otp';
+  loginMode: 'check' | 'password' | 'otp' | 'reset-password';
   otpCode: string[];
   authError: string;
   authLoading: boolean;
@@ -16,6 +16,8 @@ export interface AccountLoginContext {
   onOtpInput: (e: Event, index: number) => void;
   onOtpKeydown: (e: KeyboardEvent, index: number) => void;
   onOtpPaste: (e: ClipboardEvent) => void;
+  onForgotPassword: () => void;
+  onResetPassword: (newPassword: string) => void;
   onBack: () => void;
 }
 

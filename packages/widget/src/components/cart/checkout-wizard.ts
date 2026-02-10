@@ -26,6 +26,7 @@ export interface CheckoutWizardContext {
   checkingCustomer: boolean;
   customerCheckResult?: CustomerCheckResult;
   showPasswordField: boolean;
+  authDismissed: boolean;
   customerPassword: string;
   signingIn: boolean;
   sendingLoginLink: boolean;
@@ -55,6 +56,8 @@ export interface CheckoutWizardContext {
   handlePasswordInput: (e: Event) => void;
   handleSendLoginLink: () => Promise<void>;
   handlePasswordLogin: () => Promise<void>;
+  handleShowPasswordField: () => void;
+  handleDismissAuth: () => void;
   handleOtpInput: (e: Event, index: number) => void;
   handleOtpKeydown: (e: KeyboardEvent, index: number) => void;
   handleOtpPaste: (e: ClipboardEvent) => void;
@@ -318,20 +321,18 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
 
           } else if (context.customerCheckResult!.exists && context.customerCheckResult!.hasPassword) {
             // Customer exists with password (registered account)
-            return html`
-                <!-- Registered customer -->
-                <div class="sr-auth-notice">
-                  <svg class="sr-auth-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                  </svg>
-                  <div class="sr-auth-content">
-                    <p class="sr-auth-title">Welcome back!</p>
-                    <p class="sr-auth-subtitle">You have an account with this email address.</p>
-                  </div>
-                </div>
+            // Compact banner — expands to password field on demand, dismissible
+            if (context.authDismissed) return '';
 
+            return html`
                 ${context.showPasswordField ? html`
-                  <!-- Password authentication -->
+                  <!-- Expanded: password sign-in -->
+                  <div class="sr-auth-banner">
+                    <span class="sr-auth-banner-text">${t('checkout.welcome_back', 'Welcome back!')}</span>
+                    <button class="sr-auth-banner-dismiss" @click="${context.handleDismissAuth}" aria-label="${t('action.dismiss', 'Dismiss')}">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
                   <div class="sr-field-group">
                     <input
                       type="password"
@@ -342,7 +343,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                       autocomplete="current-password"
                       @input="${context.handlePasswordInput}"
                     >
-                    <label class="sr-field-label" for="password">Password</label>
+                    <label class="sr-field-label" for="password">${t('field.password', 'Password')}</label>
                   </div>
 
                   <button
@@ -355,28 +356,34 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                     ` : t('action.sign_in', 'Sign In')}
                   </button>
 
-                  <div class="sr-auth-divider">
-                    <span>or</span>
+                  <div class="sr-auth-banner-alt">
+                    <button
+                      class="sr-auth-link"
+                      ?disabled="${context.sendingLoginLink}"
+                      @click="${context.handleSendLoginLink}"
+                    >
+                      ${context.sendingLoginLink ? t('action.sending', 'Sending...') : t('checkout.email_sign_in_code', 'Email me a sign-in code')}
+                    </button>
                   </div>
-                ` : ''}
-
-                <!-- OTP option -->
-                <button
-                  class="sr-btn ${context.showPasswordField ? 'sr-btn-secondary' : 'sr-btn-primary'}"
-                  ?disabled="${context.sendingLoginLink}"
-                  @click="${context.handleSendLoginLink}"
-                >
-                  ${context.sendingLoginLink ? html`
-                    <span class="sr-spinner"></span> ${t('action.sending', 'Sending...')}
-                  ` : context.showPasswordField ? t('checkout.use_email_verification', 'Use email verification instead') : html`
-                    <svg class="sr-btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                    </svg>
-                    Send Verification Code
-                  `}
-                </button>
-
-                <!-- Guest checkout is implicit - they just continue with the main button -->
+                ` : html`
+                  <!-- Collapsed: compact banner with inline actions -->
+                  <div class="sr-auth-banner">
+                    <span class="sr-auth-banner-text">
+                      <strong>${t('checkout.welcome_back', 'Welcome back!')}</strong><br>
+                      <button class="sr-auth-link" @click="${context.handleShowPasswordField}">${t('action.sign_in', 'Sign in')}</button>
+                      ${t('checkout.or', 'or')}
+                      <button
+                        class="sr-auth-link"
+                        ?disabled="${context.sendingLoginLink}"
+                        @click="${context.handleSendLoginLink}"
+                      >${context.sendingLoginLink ? t('action.sending', 'Sending...') : t('checkout.email_code', 'email me a code')}</button>
+                      ${t('checkout.to_load_details', 'to load saved details.')}
+                    </span>
+                    <button class="sr-auth-banner-dismiss" @click="${context.handleDismissAuth}" aria-label="${t('action.dismiss', 'Dismiss')}">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                `}
               `;
           }
 

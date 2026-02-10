@@ -98,6 +98,10 @@ export class AccountService {
     await this.api.post<any>('/account/change-password', { currentPassword, newPassword });
   }
 
+  async resetPassword(newPassword: string): Promise<void> {
+    await this.api.post<any>('/account/reset-password', { newPassword });
+  }
+
   async logout(): Promise<void> {
     await this.api.post<any>('/account/logout', {});
   }
