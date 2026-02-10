@@ -45,6 +45,9 @@ export const EVENTS = {
   CHECKOUT_AUTH_RESENT: 'checkout_auth_resent',
   CHECKOUT_AUTH_SUCCESS: 'checkout_auth_success',
   CHECKOUT_AUTH_FAILED: 'checkout_auth_failed',
+  CHECKOUT_AUTH_METHOD_SELECTED: 'checkout_auth_method_selected',
+  CHECKOUT_CUSTOMER_IDENTIFIED: 'checkout_customer_identified',
+  CHECKOUT_ACCOUNT_CREATED: 'checkout_account_created',
   // Address events
   CHECKOUT_SHIPPING_ENTERED: 'checkout_shipping_entered',
   CHECKOUT_BILLING_ENTERED: 'checkout_billing_entered',
