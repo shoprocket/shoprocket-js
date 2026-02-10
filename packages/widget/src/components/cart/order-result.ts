@@ -17,6 +17,15 @@ export interface OrderResultContext {
   handleBackToCart: () => void;
   getMediaUrl: (media: any, transforms?: string) => string;
   handleImageError: (e: Event) => void;
+
+  // Account creation (order success only)
+  isAuthenticated: boolean;
+  accountPassword: string;
+  creatingAccount: boolean;
+  accountCreated: boolean;
+  accountError: string;
+  handleAccountPasswordInput: (e: Event) => void;
+  handleCreateAccount: () => Promise<void>;
 }
 
 export function renderOrderSuccess(
@@ -130,6 +139,51 @@ export function renderOrderSuccess(
               <span class="sr-total-value">${context.formatPrice(total)}</span>
             </div>
           ` : ''}
+        </div>
+      ` : ''}
+
+      ${!context.isAuthenticated ? html`
+        <div class="sr-account-creation-section">
+          ${context.accountCreated ? html`
+            <div class="sr-account-created">
+              <svg class="sr-account-created-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <p class="sr-account-created-text">${t('account.created', 'Account created!')}</p>
+            </div>
+          ` : html`
+            <h4 class="sr-account-creation-title">${t('account.save_details', 'Save your details for next time')}</h4>
+            <p class="sr-account-creation-subtitle">${t('account.speed_checkout', 'Speed through checkout on your next order.')}</p>
+
+            <div class="sr-account-creation-form">
+              <div class="sr-field-group">
+                <input
+                  type="password"
+                  id="account-password"
+                  class="sr-field-input peer ${context.accountPassword ? 'has-value' : ''}"
+                  .value="${context.accountPassword}"
+                  placeholder=" "
+                  autocomplete="new-password"
+                  @input="${context.handleAccountPasswordInput}"
+                >
+                <label class="sr-field-label" for="account-password">${t('field.password', 'Password')}</label>
+              </div>
+
+              ${context.accountError ? html`
+                <div class="sr-field-error-message">${context.accountError}</div>
+              ` : ''}
+
+              <button
+                class="sr-btn sr-btn-primary"
+                ?disabled="${!context.accountPassword || context.creatingAccount}"
+                @click="${context.handleCreateAccount}"
+              >
+                ${context.creatingAccount ? html`
+                  <span class="sr-spinner"></span> ${t('account.creating', 'Creating account...')}
+                ` : t('account.create', 'Create Account')}
+              </button>
+            </div>
+          `}
         </div>
       ` : ''}
 

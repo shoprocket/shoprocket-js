@@ -234,6 +234,9 @@ export class CartWidget extends ShoprocketElement {
   
   @state()
   private resendingOtp = false;
+
+  @state()
+  private signingIn = false;
   
   @state()
   private paymentPending = false;
@@ -248,6 +251,22 @@ export class CartWidget extends ShoprocketElement {
   
   @state()
   private shouldResetOnNextOpen = false;
+
+  // Account creation state (post-checkout)
+  @state()
+  private accountPassword = '';
+
+  @state()
+  private creatingAccount = false;
+
+  @state()
+  private accountCreated = false;
+
+  @state()
+  private accountError = '';
+
+  // Tracks if user authenticated during this checkout session (OTP or password)
+  private authenticatedDuringCheckout = false;
 
   private customerCheckTimeout?: NodeJS.Timeout;
 
@@ -264,6 +283,7 @@ export class CartWidget extends ShoprocketElement {
     this.chunkLoading = false;
     this.checkingCustomer = false;
     this.sendingLoginLink = false;
+    this.signingIn = false;
     this.verifyingOtp = false;
     this.resendingOtp = false;
     this.paymentPending = false;
@@ -287,6 +307,13 @@ export class CartWidget extends ShoprocketElement {
     this.customerPassword = '';
     this.otpCode = '';
     this.otpError = '';
+
+    // Account creation states
+    this.accountPassword = '';
+    this.creatingAccount = false;
+    this.accountCreated = false;
+    this.accountError = '';
+    this.authenticatedDuringCheckout = false;
 
     // Error states
     this.customerErrors = {};
@@ -1351,6 +1378,13 @@ export class CartWidget extends ShoprocketElement {
         // Update state based on result
         this.customerCheckResult = result;
 
+        // Track customer identification result
+        this.track(EVENTS.CHECKOUT_CUSTOMER_IDENTIFIED, {
+          email,
+          exists: result.exists,
+          has_password: result.hasPassword
+        });
+
         // Show password field if customer exists and has password
         // API now returns camelCase via CustomerCheckResource
         this.showPasswordField = result.exists && result.hasPassword;
@@ -1368,7 +1402,16 @@ export class CartWidget extends ShoprocketElement {
 
   private async handleSendLoginLink(): Promise<void> {
     if (!this.customerData.email || this.sendingLoginLink) return;
-    
+
+    // Track method selection when user had both options
+    if (this.customerCheckResult?.hasPassword) {
+      this.track(EVENTS.CHECKOUT_AUTH_METHOD_SELECTED, {
+        email: this.customerData.email,
+        method: 'otp',
+        had_password_option: true
+      });
+    }
+
     // Track auth request
     this.track(EVENTS.CHECKOUT_AUTH_REQUESTED, {
       email: this.customerData.email,
@@ -1487,6 +1530,8 @@ export class CartWidget extends ShoprocketElement {
       const result = await this.sdk.cart.verifyAuth(this.customerData.email, this.otpCode);
       
       if (result.authenticated) {
+        this.authenticatedDuringCheckout = true;
+
         // Track successful auth
         this.track(EVENTS.CHECKOUT_AUTH_SUCCESS, {
           email: this.customerData.email,
@@ -1570,7 +1615,85 @@ export class CartWidget extends ShoprocketElement {
       this.verifyingOtp = false;
     }
   }
-  
+
+  private async handlePasswordLogin(): Promise<void> {
+    if (!this.customerPassword || !this.customerData.email || this.signingIn) return;
+
+    // Track method selection (password chosen over OTP)
+    this.track(EVENTS.CHECKOUT_AUTH_METHOD_SELECTED, {
+      email: this.customerData.email,
+      method: 'password',
+      had_password_option: true
+    });
+
+    try {
+      this.signingIn = true;
+
+      // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
+      const result = await this.sdk.cart.passwordLogin(this.customerData.email, this.customerPassword);
+
+      if (!result.authenticated) {
+        throw new Error(result.message || 'Invalid email or password.');
+      }
+
+      this.authenticatedDuringCheckout = true;
+
+      // Track successful auth
+      this.track(EVENTS.CHECKOUT_AUTH_SUCCESS, {
+        email: this.customerData.email,
+        step: 'customer',
+        method: 'password'
+      });
+
+      // Clear auth state
+      this.loginLinkSent = false;
+      this.customerPassword = '';
+      this.customerCheckResult = undefined;
+
+      // Reload checkout data with saved addresses
+      await this.loadCheckoutData(true);
+
+      // Advance to shipping
+      this.checkoutStep = 'shipping';
+
+      // Track auto-advance after authentication
+      this.track(EVENTS.CHECKOUT_CONTACT_COMPLETED, {
+        step_name: 'contact_information',
+        step_number: 1,
+        next_step: 'shipping_address',
+        total_steps: this.sameAsBilling ? 4 : 5,
+        auto_advance: true,
+        reason: 'authenticated_user'
+      });
+
+      this.track(EVENTS.CHECKOUT_SHIPPING_VIEWED, {
+        step_name: 'shipping_address',
+        step_number: 2,
+        from_step: 'contact_information',
+        total_steps: this.sameAsBilling ? 4 : 5
+      });
+    } catch (error: any) {
+      console.error('Password login failed:', error);
+
+      this.track(EVENTS.CHECKOUT_AUTH_FAILED, {
+        email: this.customerData.email,
+        step: 'customer',
+        method: 'password',
+        error: error.status === 429 ? 'rate_limited' : 'invalid_credentials'
+      });
+
+      let errorMessage = t('error.login_failed', 'Invalid email or password. Please try again.');
+      if (error.message && error.message !== 'API request failed') {
+        errorMessage = error.message;
+      }
+
+      this.showAnimatedError(errorMessage);
+      this.customerPassword = '';
+    } finally {
+      this.signingIn = false;
+    }
+  }
+
   private async handleResendOtp(): Promise<void> {
     // Track OTP resend
     this.track(EVENTS.CHECKOUT_AUTH_RESENT, {
@@ -1987,6 +2110,19 @@ export class CartWidget extends ShoprocketElement {
     return this.cartModules.cartFooter.renderCartFooter(context);
   }
   
+  /** Default no-op account creation context for non-success order result screens */
+  private defaultAccountCreationContext() {
+    return {
+      isAuthenticated: true, // Hide account creation on non-success screens
+      accountPassword: '',
+      creatingAccount: false,
+      accountCreated: false,
+      accountError: '',
+      handleAccountPasswordInput: () => {},
+      handleCreateAccount: async () => {}
+    };
+  }
+
   private renderOrderSuccess(): TemplateResult {
     if (!this.cartModules.orderResult) {
       this.ensureModule('orderResult').then(() => this.requestUpdate());
@@ -2003,7 +2139,52 @@ export class CartWidget extends ShoprocketElement {
       handleRetryPayment: () => { /* TODO: implement */ },
       handleBackToCart: () => this.exitCheckout(),
       getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
-      handleImageError: (e) => this.handleImageError(e)
+      handleImageError: (e) => this.handleImageError(e),
+
+      // Account creation
+      isAuthenticated: this.authenticatedDuringCheckout,
+      accountPassword: this.accountPassword,
+      creatingAccount: this.creatingAccount,
+      accountCreated: this.accountCreated,
+      accountError: this.accountError,
+      handleAccountPasswordInput: (e: Event) => {
+        this.accountPassword = (e.target as HTMLInputElement).value;
+        this.accountError = '';
+      },
+      handleCreateAccount: async () => {
+        if (this.accountPassword.length < 8) {
+          this.accountError = t('error.password_too_short', 'Password must be at least 8 characters.');
+          return;
+        }
+
+        try {
+          this.creatingAccount = true;
+          this.accountError = '';
+
+          const email = customerEmail || this.customerData.email;
+          // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
+          const result = await this.sdk.cart.createAccount(email, this.accountPassword);
+
+          if (!result.authenticated) {
+            throw new Error(result.message || 'Failed to create account.');
+          }
+
+          this.accountCreated = true;
+          this.accountPassword = '';
+
+          this.track(EVENTS.CHECKOUT_ACCOUNT_CREATED, {
+            email,
+            method: 'post_checkout'
+          });
+        } catch (error: any) {
+          console.error('Account creation failed:', error);
+          this.accountError = error.message && error.message !== 'API request failed'
+            ? error.message
+            : t('error.account_creation_failed', 'Failed to create account. Please try again.');
+        } finally {
+          this.creatingAccount = false;
+        }
+      }
     };
 
     return this.cartModules.orderResult.renderOrderSuccess(this.orderDetails as OrderDetails, customerEmail, context);
@@ -2053,7 +2234,8 @@ export class CartWidget extends ShoprocketElement {
       handleRetryPayment: () => { /* TODO: implement */ },
       handleBackToCart: () => this.exitCheckout(),
       getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
-      handleImageError: (e) => this.handleImageError(e)
+      handleImageError: (e) => this.handleImageError(e),
+      ...this.defaultAccountCreationContext()
     };
 
     return this.cartModules.orderResult.renderPaymentPending(this.paymentTimeout, context);
@@ -2098,7 +2280,8 @@ export class CartWidget extends ShoprocketElement {
         this.exitCheckout();
       },
       getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
-      handleImageError: (e) => this.handleImageError(e)
+      handleImageError: (e) => this.handleImageError(e),
+      ...this.defaultAccountCreationContext()
     };
 
     return this.cartModules.orderResult.renderOrderFailure(this.orderFailureReason, context);
@@ -2148,7 +2331,8 @@ export class CartWidget extends ShoprocketElement {
         this.track(EVENTS.CART_CLOSED, this.cart);
       },
       getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
-      handleImageError: (e) => this.handleImageError(e)
+      handleImageError: (e) => this.handleImageError(e),
+      ...this.defaultAccountCreationContext()
     };
 
     return this.cartModules.orderResult.renderOrderNotFound(context);
@@ -2171,6 +2355,7 @@ export class CartWidget extends ShoprocketElement {
       customerCheckResult: this.customerCheckResult,
       showPasswordField: this.showPasswordField,
       customerPassword: this.customerPassword,
+      signingIn: this.signingIn,
       sendingLoginLink: this.sendingLoginLink,
       loginLinkSent: this.loginLinkSent,
       otpCode: this.otpCode,
@@ -2187,7 +2372,9 @@ export class CartWidget extends ShoprocketElement {
       handleCustomerChange: (e) => this.handleCustomerChange(e),
       handleCustomerCheck: (e) => this.handleCustomerCheck(e),
       handleGuestToggle: (e: CustomEvent) => { this.isGuest = e.detail.isGuest; },
+      handlePasswordInput: (e: Event) => { this.customerPassword = (e.target as HTMLInputElement).value; },
       handleSendLoginLink: () => this.handleSendLoginLink(),
+      handlePasswordLogin: () => this.handlePasswordLogin(),
       handleOtpInput: (e, i) => this.handleOtpInput(e, i),
       handleOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
       handleOtpPaste: (e) => this.handleOtpPaste(e),
@@ -2233,6 +2420,7 @@ export class CartWidget extends ShoprocketElement {
       customerCheckResult: this.customerCheckResult,
       showPasswordField: this.showPasswordField,
       customerPassword: this.customerPassword,
+      signingIn: this.signingIn,
       sendingLoginLink: this.sendingLoginLink,
       loginLinkSent: this.loginLinkSent,
       otpCode: this.otpCode,
@@ -2249,7 +2437,9 @@ export class CartWidget extends ShoprocketElement {
       handleCustomerChange: (e) => this.handleCustomerChange(e),
       handleCustomerCheck: (e) => this.handleCustomerCheck(e),
       handleGuestToggle: (e: CustomEvent) => { this.isGuest = e.detail.isGuest; },
+      handlePasswordInput: (e: Event) => { this.customerPassword = (e.target as HTMLInputElement).value; },
       handleSendLoginLink: () => this.handleSendLoginLink(),
+      handlePasswordLogin: () => this.handlePasswordLogin(),
       handleOtpInput: (e, i) => this.handleOtpInput(e, i),
       handleOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
       handleOtpPaste: (e) => this.handleOtpPaste(e),

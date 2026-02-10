@@ -107,6 +107,22 @@ export class CartService {
     });
     return response.data || response;
   }
+
+  async passwordLogin(email: string, password: string): Promise<{ authenticated: boolean; message?: string }> {
+    const response = await this.api.post<any>('/cart/login', {
+      email,
+      password
+    });
+    return response.data || response;
+  }
+
+  async createAccount(email: string, password: string): Promise<{ authenticated: boolean; message?: string }> {
+    const response = await this.api.post<any>('/cart/create-account', {
+      email,
+      password
+    });
+    return response.data || response;
+  }
   
   // Legacy method for backward compatibility
   async sendLoginLink(email: string): Promise<{ success: boolean; message?: string }> {

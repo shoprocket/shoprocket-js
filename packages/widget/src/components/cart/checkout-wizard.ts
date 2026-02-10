@@ -27,6 +27,7 @@ export interface CheckoutWizardContext {
   customerCheckResult?: CustomerCheckResult;
   showPasswordField: boolean;
   customerPassword: string;
+  signingIn: boolean;
   sendingLoginLink: boolean;
   loginLinkSent: boolean;
 
@@ -51,7 +52,9 @@ export interface CheckoutWizardContext {
   handleCustomerChange: (e: CustomEvent) => void;
   handleCustomerCheck: (e: CustomEvent) => void;
   handleGuestToggle: (e: CustomEvent) => void;
+  handlePasswordInput: (e: Event) => void;
   handleSendLoginLink: () => Promise<void>;
+  handlePasswordLogin: () => Promise<void>;
   handleOtpInput: (e: Event, index: number) => void;
   handleOtpKeydown: (e: KeyboardEvent, index: number) => void;
   handleOtpPaste: (e: ClipboardEvent) => void;
@@ -337,17 +340,19 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                       .value="${context.customerPassword}"
                       placeholder=" "
                       autocomplete="current-password"
-                      @input="${(e: Event) => { context.customerPassword = (e.target as HTMLInputElement).value; }}"
+                      @input="${context.handlePasswordInput}"
                     >
                     <label class="sr-field-label" for="password">Password</label>
                   </div>
 
                   <button
                     class="sr-btn sr-btn-primary"
-                    ?disabled="${!context.customerPassword}"
-                    @click="${() => { /* TODO: Handle password login */ }}"
+                    ?disabled="${!context.customerPassword || context.signingIn}"
+                    @click="${context.handlePasswordLogin}"
                   >
-                    Sign In
+                    ${context.signingIn ? html`
+                      <span class="sr-spinner"></span> ${t('action.signing_in', 'Signing in...')}
+                    ` : t('action.sign_in', 'Sign In')}
                   </button>
 
                   <div class="sr-auth-divider">

@@ -3727,6 +3727,41 @@
   @apply w-full max-w-[200px];
 }
 
+/* Account Creation (post-checkout) */
+.sr-account-creation-section {
+  @apply text-center rounded-lg p-5 mt-2 mb-4;
+  background: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.sr-account-creation-title {
+  @apply text-sm font-semibold m-0 mb-1;
+  color: var(--card-foreground);
+}
+
+.sr-account-creation-subtitle {
+  @apply text-xs m-0 mb-4;
+  color: var(--muted-foreground);
+}
+
+.sr-account-creation-form {
+  @apply space-y-3;
+}
+
+.sr-account-created {
+  @apply flex items-center justify-center gap-2 py-2;
+}
+
+.sr-account-created-icon {
+  @apply w-5 h-5;
+  color: var(--success, #15803d);
+}
+
+.sr-account-created-text {
+  @apply text-sm font-medium m-0;
+  color: var(--success, #15803d);
+}
+
 /* Payment Pending */
 .sr-payment-pending {
   @apply text-center p-12 px-4 min-h-[400px] flex flex-col items-center justify-center;
@@ -4061,5 +4096,525 @@ shoprocket-product-modal.closing .sr-modal-content {
 @media (min-width: 1024px) {
   .sr-category-grid {
     grid-template-columns: repeat(var(--sr-category-cols, 3), 1fr);
+  }
+}
+
+/* ==========================================
+ * ACCOUNT PORTAL STYLES
+ * ========================================== */
+
+/* Account Overlay (drawer mode) */
+.sr-account-overlay {
+  @apply fixed inset-0 z-[9998] transition-opacity;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.sr-account-overlay.open {
+  @apply duration-200 opacity-100 pointer-events-auto;
+}
+
+.sr-account-overlay.closed {
+  @apply duration-150 opacity-0 pointer-events-none;
+}
+
+/* Account Panel (drawer mode) */
+.sr-account-panel {
+  @apply fixed flex flex-col z-[10001] transition-all duration-300 ease-out;
+  @apply overflow-hidden top-0 end-0;
+  @apply w-[100dvw] h-[100dvh] md:w-[440px] md:max-w-[calc(100vw-40px)] md:h-[100vh];
+  background: var(--card);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.sr-account-panel.open {
+  @apply translate-x-0;
+}
+
+.sr-account-panel.closed {
+  @apply translate-x-full;
+}
+
+/* Account Header */
+.sr-account-header {
+  @apply px-4 py-4 flex items-center justify-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.sr-account-title {
+  @apply m-0 text-base font-semibold;
+  color: var(--card-foreground);
+}
+
+.sr-account-close {
+  @apply bg-transparent border-none p-0 w-8 h-8 flex items-center justify-center rounded transition-all duration-200 cursor-pointer;
+  color: var(--card-foreground);
+}
+
+.sr-account-close:hover {
+  background: var(--secondary);
+}
+
+/* Account Body */
+.sr-account-body {
+  @apply flex-1 overflow-y-auto p-4;
+}
+
+/* Inline mode */
+.sr-account-inline {
+  @apply w-full;
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+}
+
+/* Loading */
+.sr-account-loading {
+  @apply flex items-center justify-center py-12 text-sm;
+  color: var(--muted-foreground);
+}
+
+/* Login Form */
+.sr-account-login {
+  @apply max-w-sm mx-auto py-8;
+}
+
+.sr-account-login-header {
+  @apply text-center mb-6;
+}
+
+.sr-account-login-title {
+  @apply text-xl font-semibold m-0 mb-2;
+  color: var(--card-foreground);
+}
+
+.sr-account-login-subtitle {
+  @apply text-sm m-0;
+  color: var(--muted-foreground);
+}
+
+/* Account Form */
+.sr-account-form {
+  @apply space-y-4;
+}
+
+.sr-account-form-group {
+  @apply space-y-1.5;
+}
+
+.sr-account-form-row {
+  @apply grid grid-cols-2 gap-3;
+}
+
+.sr-account-label {
+  @apply block text-sm font-medium;
+  color: var(--card-foreground);
+}
+
+.sr-account-input {
+  @apply w-full px-3 py-2.5 border text-sm rounded-md;
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--tw-shadow);
+}
+
+.sr-account-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.sr-account-input:hover:not(:focus):not(:disabled) {
+  border-color: var(--border);
+}
+
+/* Account Buttons */
+.sr-account-button-primary {
+  @apply w-full px-4 py-2.5 border-none text-sm font-medium rounded-md cursor-pointer transition-opacity;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: var(--radius);
+}
+
+.sr-account-button-primary:hover:not(:disabled) {
+  opacity: var(--sr-button-primary-opacity-hover, 0.9);
+}
+
+.sr-account-button-primary:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.sr-account-button-secondary {
+  @apply w-full px-4 py-2.5 border text-sm font-medium rounded-md cursor-pointer transition-colors;
+  background: var(--card);
+  color: var(--card-foreground);
+  border-color: var(--border);
+  border-radius: var(--radius);
+}
+
+.sr-account-button-secondary:hover:not(:disabled) {
+  background: var(--secondary);
+}
+
+.sr-account-button-secondary:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.sr-account-button-sm {
+  @apply px-3 py-1.5 text-xs;
+  width: auto;
+}
+
+.sr-account-button-danger {
+  @apply w-full px-4 py-2.5 border text-sm font-medium rounded-md cursor-pointer transition-colors;
+  background: transparent;
+  color: var(--destructive, #ef4444);
+  border-color: var(--destructive, #ef4444);
+  border-radius: var(--radius);
+}
+
+.sr-account-button-danger:hover {
+  background: var(--destructive, #ef4444);
+  color: var(--destructive-foreground, #fff);
+}
+
+/* Login Links */
+.sr-account-login-links {
+  @apply flex flex-col items-center gap-2 mt-2;
+}
+
+.sr-account-link {
+  @apply text-sm cursor-pointer bg-transparent border-none p-0 underline;
+  color: var(--muted-foreground);
+}
+
+.sr-account-link:hover {
+  color: var(--primary);
+}
+
+/* OTP */
+.sr-account-otp-container {
+  @apply flex justify-center gap-2 mb-4;
+}
+
+.sr-account-otp-input {
+  @apply w-12 h-14 text-center text-xl font-semibold border-2 rounded-lg;
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+  border-radius: var(--radius);
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+}
+
+.sr-account-otp-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.sr-account-otp-input::-webkit-inner-spin-button,
+.sr-account-otp-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Error / Success Messages */
+.sr-account-error {
+  @apply text-sm m-0;
+  color: var(--destructive, #ef4444);
+}
+
+.sr-account-success {
+  @apply text-sm m-0;
+  color: var(--success, #15803d);
+}
+
+/* Profile Header */
+.sr-account-profile-header {
+  @apply flex items-center gap-3 mb-4 pb-4;
+  border-bottom: 1px solid var(--border);
+}
+
+.sr-account-avatar {
+  @apply w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 9999px;
+}
+
+.sr-account-profile-info {
+  @apply flex flex-col min-w-0;
+}
+
+.sr-account-profile-name {
+  @apply text-sm font-semibold truncate;
+  color: var(--card-foreground);
+}
+
+.sr-account-profile-email {
+  @apply text-xs truncate;
+  color: var(--muted-foreground);
+}
+
+/* Tabs */
+.sr-account-tabs {
+  @apply flex mb-4;
+  border-bottom: 1px solid var(--border);
+}
+
+.sr-account-tab {
+  @apply px-4 py-2.5 text-sm font-medium bg-transparent border-none cursor-pointer transition-colors relative;
+  color: var(--muted-foreground);
+}
+
+.sr-account-tab:hover {
+  color: var(--card-foreground);
+}
+
+.sr-account-tab.active {
+  color: var(--primary);
+}
+
+.sr-account-tab.active::after {
+  content: '';
+  @apply absolute bottom-0 left-0 right-0 h-0.5;
+  background: var(--primary);
+}
+
+.sr-account-tab-content {
+  @apply min-h-0;
+}
+
+/* Orders */
+.sr-account-orders {
+  @apply space-y-3;
+}
+
+.sr-account-order-card {
+  @apply w-full text-left p-3 border rounded-md cursor-pointer transition-colors bg-transparent;
+  border-color: var(--border);
+  border-radius: var(--radius);
+}
+
+.sr-account-order-card:hover {
+  background: var(--secondary);
+}
+
+.sr-account-order-card-header {
+  @apply flex justify-between items-center mb-2;
+}
+
+.sr-account-order-number {
+  @apply text-sm font-semibold;
+  color: var(--card-foreground);
+}
+
+.sr-account-order-date {
+  @apply text-xs;
+  color: var(--muted-foreground);
+}
+
+.sr-account-order-card-body {
+  @apply flex justify-between items-center mb-1;
+}
+
+.sr-account-order-statuses {
+  @apply flex gap-2 flex-wrap;
+}
+
+.sr-account-status-badge {
+  @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full;
+}
+
+.sr-account-status-success {
+  background: color-mix(in srgb, var(--success, #15803d) 10%, transparent);
+  color: var(--success, #15803d);
+}
+
+.sr-account-status-danger {
+  background: color-mix(in srgb, var(--destructive, #ef4444) 10%, transparent);
+  color: var(--destructive, #ef4444);
+}
+
+.sr-account-status-warning {
+  background: color-mix(in srgb, var(--warning, #f59e0b) 10%, transparent);
+  color: var(--warning, #f59e0b);
+}
+
+.sr-account-status-neutral {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.sr-account-order-total {
+  @apply text-sm font-semibold;
+  color: var(--card-foreground);
+}
+
+.sr-account-order-card-footer {
+  @apply mt-1;
+}
+
+.sr-account-order-items {
+  @apply text-xs;
+  color: var(--muted-foreground);
+}
+
+/* Pagination */
+.sr-account-pagination {
+  @apply flex items-center justify-center gap-3 mt-4 pt-4;
+  border-top: 1px solid var(--border);
+}
+
+.sr-account-pagination-info {
+  @apply text-xs;
+  color: var(--muted-foreground);
+}
+
+/* Order Detail */
+.sr-account-order-detail {
+  @apply space-y-4;
+}
+
+.sr-account-back-button {
+  @apply inline-flex items-center gap-1 bg-transparent border-none text-sm cursor-pointer p-0 mb-2;
+  color: var(--primary);
+}
+
+.sr-account-back-button:hover {
+  opacity: 0.8;
+}
+
+.sr-account-back-arrow {
+  @apply text-base;
+}
+
+.sr-account-order-detail-header {
+  @apply flex justify-between items-center;
+}
+
+.sr-account-order-detail-title {
+  @apply text-lg font-semibold m-0;
+  color: var(--card-foreground);
+}
+
+/* Sections */
+.sr-account-section {
+  @apply pb-4;
+  border-bottom: 1px solid var(--border);
+}
+
+.sr-account-section:last-child {
+  border-bottom: none;
+}
+
+.sr-account-section-title {
+  @apply text-sm font-semibold mb-3 m-0;
+  color: var(--card-foreground);
+}
+
+/* Detail Rows */
+.sr-account-detail-row {
+  @apply flex justify-between items-center py-1;
+}
+
+.sr-account-detail-label {
+  @apply text-sm;
+  color: var(--muted-foreground);
+}
+
+.sr-account-detail-value {
+  @apply text-sm font-medium;
+  color: var(--card-foreground);
+}
+
+.sr-account-total-row {
+  @apply pt-2 mt-2 font-semibold;
+  border-top: 1px solid var(--border);
+}
+
+/* Order Items */
+.sr-account-order-item {
+  @apply flex justify-between items-start py-2;
+  border-bottom: 1px solid var(--border);
+}
+
+.sr-account-order-item:last-child {
+  border-bottom: none;
+}
+
+.sr-account-order-item-info {
+  @apply flex flex-col gap-0.5;
+}
+
+.sr-account-order-item-name {
+  @apply text-sm font-medium;
+  color: var(--card-foreground);
+}
+
+.sr-account-order-item-variant {
+  @apply text-xs;
+  color: var(--muted-foreground);
+}
+
+.sr-account-order-item-qty {
+  @apply text-xs;
+  color: var(--muted-foreground);
+}
+
+.sr-account-order-item-price {
+  @apply text-sm font-medium;
+  color: var(--card-foreground);
+}
+
+/* Totals */
+.sr-account-totals {
+  @apply space-y-1;
+}
+
+/* Address */
+.sr-account-address {
+  @apply text-sm leading-relaxed;
+  color: var(--card-foreground);
+}
+
+.sr-account-address p {
+  @apply m-0;
+}
+
+/* Details */
+.sr-account-details {
+  @apply space-y-4;
+}
+
+.sr-account-logout-section {
+  @apply pt-2;
+  border-bottom: none;
+}
+
+/* Empty State */
+.sr-account-empty {
+  @apply text-center py-8;
+  color: var(--muted-foreground);
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .sr-account-form-row {
+    @apply grid-cols-1;
+  }
+
+  .sr-account-otp-input {
+    @apply w-10 h-12 text-lg;
+  }
+
+  .sr-account-panel {
+    touch-action: manipulation;
+  }
+
+  .sr-account-panel input,
+  .sr-account-panel select {
+    font-size: 16px !important;
   }
 }

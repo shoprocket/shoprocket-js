@@ -125,6 +125,38 @@ export class WidgetManager {
   };
 
   /**
+   * Account namespace - customer account portal
+   */
+  public account = {
+    /**
+     * Opens the customer account portal drawer
+     * @example Shoprocket.account.open()
+     */
+    open: () => {
+      // Look specifically for a drawer-mode account widget
+      const drawerWidget = document.querySelector('shoprocket-account[mode="drawer"]');
+      if (drawerWidget) {
+        window.dispatchEvent(new CustomEvent('shoprocket:account:open'));
+        return;
+      }
+      // No drawer instance — create one (even if inline instance exists)
+      const mount = document.createElement('div');
+      mount.setAttribute('data-shoprocket', 'account');
+      document.body.appendChild(mount);
+      const manager = window.Shoprocket as WidgetManager;
+      manager.mount(mount, 'account', { mode: 'drawer' }).then(() => {
+        window.dispatchEvent(new CustomEvent('shoprocket:account:open'));
+      });
+    },
+
+    /**
+     * Closes the customer account portal drawer
+     * @example Shoprocket.account.close()
+     */
+    close: () => window.dispatchEvent(new CustomEvent('shoprocket:account:close')),
+  };
+
+  /**
    * Authentication namespace
    */
   public auth = {

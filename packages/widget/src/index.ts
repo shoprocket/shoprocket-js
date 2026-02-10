@@ -163,6 +163,10 @@ const componentLoaders: Record<string, () => Promise<typeof ShoprocketElement>> 
   'categories': async () => {
     const { CategoriesWidget } = await import('./components/categories');
     return CategoriesWidget;
+  },
+  'account': async () => {
+    const { AccountWidget } = await import('./components/account');
+    return AccountWidget;
   }
 };
 
