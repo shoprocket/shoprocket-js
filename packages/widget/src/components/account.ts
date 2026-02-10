@@ -38,7 +38,8 @@ export class AccountWidget extends ShoprocketElement {
 
   // Login state
   @state() private loginEmail = '';
-  @state() private loginMode: 'check' | 'password' | 'otp' = 'check';
+  @state() private loginMode: 'check' | 'password' | 'otp' | 'reset-password' = 'check';
+  @state() private forgotPasswordMode = false;
   @state() private otpCode: string[] = ['', '', '', '', '', ''];
   @state() private authError = '';
   @state() private authLoading = false;
@@ -187,7 +188,11 @@ export class AccountWidget extends ShoprocketElement {
       // @ts-ignore
       const result = await this.sdk.cart.verifyAuth(this.loginEmail, code);
       if (result.authenticated) {
-        await this.checkAuthAndLoad();
+        if (this.forgotPasswordMode) {
+          this.loginMode = 'reset-password';
+        } else {
+          await this.checkAuthAndLoad();
+        }
       } else {
         this.authError = result.message || t('account.invalid_code', 'Invalid code. Please try again.');
       }
@@ -249,6 +254,26 @@ export class AccountWidget extends ShoprocketElement {
     this.loginMode = 'check';
     this.authError = '';
     this.otpCode = ['', '', '', '', '', ''];
+    this.forgotPasswordMode = false;
+  }
+
+  private async handleForgotPassword(): Promise<void> {
+    this.forgotPasswordMode = true;
+    await this.handleSendOtp();
+  }
+
+  private async handleResetPassword(newPassword: string): Promise<void> {
+    this.authLoading = true;
+    this.authError = '';
+    try {
+      await this.sdk.account.resetPassword(newPassword);
+      this.forgotPasswordMode = false;
+      await this.checkAuthAndLoad();
+    } catch (error: any) {
+      this.authError = error.message || t('account.reset_password_failed', 'Failed to reset password. Please try again.');
+    } finally {
+      this.authLoading = false;
+    }
   }
 
   // --- Dashboard handlers ---
@@ -398,6 +423,8 @@ export class AccountWidget extends ShoprocketElement {
       onOtpInput: (e, i) => this.handleOtpInput(e, i),
       onOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
       onOtpPaste: (e) => this.handleOtpPaste(e),
+      onForgotPassword: () => this.handleForgotPassword(),
+      onResetPassword: (pw) => this.handleResetPassword(pw),
       onBack: () => this.handleLoginBack(),
     };
     return this.modules.login.renderAccountLogin(ctx);

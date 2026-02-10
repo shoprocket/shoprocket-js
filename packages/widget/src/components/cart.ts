@@ -215,6 +215,9 @@ export class CartWidget extends ShoprocketElement {
   private showPasswordField = false;
 
   @state()
+  private authDismissed = false;
+
+  @state()
   private customerPassword = '';
 
   @state()
@@ -304,6 +307,7 @@ export class CartWidget extends ShoprocketElement {
     // Auth states
     this.loginLinkSent = false;
     this.showPasswordField = false;
+    this.authDismissed = false;
     this.customerPassword = '';
     this.otpCode = '';
     this.otpError = '';
@@ -937,6 +941,11 @@ export class CartWidget extends ShoprocketElement {
       return; // Stop here - show cart view
     }
 
+    // Restore authentication flag from sessionStorage (survives payment redirect)
+    if (sessionStorage.getItem('shoprocket_authenticated') === '1') {
+      this.authenticatedDuringCheckout = true;
+    }
+
     // Step 4: Determine what to show based on API response (for payment-return URLs)
     if (cart && (cart as any).type === 'order' && (cart as any).order) {
       const order = (cart as any).order;
@@ -954,8 +963,9 @@ export class CartWidget extends ShoprocketElement {
         this.orderDetails = cart;
         console.log('Payment successful, showing order confirmation');
 
-        // Clear stored order ID
+        // Clear stored order ID and auth flag
         sessionStorage.removeItem('shoprocket_order_id');
+        sessionStorage.removeItem('shoprocket_authenticated');
 
         // Clear cart state and checkout data
         cartState.clear();
@@ -1358,6 +1368,7 @@ export class CartWidget extends ShoprocketElement {
     // Reset states when email changes
     this.customerCheckResult = undefined;
     this.showPasswordField = false;
+    this.authDismissed = false;
     this.loginLinkSent = false;
     this.otpCode = '';
     this.otpError = '';
@@ -1385,10 +1396,11 @@ export class CartWidget extends ShoprocketElement {
           has_password: result.hasPassword
         });
 
-        // Show password field if customer exists and has password
-        // API now returns camelCase via CustomerCheckResource
-        this.showPasswordField = result.exists && result.hasPassword;
-        
+        // Don't auto-expand password field — show compact banner first
+        // User clicks "Sign in" in the banner to expand it
+        this.showPasswordField = false;
+        this.authDismissed = false;
+
         // Reset login state when checking new email
         this.loginLinkSent = false;
         this.customerPassword = '';
@@ -1528,9 +1540,10 @@ export class CartWidget extends ShoprocketElement {
       // Call API to verify OTP
       // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
       const result = await this.sdk.cart.verifyAuth(this.customerData.email, this.otpCode);
-      
+
       if (result.authenticated) {
         this.authenticatedDuringCheckout = true;
+        sessionStorage.setItem('shoprocket_authenticated', '1');
 
         // Track successful auth
         this.track(EVENTS.CHECKOUT_AUTH_SUCCESS, {
@@ -1637,6 +1650,7 @@ export class CartWidget extends ShoprocketElement {
       }
 
       this.authenticatedDuringCheckout = true;
+      sessionStorage.setItem('shoprocket_authenticated', '1');
 
       // Track successful auth
       this.track(EVENTS.CHECKOUT_AUTH_SUCCESS, {
@@ -2141,8 +2155,8 @@ export class CartWidget extends ShoprocketElement {
       getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
       handleImageError: (e) => this.handleImageError(e),
 
-      // Account creation
-      isAuthenticated: this.authenticatedDuringCheckout,
+      // Account creation - hide if authenticated or customer already has an account
+      isAuthenticated: this.authenticatedDuringCheckout || !!this.customerCheckResult?.hasPassword,
       accountPassword: this.accountPassword,
       creatingAccount: this.creatingAccount,
       accountCreated: this.accountCreated,
@@ -2354,6 +2368,7 @@ export class CartWidget extends ShoprocketElement {
       checkingCustomer: this.checkingCustomer,
       customerCheckResult: this.customerCheckResult,
       showPasswordField: this.showPasswordField,
+      authDismissed: this.authDismissed,
       customerPassword: this.customerPassword,
       signingIn: this.signingIn,
       sendingLoginLink: this.sendingLoginLink,
@@ -2375,6 +2390,8 @@ export class CartWidget extends ShoprocketElement {
       handlePasswordInput: (e: Event) => { this.customerPassword = (e.target as HTMLInputElement).value; },
       handleSendLoginLink: () => this.handleSendLoginLink(),
       handlePasswordLogin: () => this.handlePasswordLogin(),
+      handleShowPasswordField: () => { this.showPasswordField = true; },
+      handleDismissAuth: () => { this.authDismissed = true; },
       handleOtpInput: (e, i) => this.handleOtpInput(e, i),
       handleOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
       handleOtpPaste: (e) => this.handleOtpPaste(e),
@@ -2419,6 +2436,7 @@ export class CartWidget extends ShoprocketElement {
       checkingCustomer: this.checkingCustomer,
       customerCheckResult: this.customerCheckResult,
       showPasswordField: this.showPasswordField,
+      authDismissed: this.authDismissed,
       customerPassword: this.customerPassword,
       signingIn: this.signingIn,
       sendingLoginLink: this.sendingLoginLink,
@@ -2440,6 +2458,8 @@ export class CartWidget extends ShoprocketElement {
       handlePasswordInput: (e: Event) => { this.customerPassword = (e.target as HTMLInputElement).value; },
       handleSendLoginLink: () => this.handleSendLoginLink(),
       handlePasswordLogin: () => this.handlePasswordLogin(),
+      handleShowPasswordField: () => { this.showPasswordField = true; },
+      handleDismissAuth: () => { this.authDismissed = true; },
       handleOtpInput: (e, i) => this.handleOtpInput(e, i),
       handleOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
       handleOtpPaste: (e) => this.handleOtpPaste(e),

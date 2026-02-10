@@ -3,6 +3,9 @@ import { t } from '../../utils/i18n';
 import type { AccountLoginContext } from './account-types';
 
 export function renderAccountLogin(ctx: AccountLoginContext): TemplateResult {
+  if (ctx.loginMode === 'reset-password') {
+    return renderResetPasswordForm(ctx);
+  }
   if (ctx.loginMode === 'otp') {
     return renderOtpForm(ctx);
   }
@@ -68,6 +71,9 @@ function renderPasswordForm(ctx: AccountLoginContext): TemplateResult {
           ${ctx.authLoading ? t('account.signing_in', 'Signing in...') : t('account.sign_in_button', 'Sign In')}
         </button>
         <div class="sr-account-login-links">
+          <button type="button" class="sr-account-link" @click=${ctx.onForgotPassword}>
+            ${t('account.forgot_password', 'Forgot password?')}
+          </button>
           <button type="button" class="sr-account-link" @click=${ctx.onSendOtp}>
             ${t('account.use_code', 'Sign in with a code instead')}
           </button>
@@ -114,6 +120,61 @@ function renderOtpForm(ctx: AccountLoginContext): TemplateResult {
           </button>
         </div>
       </div>
+    </div>
+  `;
+}
+
+function renderResetPasswordForm(ctx: AccountLoginContext): TemplateResult {
+  let newPassword = '';
+  let confirmPassword = '';
+  const validateMatch = (confirmInput: HTMLInputElement) => {
+    confirmInput.setCustomValidity(
+      confirmPassword !== newPassword ? t('account.passwords_no_match', 'Passwords do not match') : ''
+    );
+  };
+  return html`
+    <div class="sr-account-login">
+      <div class="sr-account-login-header">
+        <h2 class="sr-account-login-title">${t('account.set_new_password', 'Set new password')}</h2>
+        <p class="sr-account-login-subtitle">${t('account.set_new_password_desc', 'Choose a new password for your account.')}</p>
+      </div>
+      <form @submit=${(e: Event) => { e.preventDefault(); ctx.onResetPassword(newPassword); }} class="sr-account-form">
+        <div class="sr-account-form-group">
+          <label class="sr-account-label" for="sr-account-new-password">${t('account.new_password', 'New password')}</label>
+          <input
+            id="sr-account-new-password"
+            type="password"
+            class="sr-account-input"
+            @input=${(e: Event) => { newPassword = (e.target as HTMLInputElement).value; }}
+            placeholder=${t('account.new_password_placeholder', 'Enter new password')}
+            required
+            minlength="8"
+            autocomplete="new-password"
+          />
+        </div>
+        <div class="sr-account-form-group">
+          <label class="sr-account-label" for="sr-account-confirm-password">${t('account.confirm_password', 'Confirm password')}</label>
+          <input
+            id="sr-account-confirm-password"
+            type="password"
+            class="sr-account-input"
+            @input=${(e: Event) => { confirmPassword = (e.target as HTMLInputElement).value; validateMatch(e.target as HTMLInputElement); }}
+            placeholder=${t('account.confirm_password_placeholder', 'Confirm new password')}
+            required
+            minlength="8"
+            autocomplete="new-password"
+          />
+        </div>
+        ${ctx.authError ? html`<p class="sr-account-error">${ctx.authError}</p>` : ''}
+        <button type="submit" class="sr-account-button-primary" ?disabled=${ctx.authLoading}>
+          ${ctx.authLoading ? t('account.saving', 'Saving...') : t('account.reset_password_button', 'Reset Password')}
+        </button>
+        <div class="sr-account-login-links">
+          <button type="button" class="sr-account-link" @click=${ctx.onBack}>
+            ${t('account.cancel', 'Cancel')}
+          </button>
+        </div>
+      </form>
     </div>
   `;
 }
