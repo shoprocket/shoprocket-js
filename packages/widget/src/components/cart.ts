@@ -588,8 +588,8 @@ export class CartWidget extends ShoprocketElement {
     );
     
     // Validate stock if tracking inventory
-    if (stockInfo?.track_inventory || stockInfo?.inventoryPolicy === 'deny') {
-      const availableQuantity = stockInfo.available_quantity ?? stockInfo.inventoryCount ?? 0;
+    if (stockInfo?.trackInventory || stockInfo?.inventoryPolicy === 'deny') {
+      const availableQuantity = stockInfo.availableQuantity ?? stockInfo.inventoryCount ?? 0;
       
       // Check if out of stock
       if (availableQuantity === 0) {
@@ -614,8 +614,8 @@ export class CartWidget extends ShoprocketElement {
             message: canAdd > 0 ?
               t('product.only_more_available', 'Only {count} more available', { count: canAdd }) :
               t('product.max_quantity_in_cart', 'Maximum quantity ({count}) already in cart', { count: availableQuantity }),
-            available_quantity: availableQuantity,
-            current_quantity: currentQuantityInCart
+            availableQuantity: availableQuantity,
+            currentQuantity: currentQuantityInCart
           }
         }));
         return;
@@ -627,8 +627,8 @@ export class CartWidget extends ShoprocketElement {
       existingItem.quantity += item.quantity;
       // Update stock info if provided
       if (stockInfo) {
-        existingItem.inventoryPolicy = stockInfo.inventoryPolicy || (stockInfo.track_inventory ? 'deny' : 'continue');
-        existingItem.inventoryCount = stockInfo.inventoryCount ?? stockInfo.available_quantity;
+        existingItem.inventoryPolicy = stockInfo.inventoryPolicy || (stockInfo.trackInventory ? 'deny' : 'continue');
+        existingItem.inventoryCount = stockInfo.inventoryCount ?? stockInfo.availableQuantity;
       }
     } else {
       // Add new item with a temporary ID and stock info
@@ -636,8 +636,8 @@ export class CartWidget extends ShoprocketElement {
         ...item,
         id: 'temp-' + Date.now() + '-' + Math.random(),
         ...(stockInfo && {
-          inventoryPolicy: stockInfo.inventoryPolicy || (stockInfo.track_inventory ? 'deny' : 'continue'),
-          inventoryCount: stockInfo.inventoryCount ?? stockInfo.available_quantity
+          inventoryPolicy: stockInfo.inventoryPolicy || (stockInfo.trackInventory ? 'deny' : 'continue'),
+          inventoryCount: stockInfo.inventoryCount ?? stockInfo.availableQuantity
         })
       };
       this.cart.items.push(newItem);

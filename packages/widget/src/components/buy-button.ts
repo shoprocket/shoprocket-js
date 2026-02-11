@@ -282,8 +282,8 @@ export class BuyButton extends ShoprocketElement {
 
     // Include stock info for validation
     const stockInfo = {
-      track_inventory: this.productData.trackInventory ?? true,
-      available_quantity: variantInventory
+      trackInventory: this.productData.trackInventory ?? true,
+      availableQuantity: variantInventory
     };
 
     // Dispatch event to cart component - it will handle optimistic update and API call
