@@ -1060,8 +1060,8 @@ export class ProductCatalog extends ShoprocketElement {
 
     // Include stock info for validation
     const stockInfo = {
-      track_inventory: product.trackInventory ?? true, // Default to true if not specified
-      available_quantity: product.inventoryCount ?? 0
+      trackInventory: product.trackInventory ?? true, // Default to true if not specified
+      availableQuantity: product.inventoryCount ?? 0
     };
 
     // Dispatch event to cart component - it will handle everything

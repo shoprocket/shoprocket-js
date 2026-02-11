@@ -816,7 +816,7 @@ export class ProductDetail extends ShoprocketElement {
       window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
         detail: {
           item: cartItemData,
-          stockInfo: { track_inventory: false },
+          stockInfo: { trackInventory: false },
           bundleSelections: this.bundleSelections
         }
       }));
@@ -846,8 +846,8 @@ export class ProductDetail extends ShoprocketElement {
 
     // Include stock info for validation
     const stockInfo = {
-      track_inventory: this.product.trackInventory,
-      available_quantity: this.selectedVariant ?
+      trackInventory: this.product.trackInventory,
+      availableQuantity: this.selectedVariant ?
         this.selectedVariant.inventoryCount :
         this.product.inventoryCount
     };
