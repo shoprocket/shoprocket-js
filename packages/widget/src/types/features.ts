@@ -97,7 +97,8 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
     'media', 'title', 'price', 'add-to-cart',
     // Detail view features (use detail: prefix for features specific to detail view)
     'detail:media', 'detail:gallery', 'detail:zoom', 'detail:title', 'detail:price',
-    'detail:stock', 'detail:summary', 'detail:quantity', 'detail:add-to-cart', 'detail:description'
+    'detail:stock', 'detail:summary', 'detail:quantity', 'detail:add-to-cart', 'detail:description',
+    'detail:reviews'
   ],
   // Buy button widget
   'buy-button': [

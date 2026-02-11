@@ -2,13 +2,14 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
-import type { Product, ProductVariant, ProductOption } from '@shoprocket/core';
+import type { Product, ProductVariant, ProductOption, BundleSelection, Review, ReviewStats } from '@shoprocket/core';
 import { loadingSpinner } from './loading-spinner';
 import { formatProductPrice, getMediaSizes, formatNumber } from '../utils/formatters';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { TIMEOUTS, STOCK_THRESHOLDS, IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 import './tooltip'; // Register tooltip component
 import { t } from '../utils/i18n';
+import { renderStarRating } from '../utils/stars';
 
 export class ProductDetail extends ShoprocketElement {
   // Render in light DOM so merchant CSS variables flow directly into content
@@ -94,7 +95,41 @@ export class ProductDetail extends ShoprocketElement {
   @state()
   private quantity: number = 1;
 
+  @state()
+  private bundleSelections: BundleSelection[] = [];
+
+  @state()
+  private bundleValid: boolean = false;
+
+  // Reviews state
+  @state()
+  private reviews: Review[] = [];
+
+  @state()
+  private reviewStats: ReviewStats | null = null;
+
+  @state()
+  private reviewsPage: number = 1;
+
+  @state()
+  private reviewsTotalPages: number = 1;
+
+  @state()
+  private reviewsLoading: boolean = false;
+
+  private bundleConfiguratorLoaded: boolean = false;
+
   private zoomTimeout?: number;
+
+  /** True when bundleConfig is fully loaded and ready */
+  private get isBundle(): boolean {
+    return this.product?.productType === 'bundle' && !!this.product.bundleConfig;
+  }
+
+  /** True as soon as we know it's a bundle (even before config loads) */
+  private get isBundleProduct(): boolean {
+    return this.product?.productType === 'bundle';
+  }
 
   protected override async updated(changedProperties: Map<string, any>): Promise<void> {
     super.updated(changedProperties);
@@ -105,7 +140,7 @@ export class ProductDetail extends ShoprocketElement {
       
       // Only reset if it's actually a different product
       if (!oldProduct || oldProduct.id !== this.product.id) {
-        
+
         // Reset state for new product
         this.selectedOptions = {};
         this.selectedVariant = undefined;
@@ -114,27 +149,39 @@ export class ProductDetail extends ShoprocketElement {
         this.addedToCart = false;
         this.isInCart = false;
         this.quantity = 1;
+        this.bundleSelections = [];
+        this.bundleValid = false;
         // Reset loaded image tracking so cached images still trigger display
         this.loadedImages = new Set();
-        
-        
+        // Reset reviews state
+        this.reviews = [];
+        this.reviewStats = null;
+        this.reviewsPage = 1;
+        this.reviewsTotalPages = 1;
+
         // If single variant, pre-select it
         if (this.product.variants?.length === 1) {
           this.selectedVariant = this.product.variants[0];
         }
-        
+
         // Track product view - sanitizer will format it properly
         this.track(EVENTS.VIEW_ITEM, this.product);
-        
+
         // Check if in cart
         await this.checkIfInCart();
-        
+
         // Scroll to top if enabled
         if (this.hasFeature('scroll') && window.location.hash.includes('/')) {
           requestAnimationFrame(() => {
             this.scrollIntoView({ behavior: 'smooth', block: 'start' });
           });
         }
+      }
+
+      // Lazy-load bundle configurator when bundleConfig becomes available
+      // (may arrive after initial product load, since list data doesn't include it)
+      if (this.product.productType === 'bundle' && this.product.bundleConfig && !this.bundleConfiguratorLoaded) {
+        this.loadBundleConfigurator();
       }
     }
   }
@@ -183,6 +230,16 @@ export class ProductDetail extends ShoprocketElement {
                 </div>
               ` : ''}
 
+              ${this.product?.reviewCount && this.product?.averageRating ? html`
+                <a class="sr-product-detail-rating" href="#sr-reviews" @click="${(e: Event) => {
+                  e.preventDefault();
+                  const reviewsEl = this.querySelector('.sr-reviews-section');
+                  if (reviewsEl) reviewsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}">
+                  ${renderStarRating(this.product.averageRating, this.product.reviewCount)}
+                </a>
+              ` : ''}
+
               ${this.renderStockStatus(this.product)}
 
               ${this.hasFeature('summary') ? html`
@@ -191,11 +248,11 @@ export class ProductDetail extends ShoprocketElement {
                 </p>
               ` : ''}
 
-              <!-- Variant Options -->
-              ${this.renderProductOptions(this.product)}
+              <!-- Variant Options / Bundle Configurator -->
+              ${this.isBundleProduct ? this.renderBundleConfigurator() : this.renderProductOptions(this.product)}
 
-              <!-- Quantity Selector -->
-              ${this.hasFeature('quantity') ? this.renderQuantitySelector() : ''}
+              <!-- Quantity Selector (hidden for bundles) -->
+              ${!this.isBundleProduct && this.hasFeature('quantity') ? this.renderQuantitySelector() : ''}
 
               <!-- Add to Cart Section -->
               ${this.hasFeature('add-to-cart') ? html`
@@ -209,7 +266,10 @@ export class ProductDetail extends ShoprocketElement {
 
               <!-- Product Description -->
               ${this.hasFeature('description') ? this.renderDescription(this.product) : ''}
-                
+
+              <!-- Reviews Section -->
+              ${this.hasFeature('reviews') ? this.renderReviewsSection() : ''}
+
                 <!-- Additional info -->
                 <div class="sr-product-detail-info-text">
                   <sr-tooltip text="Free standard shipping (5-7 business days) on all orders over $50. Express shipping available at checkout." wrap>
@@ -282,20 +342,33 @@ export class ProductDetail extends ShoprocketElement {
           ${product.options.map((option: ProductOption) => html`
             <div class="sr-product-option">
               <label class="sr-product-option-label">
-                ${option.name}
+                ${option.name}${this.selectedOptions[option.id]
+                  ? html` — <span class="sr-product-option-selected">${option.values?.find((v: any) => v.id === this.selectedOptions[option.id])?.value || ''}</span>`
+                  : ''}
               </label>
               <div class="sr-product-option-values">
                 ${option.values?.map((value: any) => {
                   const isDisabled = this.isOptionValueOutOfStock(option.id, value.id, product);
-                  const button = html`
-                    <button
-                      class="sr-variant-option ${this.selectedOptions[option.id] === value.id ? 'selected' : ''}"
-                      @click="${() => !isDisabled && this.selectOption(option.id, value.id)}"
-                      ?disabled="${isDisabled}"
-                    >
-                      ${value.value}
-                    </button>
-                  `;
+                  const isSelected = this.selectedOptions[option.id] === value.id;
+                  const button = value.color
+                    ? html`
+                      <button
+                        class="sr-variant-swatch ${isSelected ? 'selected' : ''}"
+                        style="background-color: ${value.color}"
+                        @click="${() => !isDisabled && this.selectOption(option.id, value.id)}"
+                        ?disabled="${isDisabled}"
+                        aria-label="${value.value}"
+                      ></button>
+                    `
+                    : html`
+                      <button
+                        class="sr-variant-option ${isSelected ? 'selected' : ''}"
+                        @click="${() => !isDisabled && this.selectOption(option.id, value.id)}"
+                        ?disabled="${isDisabled}"
+                      >
+                        ${value.value}
+                      </button>
+                    `;
 
                   // Wrap disabled buttons in tooltip
                   return isDisabled ? html`
@@ -425,6 +498,14 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private getButtonText(product: Product, canAdd: boolean): string {
+    // Bundle-specific text
+    if (this.isBundleProduct) {
+      if (!this.product?.bundleConfig) return t('bundle.loading', 'Loading bundle options...');
+      return canAdd
+        ? t('cart.add_to_cart', 'Add to Cart')
+        : t('bundle.complete_selection', 'Complete Your Selection');
+    }
+
     // If we can add, always show "Add to Cart"
     if (canAdd) return t('cart.add_to_cart', 'Add to Cart');
 
@@ -456,7 +537,7 @@ export class ProductDetail extends ShoprocketElement {
   
   private renderAddToCartButton = (): TemplateResult => {
     const buttonClasses = `sr-button sr-add-to-cart-button`;
-    
+
     if (!this.product) {
       return html`<button class="${buttonClasses}" disabled></button>`;
     }
@@ -464,13 +545,18 @@ export class ProductDetail extends ShoprocketElement {
     const loadingKey = `addToCart-${this.product.id}`;
     const isLoading = this.isLoading(loadingKey);
     const canAdd = this.canAddToCart();
-    
-    // Check stock status for button text
-    const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
-    const totalInventory = this.selectedVariant ?
-      this.selectedVariant.inventoryCount :
-      this.product.inventoryCount;
-    const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
+
+    // Bundles don't use variant-level stock checks (component stock validated server-side)
+    let stockAllInCart = false;
+    let totalInventory = 0;
+    if (!this.isBundleProduct) {
+      const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
+      totalInventory = this.selectedVariant ?
+        (this.selectedVariant.inventoryCount ?? 0) :
+        (this.product.inventoryCount ?? 0);
+      const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
+      stockAllInCart = stockStatus.allInCart;
+    }
 
     return html`
       <button
@@ -487,7 +573,7 @@ export class ProductDetail extends ShoprocketElement {
           </span>
         ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` :
             this.product.inStock === false ? 'Out of Stock' :
-            stockStatus.allInCart ? `Max (${totalInventory}) in cart` :
+            stockAllInCart ? `Max (${totalInventory}) in cart` :
             this.getButtonText(this.product, canAdd)}
       </button>
     `;
@@ -528,8 +614,214 @@ export class ProductDetail extends ShoprocketElement {
     `;
   }
 
+  // =========================================================================
+  // Reviews
+  // =========================================================================
+
+  private renderReviewsSection(): TemplateResult {
+    if (!this.product) return html``;
+
+    // Lazy-load reviews on first render
+    if (!this.reviewStats && !this.reviewsLoading && this.reviews.length === 0) {
+      this.loadReviews();
+    }
+
+    const hasReviews = this.reviewStats && this.reviewStats.reviewCount > 0;
+
+    return html`
+      <div class="sr-reviews-section">
+        <h2 class="sr-reviews-title">${t('reviews.title', 'Customer Reviews')}</h2>
+
+        ${this.reviewsLoading && !hasReviews ? html`
+          <div class="sr-reviews-loading">${loadingSpinner('md')}</div>
+        ` : ''}
+
+        ${hasReviews ? this.renderReviewsSummary() : ''}
+
+        ${!this.reviewsLoading && !hasReviews ? html`
+          <p class="sr-reviews-empty">${t('reviews.no_reviews', 'No reviews yet.')}</p>
+        ` : ''}
+
+        ${hasReviews ? this.renderReviewList() : ''}
+      </div>
+    `;
+  }
+
+  private renderReviewsSummary(): TemplateResult {
+    if (!this.reviewStats) return html``;
+
+    const { avgRating, reviewCount, ratingDistribution } = this.reviewStats;
+    const maxCount = Math.max(...Object.values(ratingDistribution), 1);
+
+    return html`
+      <div class="sr-reviews-summary">
+        <div class="sr-reviews-summary-score">
+          <span class="sr-reviews-avg-rating">${avgRating.toFixed(1)}</span>
+          ${renderStarRating(avgRating)}
+          <span class="sr-reviews-count">
+            ${t('reviews.based_on', 'Based on {count} review(s)', { count: reviewCount })}
+          </span>
+        </div>
+        <div class="sr-rating-bars">
+          ${[5, 4, 3, 2, 1].map(star => {
+            const count = ratingDistribution[star] || 0;
+            const pct = reviewCount > 0 ? (count / maxCount) * 100 : 0;
+            return html`
+              <div class="sr-rating-bar-row">
+                <span class="sr-rating-bar-label">${star}</span>
+                <svg class="sr-star sr-star-filled sr-rating-bar-star" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+                <div class="sr-rating-bar-track">
+                  <div class="sr-rating-bar-fill" style="width: ${pct}%"></div>
+                </div>
+                <span class="sr-rating-bar-count">${count}</span>
+              </div>
+            `;
+          })}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderReviewList(): TemplateResult {
+    return html`
+      <div class="sr-review-list">
+        ${this.reviews.map(review => html`
+          <div class="sr-review-card">
+            <div class="sr-review-header">
+              ${renderStarRating(review.rating)}
+              <span class="sr-review-date">${this.formatReviewDate(review.createdAt)}</span>
+            </div>
+            ${review.title ? html`<h4 class="sr-review-title">${review.title}</h4>` : ''}
+            <p class="sr-review-content">${review.content}</p>
+            <div class="sr-review-footer">
+              <span class="sr-review-author">${review.authorName}</span>
+              ${review.isVerifiedPurchase ? html`
+                <span class="sr-verified-badge">
+                  <svg class="sr-verified-icon" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                  </svg>
+                  ${t('reviews.verified', 'Verified Purchase')}
+                </span>
+              ` : ''}
+            </div>
+          </div>
+        `)}
+
+        ${this.reviewsPage < this.reviewsTotalPages ? html`
+          <button
+            class="sr-button sr-reviews-load-more"
+            @click="${() => this.loadMoreReviews()}"
+            ?disabled="${this.reviewsLoading}"
+          >
+            ${this.reviewsLoading ? loadingSpinner('sm') : t('reviews.load_more', 'Load More Reviews')}
+          </button>
+        ` : ''}
+      </div>
+    `;
+  }
+
+
+  private async loadReviews(): Promise<void> {
+    if (!this.product || !this.sdk) return;
+    this.reviewsLoading = true;
+    try {
+      const response = await this.sdk.reviews.list(this.product.id, 1);
+      this.reviews = response.data || [];
+      const meta = response.meta;
+      if (meta) {
+        this.reviewStats = {
+          avgRating: meta.avgRating,
+          reviewCount: meta.reviewCount,
+          ratingDistribution: meta.ratingDistribution
+        };
+        this.reviewsTotalPages = Math.ceil((meta.total || 0) / (meta.perPage || 10));
+      }
+      this.reviewsPage = 1;
+    } catch {
+      // Silently fail — reviews are non-critical
+    } finally {
+      this.reviewsLoading = false;
+    }
+  }
+
+  private async loadMoreReviews(): Promise<void> {
+    if (!this.product || !this.sdk || this.reviewsLoading) return;
+    this.reviewsLoading = true;
+    try {
+      const nextPage = this.reviewsPage + 1;
+      const response = await this.sdk.reviews.list(this.product.id, nextPage);
+      this.reviews = [...this.reviews, ...(response.data || [])];
+      this.reviewsPage = nextPage;
+      if (response.meta) {
+        this.reviewsTotalPages = Math.ceil((response.meta.total || 0) / (response.meta.perPage || 10));
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      this.reviewsLoading = false;
+    }
+  }
+
+
+  private formatReviewDate(dateStr: string): string {
+    try {
+      return new Date(dateStr).toLocaleDateString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  }
+
   private async handleAddToCart(): Promise<void> {
     if (!this.product || !this.canAddToCart()) return;
+
+    // Bundle add-to-cart flow
+    if (this.isBundle) {
+      const variantId = this.product.defaultVariantId || this.product.variants?.[0]?.id;
+      if (!variantId) return;
+
+      // Build human-readable bundle selections for optimistic cart display
+      const bundleSelectionsForCart = this.bundleSelections.map(sel => {
+        // Find the component/variant info from bundleConfig
+        let productName = '';
+        let variantName: string | undefined;
+        let media: any;
+        for (const comp of this.product!.bundleConfig!.components) {
+          const variant = comp.variants.find(v => v.id === sel.variantId);
+          if (variant) {
+            productName = comp.product.name;
+            variantName = variant.name || undefined;
+            media = comp.product.media?.[0];
+            break;
+          }
+        }
+        return { productName, variantName, quantity: sel.quantity, media };
+      });
+
+      const cartItemData = {
+        productId: this.product.id,
+        productName: this.product.name,
+        variantId,
+        quantity: this.quantity || 1,
+        price: this.product.price,
+        media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined,
+        sourceUrl: window.location.href,
+        productType: 'bundle',
+        bundleSelections: bundleSelectionsForCart
+      };
+
+      window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
+        detail: {
+          item: cartItemData,
+          stockInfo: { track_inventory: false },
+          bundleSelections: this.bundleSelections
+        }
+      }));
+      return;
+    }
 
     const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
     if (!variantId) {
@@ -549,7 +841,7 @@ export class ProductDetail extends ShoprocketElement {
       quantity: this.quantity,
       price: selectedPrice, // Pass the full Money object from API
       media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined,
-      source_url: window.location.href
+      sourceUrl: window.location.href
     };
 
     // Include stock info for validation
@@ -623,6 +915,9 @@ export class ProductDetail extends ShoprocketElement {
 
     // Check if out of stock
     if (this.product.inStock === false) return false;
+
+    // For bundles, check bundle validity
+    if (this.isBundle) return this.bundleValid;
 
     // Check if all stock is already in cart
     const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
@@ -898,6 +1193,41 @@ export class ProductDetail extends ShoprocketElement {
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     
     this.zoomPosition = { x, y };
+  }
+
+  private async loadBundleConfigurator(): Promise<void> {
+    if (this.bundleConfiguratorLoaded) return;
+    const { BundleConfigurator } = await import('./bundle-configurator');
+    if (!customElements.get('shoprocket-bundle-configurator')) {
+      customElements.define('shoprocket-bundle-configurator', BundleConfigurator);
+    }
+    this.bundleConfiguratorLoaded = true;
+  }
+
+  private handleBundleSelectionsChanged = (e: CustomEvent): void => {
+    this.bundleSelections = e.detail.selections;
+    this.bundleValid = e.detail.isValid;
+  }
+
+  private renderBundleConfigurator(): TemplateResult {
+    if (!this.product?.bundleConfig) {
+      return html`
+        <div class="sr-bundle-loading">
+          ${loadingSpinner('md')}
+          <span>${t('bundle.loading', 'Loading bundle options...')}</span>
+        </div>
+      `;
+    }
+
+    return html`
+      <shoprocket-bundle-configurator
+        .bundleConfig="${this.product.bundleConfig}"
+        .productId="${this.product.id}"
+        .productName="${this.product.name}"
+        .sdk="${this.sdk}"
+        @bundle-selections-changed="${this.handleBundleSelectionsChanged}"
+      ></shoprocket-bundle-configurator>
+    `;
   }
 
   private navigateToProduct(product: Product | null | undefined): void {

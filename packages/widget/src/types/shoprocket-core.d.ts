@@ -9,9 +9,9 @@ declare module '@shoprocket/core' {
   }
 
   export interface AuthResponse {
-    access_token: string;
-    token_type: string;
-    expires_in: number;
+    accessToken: string;
+    tokenType: string;
+    expiresIn: number;
     user?: {
       id: string;
       email: string;
@@ -60,7 +60,7 @@ declare module '@shoprocket/core' {
   export class CartService {
     constructor(api: ApiClient);
     get(): Promise<any>;
-    addItem(data: { product_id: string; quantity: number; variant_id?: string; source_url?: string }): Promise<any>;
+    addItem(data: { productId: string; quantity: number; variantId?: string; sourceUrl?: string }): Promise<any>;
     updateItem(itemId: string, quantity: number): Promise<any>;
     removeItem(itemId: string): Promise<any>;
     clear(): Promise<any>;
@@ -74,7 +74,7 @@ declare module '@shoprocket/core' {
       billingAddress?: any; 
       same_as_billing?: boolean; 
     }): Promise<any>;
-    checkout(data: { payment_method_type: string; locale: string }): Promise<any>;
+    checkout(data: { paymentMethodType: string; locale: string }): Promise<any>;
   }
 
   export class AuthService {

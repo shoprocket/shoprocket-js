@@ -56,7 +56,9 @@ export const EVENTS = {
   CHECKOUT_PAYMENT_SELECTED: 'checkout_payment_selected',
   CHECKOUT_PAYMENT_REDIRECT: 'checkout_payment_redirect',
   // Error events
-  CHECKOUT_ERROR: 'checkout_error'
+  CHECKOUT_ERROR: 'checkout_error',
+  // Bundle events
+  BUNDLE_CONFIGURED: 'bundle_configured'
 } as const;
 
 export class AnalyticsManager {
@@ -143,7 +145,7 @@ export class AnalyticsManager {
       event,
       data,
       store_id: storeId, // Required by backend
-      store_mode: store?.store_mode || null, // Store mode (test/live)
+      store_mode: store?.storeMode || null, // Store mode (test/live)
       cart_token: cartToken,
       customer_id: customerId, // Only set when customer is authenticated
       url: location.href,

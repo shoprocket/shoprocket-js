@@ -74,6 +74,32 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
               ${item.variantName ? html`
                 <div class="sr-cart-item-variant">${item.variantName}</div>
               ` : ''}
+              ${item.bundleSelections?.length ? html`
+                <details class="sr-cart-bundle-details">
+                  <summary class="sr-cart-bundle-toggle">
+                    <span class="sr-cart-bundle-show">${t('bundle.show_items', 'Show {count} items', { count: item.bundleSelections.length })}</span>
+                    <span class="sr-cart-bundle-hide">${t('bundle.hide_items', 'Hide {count} items', { count: item.bundleSelections.length })}</span>
+                  </summary>
+                  <div class="sr-cart-bundle-items">
+                    ${item.bundleSelections.map((sel: any) => html`
+                      <div class="sr-cart-bundle-item">
+                        ${sel.media ? html`
+                          <img class="sr-cart-bundle-item-img"
+                            src="${context.getMediaUrl(sel.media, 'w=48,h=48,fit=cover')}"
+                            alt="${sel.productName}"
+                            width="24" height="24"
+                          />
+                        ` : ''}
+                        <span class="sr-cart-bundle-item-qty">${sel.quantity}x</span>
+                        <div class="sr-cart-bundle-item-info">
+                          <span class="sr-cart-bundle-item-name">${sel.productName}</span>
+                          ${sel.variantName ? html`<span class="sr-cart-bundle-item-variant">${sel.variantName}</span>` : ''}
+                        </div>
+                      </div>
+                    `)}
+                  </div>
+                </details>
+              ` : ''}
             </div>
           </div>
 

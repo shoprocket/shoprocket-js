@@ -9,7 +9,7 @@ import { IMAGE_SIZES, RESPONSIVE_SIZES, WIDGET_EVENTS } from '../constants';
 function getStoreCurrency(): string {
   // Try to get from stored data or default
   const store = (window as any).Shoprocket?.store?.get?.();
-  return store?.base_currency_code || 'USD';
+  return store?.baseCurrencyCode || 'USD';
 }
 
 /**

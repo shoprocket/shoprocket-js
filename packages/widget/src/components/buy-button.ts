@@ -277,7 +277,7 @@ export class BuyButton extends ShoprocketElement {
       quantity: this.quantity,
       price: variantPrice,
       media: this.productData.media?.[0] ? [this.productData.media[0]] : undefined,
-      source_url: window.location.href
+      sourceUrl: window.location.href
     };
 
     // Include stock info for validation
@@ -440,12 +440,13 @@ export class BuyButton extends ShoprocketElement {
       inventoryCount = targetVariant?.inventoryCount;
     }
 
-    // Check if all available stock is already in cart (same as product list)
-    const stockStatus = isAllStockInCart(
+    // Check if all available stock is already in cart (bundles don't track inventory at bundle level)
+    const isBundle = this.productData.productType === 'bundle';
+    const stockStatus = !isBundle ? isAllStockInCart(
       this.productData.id,
       targetVariantId,
       inventoryCount
-    );
+    ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
 
     // Use same classes as product list for consistency

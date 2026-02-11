@@ -15,6 +15,7 @@ import { EmbedsService } from './services/embeds';
 import { ThemesService } from './services/themes';
 import { StringsService } from './services/strings';
 import { AccountService } from './services/account';
+import { ReviewsService } from './services/reviews';
 
 export interface ShoprocketConfig {
   publicKey: string;
@@ -38,6 +39,7 @@ export class ShoprocketCore {
   public themes: ThemesService;
   public strings: StringsService;
   public account: AccountService;
+  public reviews: ReviewsService;
 
   constructor(config: ShoprocketConfig) {
     this.config = {
@@ -66,6 +68,7 @@ export class ShoprocketCore {
     this.themes = new ThemesService(this.api);
     this.strings = new StringsService(this.api);
     this.account = new AccountService(this.api);
+    this.reviews = new ReviewsService(this.api);
   }
 
   /**
@@ -141,6 +144,7 @@ export * from './services/embeds';
 export * from './services/themes';
 export * from './services/strings';
 export * from './services/account';
+export * from './services/reviews';
 
 // Default export for convenience
 export default ShoprocketCore;

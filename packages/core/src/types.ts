@@ -37,6 +37,7 @@ export interface ProductOption {
   values: Array<{
     id: string;
     value: string;
+    color?: string | null;
   }>;
 }
 
@@ -50,6 +51,51 @@ export interface ProductVariant {
   optionValueIds?: string[];
   inventoryCount?: number;
   inventoryPolicy?: 'deny' | 'continue';
+}
+
+export interface BundleComponentVariant {
+  id: string;
+  name?: string;
+  price: Money;
+  inStock: boolean;
+  inventoryCount?: number;
+  optionValues?: string[];
+}
+
+export interface BundleComponent {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    media: Media[];
+    options?: Array<{
+      id: string;
+      name: string;
+      values: Array<{ id: string; value: string; color?: string | null }>;
+    }>;
+  };
+  variants: BundleComponentVariant[];
+}
+
+export interface BundleConfig {
+  minQuantity: number;
+  maxQuantity: number | null;
+  quantityIncrement: number;
+  allowDuplicates: boolean;
+  showComponentPrices: boolean;
+  components: BundleComponent[];
+}
+
+export interface BundleSelection {
+  variantId: string;
+  quantity: number;
+}
+
+export interface CartBundleSelection {
+  productName: string;
+  variantName?: string;
+  quantity: number;
+  media?: Media;
 }
 
 export interface Product {
@@ -80,6 +126,10 @@ export interface Product {
   }>;
   brand?: string;
   status?: string;
+  productType?: string;
+  bundleConfig?: BundleConfig;
+  reviewCount?: number;
+  averageRating?: number;
 }
 
 export interface ProductListParams {
@@ -153,6 +203,8 @@ export interface CartItem {
   media?: Media[];
   inventoryCount?: number;
   inventoryPolicy?: 'deny' | 'continue';
+  productType?: string;
+  bundleSelections?: CartBundleSelection[];
 }
 
 export interface CartTotals {
@@ -189,6 +241,8 @@ export interface AddToCartParams {
   productId: string;
   variantId?: string;
   quantity?: number;
+  sourceUrl?: string;
+  bundleSelections?: BundleSelection[];
 }
 
 export interface UpdateCartItemParams {
@@ -346,6 +400,42 @@ export interface AuthResponse {
     email: string;
     name?: string;
   };
+}
+
+// ============================================================================
+// Review Types
+// ============================================================================
+
+export interface Review {
+  id: string;
+  rating: number;
+  title: string;
+  content: string;
+  authorName: string;
+  isVerifiedPurchase: boolean;
+  source: 'organic' | 'imported' | 'manual';
+  createdAt: string;
+}
+
+export interface ReviewStats {
+  avgRating: number;
+  reviewCount: number;
+  ratingDistribution: Record<number, number>;
+}
+
+export interface ReviewsResponse {
+  data: Review[];
+  meta: ReviewStats & {
+    page: number;
+    perPage: number;
+    total: number;
+  };
+}
+
+export interface SubmitReviewParams {
+  rating: number;
+  title: string;
+  content: string;
 }
 
 // ============================================================================
