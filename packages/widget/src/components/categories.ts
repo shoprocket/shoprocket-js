@@ -593,6 +593,11 @@ export class CategoriesWidget extends ShoprocketElement {
     // Update URL for bookmarking (don't trigger another load via hash change)
     const identifier = category.slug || category.id;
     this.updateUrlHash(`#!/categories/${identifier}`);
+
+    // Scroll to top of widget on navigation
+    requestAnimationFrame(() => {
+      this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   /**
@@ -614,6 +619,10 @@ export class CategoriesWidget extends ShoprocketElement {
         const identifier = currentCategory.slug || currentCategory.id;
         this.updateUrlHash(`#!/categories/${identifier}`);
       }
+      // Scroll to top of widget on back navigation
+      requestAnimationFrame(() => {
+        this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
       return;
     }
 
@@ -637,6 +646,11 @@ export class CategoriesWidget extends ShoprocketElement {
       this.currentCategories = previous.category.children || [];
       this.currentView = 'categories';
     }
+
+    // Scroll to top of widget on back navigation
+    requestAnimationFrame(() => {
+      this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   /**
@@ -822,6 +836,11 @@ export class CategoriesWidget extends ShoprocketElement {
     this.nextProduct = nextProduct;
     this.currentView = 'product-detail';
 
+    // Scroll to top of widget
+    requestAnimationFrame(() => {
+      this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
     // Update URL using replaceState to avoid triggering hashchange
     // This prevents redundant API calls since we already have all the data we need
     const categoryIdentifier = currentCategory.slug || currentCategory.id;
@@ -942,6 +961,11 @@ export class CategoriesWidget extends ShoprocketElement {
         this.prevProduct = currentIndex > 0 ? this.cachedProducts[currentIndex - 1] : null;
         this.nextProduct = currentIndex < this.cachedProducts.length - 1 ? this.cachedProducts[currentIndex + 1] : null;
         this.currentView = 'product-detail';
+
+        // Scroll to top of widget
+        requestAnimationFrame(() => {
+          this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
 
         // Update URL for bookmarking using replaceState to avoid triggering hashchange
         // This prevents redundant API calls since we've already handled the navigation

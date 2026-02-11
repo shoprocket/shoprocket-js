@@ -184,7 +184,7 @@ export class BaseComponent extends LitElement {
    */
   protected getStoreCurrency(): string {
     const store = this.getStore();
-    return store?.base_currency_code || 'USD';
+    return store?.baseCurrencyCode || 'USD';
   }
   
   /**

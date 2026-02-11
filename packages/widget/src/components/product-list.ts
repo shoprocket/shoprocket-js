@@ -5,6 +5,7 @@ import { formatProductPrice, getMediaSrcSet, getMediaSizes } from '../utils/form
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { t } from '../utils/i18n';
+import { renderStarRating } from '../utils/stars';
 
 /**
  * Product List Template Helper
@@ -118,8 +119,9 @@ export class ProductListTemplates {
     const isAdded = !isSkeleton && addedToCartProducts.has(product.id);
     const isOutOfStock = !isSkeleton && product.inStock === false;
 
-    // Check if all available stock is already in cart
-    const stockStatus = !isSkeleton ? isAllStockInCart(
+    // Check if all available stock is already in cart (bundles don't track inventory at bundle level)
+    const isBundle = product.productType === 'bundle';
+    const stockStatus = !isSkeleton && !isBundle ? isAllStockInCart(
       product.id,
       product.defaultVariantId,
       product.inventoryCount
@@ -190,6 +192,10 @@ export class ProductListTemplates {
               <div>
                 <span class="sr-product-price">${isSkeleton ? '' : formatProductPrice(product as any)}</span>
               </div>
+            ` : ''}
+
+            ${!isSkeleton && product.reviewCount && product.averageRating ? html`
+              ${renderStarRating(product.averageRating, product.reviewCount, true)}
             ` : ''}
           </div>
 

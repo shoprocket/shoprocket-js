@@ -532,6 +532,15 @@ export class ProductCatalog extends ShoprocketElement {
             this.actualPageSize = this.totalPages > 0 ? Math.ceil(this.totalProducts / this.totalPages) : this.perPage;
           }
 
+          // Clamp page if it exceeds total pages (e.g. ?page=50 on a 3-page catalog)
+          if (this.totalPages > 0 && page > this.totalPages) {
+            const clampedPage = this.totalPages;
+            this.loadedPages.delete(page); // Allow re-fetch at correct page
+            this.currentPage = clampedPage;
+            this.loadProducts(clampedPage);
+            return;
+          }
+
           // Use API-provided price range if available (store-wide min/max across all products)
           // API returns prices in cents, convert to main currency units for slider
           if (meta.priceMin !== undefined && meta.priceMax !== undefined) {
@@ -1046,7 +1055,7 @@ export class ProductCatalog extends ShoprocketElement {
       quantity: 1,
       price: product.price, // Already in correct format from API
       media: product.media?.[0] ? [product.media[0]] : undefined,
-      source_url: window.location.href
+      sourceUrl: window.location.href
     };
 
     // Include stock info for validation
@@ -1280,7 +1289,7 @@ export class ProductCatalog extends ShoprocketElement {
             }
           }}"
         >
-          ← Previous
+          <span class="sr-pagination-arrow">←</span><span class="sr-pagination-text"> Previous</span>
         </a>
 
         <div class="sr-pagination-pages">
@@ -1335,7 +1344,7 @@ export class ProductCatalog extends ShoprocketElement {
             }
           }}"
         >
-          Next →
+          <span class="sr-pagination-text">Next </span><span class="sr-pagination-arrow">→</span>
         </a>
       </div>
     `;

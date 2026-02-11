@@ -163,6 +163,14 @@
   --sr-button-padding-y: 0.5rem;
   --sr-button-font-size: 0.875rem;
   --sr-button-primary-opacity-hover: 0.9;
+
+  /* Contrast-safe foreground for text on --muted backgrounds (banners, notices).
+     Themes can override; falls back to --foreground for guaranteed contrast. */
+  --secondary-foreground: var(--foreground);
+
+  /* Review/Star variables */
+  --sr-star-color: #f59e0b;
+  --sr-star-empty: #d1d5db;
 }
 
 /* Embeddable widget spacing - adds breathing room between stacked embeds */
@@ -1184,7 +1192,7 @@
   
   /* Stock Status Styles */
   .sr-stock-status {
-    @apply text-xs mb-4 p-1;
+    @apply text-xs mb-3 p-1;
     display: inline-flex;
     width: fit-content;
     border-radius: var(--radius);
@@ -1273,6 +1281,47 @@
   }
   
   .sr-variant-option:disabled::after {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: linear-gradient(
+      to bottom right,
+      transparent calc(50% - 1px),
+      var(--foreground, #1f2937) calc(50% - 1px),
+      var(--foreground, #1f2937) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+    opacity: 0.3;
+  }
+
+  /* Variant Swatches (color circles) */
+  .sr-variant-swatch {
+    width: var(--sr-swatch-size, 2rem);
+    height: var(--sr-swatch-size, 2rem);
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .sr-variant-swatch:hover {
+    border-color: var(--primary);
+  }
+
+  .sr-variant-swatch.selected {
+    border-color: var(--background, #fff);
+    box-shadow: 0 0 0 1.5px var(--primary);
+  }
+
+  .sr-variant-swatch:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sr-variant-swatch:disabled::after {
     content: '';
     @apply absolute inset-0 pointer-events-none;
     background: linear-gradient(
@@ -2444,6 +2493,12 @@
   color: var(--muted-foreground);
 }
 
+@media (max-width: 640px) {
+  .sr-pagination-text {
+    display: none;
+  }
+}
+
 /* ==========================================
  * CAROUSEL STYLES
  * ========================================== */
@@ -3296,8 +3351,8 @@
 
 .sr-test-banner-content {
   @apply flex items-center gap-2 px-3 py-1.5 text-xs rounded-b-lg shadow-md;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--primary, #f59e0b);
+  color: var(--primary-foreground, #fff);
   border-top: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -3328,8 +3383,8 @@
 .sr-test-banner-pill {
   @apply fixed top-2 left-1/2 -translate-x-1/2 z-[99999];
   @apply px-3 py-1.5 text-xs font-medium rounded-full shadow-md cursor-pointer;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--primary, #f59e0b);
+  color: var(--primary-foreground, #fff);
   @apply hover:shadow transition-shadow;
 }
 
@@ -3393,11 +3448,12 @@
   @apply flex items-start gap-3 p-4 rounded-lg;
   background: var(--muted);
   border: 1px solid var(--border);
+  color: var(--secondary-foreground);
 }
 
 .sr-auth-icon {
   @apply w-6 h-6 flex-shrink-0;
-  color: var(--muted-foreground);
+  color: var(--secondary-foreground);
 }
 
 .sr-auth-content {
@@ -3406,12 +3462,12 @@
 
 .sr-auth-title {
   @apply font-medium text-base;
-  color: var(--muted-foreground);
+  color: var(--secondary-foreground);
 }
 
 .sr-auth-subtitle {
   @apply text-sm;
-  color: var(--muted-foreground);
+  color: var(--secondary-foreground);
   opacity: 0.7;
 }
 
@@ -3420,7 +3476,7 @@
   @apply relative px-3 py-2.5 pr-8 rounded-lg text-sm;
   background: var(--muted);
   border: 1px solid var(--border);
-  color: var(--muted-foreground);
+  color: var(--secondary-foreground);
 }
 
 .sr-auth-banner-text {
@@ -3436,7 +3492,7 @@
   @apply absolute top-2 right-2 p-1 rounded cursor-pointer transition-opacity;
   background: none;
   border: none;
-  color: var(--muted-foreground);
+  color: var(--secondary-foreground);
   opacity: 0.5;
 }
 
@@ -3492,11 +3548,12 @@
   border-radius: var(--radius);
   background: var(--muted);
   border: 1px solid var(--border);
+  color: var(--secondary-foreground);
 }
 
 .sr-notice-icon {
   @apply w-5 h-5 flex-shrink-0 mt-0.5;
-  color: var(--muted-foreground);
+  color: var(--secondary-foreground);
 }
 
 .sr-notice-text {
@@ -3505,12 +3562,12 @@
 
 .sr-notice-text p {
   @apply font-medium m-0;
-  color: var(--muted-foreground);
+  color: var(--secondary-foreground);
 }
 
 .sr-notice-subtitle {
   @apply text-sm font-normal;
-  color: var(--muted-foreground);
+  color: var(--secondary-foreground);
   opacity: 0.7;
 }
 
@@ -4655,3 +4712,458 @@ shoprocket-product-modal.closing .sr-modal-content {
     font-size: 16px !important;
   }
 }
+
+/* ============================================================================
+   Bundle Configurator
+   ============================================================================ */
+
+.sr-bundle-loading {
+  @apply flex items-center gap-2 py-4;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.sr-bundle-configurator {
+  @apply space-y-5;
+  margin-top: var(--spacing-md, 1rem);
+}
+
+/* Progress */
+.sr-bundle-progress {
+  @apply space-y-2;
+}
+
+.sr-bundle-progress-text {
+  @apply flex items-center justify-between text-sm;
+  color: var(--muted-foreground);
+}
+
+.sr-bundle-progress-done {
+  color: var(--success, #22c55e);
+  @apply font-medium;
+}
+
+.sr-bundle-progress-count {
+  @apply font-semibold;
+  color: var(--card-foreground);
+}
+
+.sr-bundle-progress-bar {
+  @apply w-full h-1.5 overflow-hidden;
+  background: var(--secondary, #f1f5f9);
+  border-radius: var(--radius);
+}
+
+.sr-bundle-progress-fill {
+  @apply h-full transition-all duration-300 ease-out;
+  background: var(--primary);
+  border-radius: var(--radius);
+}
+
+.sr-bundle-progress-fill.complete {
+  background: var(--success, #22c55e);
+}
+
+/* Component rows */
+.sr-bundle-components {
+  @apply flex flex-col gap-2;
+}
+
+/* Component row */
+.sr-bundle-component {
+  @apply flex gap-3 border p-3 transition-all;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.sr-bundle-component.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.sr-bundle-component.out-of-stock {
+  @apply opacity-50 pointer-events-none;
+}
+
+/* Component image — fixed size on left */
+.sr-bundle-component-image {
+  @apply shrink-0 overflow-hidden relative;
+  width: 90px;
+  height: 90px;
+  border-radius: var(--radius);
+  background: var(--secondary, #f1f5f9);
+}
+
+.sr-bundle-no-image {
+  @apply flex items-center justify-center;
+}
+
+.sr-bundle-component-image img {
+  @apply w-full h-full object-cover;
+}
+
+/* Quantity badge on image */
+.sr-bundle-component-badge {
+  @apply absolute top-1 right-1 w-5 h-5 flex items-center justify-center text-xs font-bold;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Component body — fills remaining space */
+.sr-bundle-component-body {
+  @apply flex-1 flex flex-col gap-1.5 min-w-0;
+}
+
+.sr-bundle-component-name {
+  @apply text-sm font-medium leading-tight;
+  color: var(--card-foreground);
+}
+
+.sr-bundle-component-stock {
+  @apply text-xs;
+  color: var(--destructive, #ef4444);
+}
+
+/* Variant dropdown */
+.sr-bundle-variant-select {
+  @apply w-full text-xs py-1.5 px-2 border;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--card-foreground);
+  font-size: 16px; /* Prevent iOS zoom */
+}
+
+@media (min-width: 640px) {
+  .sr-bundle-variant-select {
+    font-size: 0.75rem;
+  }
+}
+
+/* Controls row: options + actions */
+.sr-bundle-component-controls {
+  @apply flex flex-wrap items-end gap-2;
+}
+
+/* Actions area */
+.sr-bundle-component-actions {
+  @apply ml-auto shrink-0;
+}
+
+/* Add button — compact override on top of sr-button */
+.sr-bundle-add-button {
+  @apply h-auto px-4 py-1.5 text-xs;
+}
+
+/* Quantity controls (shown when qty > 0) */
+.sr-bundle-component-quantity {
+  @apply flex items-center justify-center gap-1;
+}
+
+.sr-bundle-qty-button {
+  @apply w-7 h-7 flex items-center justify-center cursor-pointer transition-colors text-xs font-medium border;
+  border-radius: var(--radius);
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sr-bundle-qty-button:hover:not(:disabled) {
+    background: var(--secondary);
+  }
+}
+
+.sr-bundle-qty-button:disabled {
+  @apply opacity-40 cursor-not-allowed;
+}
+
+.sr-bundle-qty-value {
+  @apply w-6 text-center text-sm font-semibold;
+  color: var(--card-foreground);
+}
+
+/* Bundle option selectors (dropdowns per option) */
+.sr-bundle-options {
+  @apply flex flex-wrap gap-2 items-end;
+}
+
+.sr-bundle-option {
+  @apply flex flex-col gap-0.5;
+}
+
+.sr-bundle-option-label {
+  @apply text-xs font-medium;
+  color: var(--muted-foreground);
+}
+
+.sr-bundle-option-select {
+  @apply border text-xs;
+  font-size: 16px; /* prevents iOS zoom */
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+@media (min-width: 640px) {
+  .sr-bundle-option-select {
+    font-size: 0.75rem;
+  }
+}
+
+/* Cart bundle selections — collapsible item list */
+.sr-cart-bundle-details {
+  @apply mt-1;
+}
+
+.sr-cart-bundle-toggle {
+  @apply text-xs cursor-pointer select-none list-none;
+  color: var(--muted-foreground);
+}
+.sr-cart-bundle-toggle::-webkit-details-marker { display: none; }
+.sr-cart-bundle-toggle::after { content: ' ›'; }
+details[open] > .sr-cart-bundle-toggle::after { content: ' ‹'; }
+
+/* Show/hide toggle text */
+.sr-cart-bundle-show { display: inline; }
+.sr-cart-bundle-hide { display: none; }
+details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-show { display: none; }
+details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline; }
+
+.sr-cart-bundle-items {
+  @apply flex flex-col gap-1.5 mt-1.5 pl-1;
+  border-left: 2px solid var(--border);
+}
+
+.sr-cart-bundle-item {
+  @apply flex items-center gap-1.5 text-xs pl-2;
+  color: var(--muted-foreground);
+}
+
+.sr-cart-bundle-item-img {
+  @apply rounded shrink-0 object-cover;
+  width: 24px;
+  height: 24px;
+}
+
+.sr-cart-bundle-item-qty {
+  @apply font-medium shrink-0;
+  color: var(--foreground);
+}
+
+.sr-cart-bundle-item-info {
+  @apply flex flex-col;
+}
+
+.sr-cart-bundle-item-name {
+  color: var(--foreground);
+}
+
+.sr-cart-bundle-item-variant {
+  @apply text-[11px];
+  color: var(--muted-foreground);
+}
+
+/* =====================================================
+ * Star Rating & Reviews
+ * ===================================================== */
+
+/* Star rating container */
+.sr-stars {
+  @apply flex items-center gap-1.5;
+}
+
+.sr-stars-compact {
+  @apply gap-1;
+}
+
+.sr-stars-icons {
+  @apply flex items-center gap-0.5;
+}
+
+.sr-star {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.sr-stars-compact .sr-star {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.sr-star-filled {
+  color: var(--sr-star-color, #f59e0b);
+}
+
+.sr-star-empty {
+  color: var(--sr-star-empty, #d1d5db);
+}
+
+.sr-stars-count {
+  @apply text-xs;
+  color: var(--muted-foreground);
+}
+
+.sr-stars-compact .sr-stars-count {
+  @apply text-xs;
+}
+
+/* Product detail rating link (scrolls to reviews) */
+.sr-product-detail-rating {
+  @apply flex items-center cursor-pointer no-underline mb-3;
+  width: fit-content;
+  color: var(--foreground);
+}
+
+.sr-product-detail-rating:hover {
+  opacity: 0.8;
+}
+
+/* Reviews section */
+.sr-reviews-section {
+  @apply mt-8 pt-6;
+  border-top: 1px solid var(--border);
+}
+
+.sr-reviews-title {
+  @apply text-lg font-semibold mb-4;
+  color: var(--foreground);
+}
+
+.sr-reviews-loading {
+  @apply flex justify-center py-6;
+}
+
+.sr-reviews-empty {
+  @apply text-sm py-4;
+  color: var(--muted-foreground);
+}
+
+/* Reviews summary */
+.sr-reviews-summary {
+  @apply flex flex-col gap-4 mb-6;
+}
+
+@media (min-width: 640px) {
+  .sr-reviews-summary {
+    @apply flex-row gap-8;
+  }
+}
+
+.sr-reviews-summary-score {
+  @apply flex flex-col items-center gap-1;
+  min-width: 120px;
+}
+
+.sr-reviews-avg-rating {
+  @apply text-3xl font-bold;
+  color: var(--foreground);
+}
+
+.sr-reviews-count {
+  @apply text-xs mt-0.5;
+  color: var(--muted-foreground);
+}
+
+/* Rating distribution bars */
+.sr-rating-bars {
+  @apply flex flex-col gap-1.5 flex-1;
+}
+
+.sr-rating-bar-row {
+  @apply flex items-center gap-2 text-sm;
+}
+
+.sr-rating-bar-label {
+  @apply w-3 text-right font-medium;
+  color: var(--foreground);
+}
+
+.sr-rating-bar-star {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+}
+
+.sr-rating-bar-track {
+  @apply flex-1 h-2 rounded-full overflow-hidden;
+  background: var(--secondary, #f3f4f6);
+}
+
+.sr-rating-bar-fill {
+  @apply h-full rounded-full transition-all;
+  background: var(--sr-star-color, #f59e0b);
+}
+
+.sr-rating-bar-count {
+  @apply w-6 text-right text-xs;
+  color: var(--muted-foreground);
+}
+
+/* Review list */
+.sr-review-list {
+  @apply flex flex-col gap-4;
+}
+
+/* Individual review card */
+.sr-review-card {
+  @apply p-4;
+  border-bottom: 1px solid var(--border);
+}
+
+.sr-review-list .sr-review-card:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.sr-review-header {
+  @apply flex items-center justify-between mb-2;
+}
+
+.sr-review-date {
+  @apply text-xs;
+  color: var(--muted-foreground);
+}
+
+.sr-review-title {
+  @apply text-sm font-semibold mb-1;
+  color: var(--foreground);
+}
+
+.sr-review-content {
+  @apply text-sm mb-3 leading-relaxed;
+  color: var(--foreground);
+}
+
+.sr-review-footer {
+  @apply flex items-center gap-2 text-xs;
+  color: var(--muted-foreground);
+}
+
+.sr-review-author {
+  @apply font-medium;
+}
+
+/* Verified purchase badge */
+.sr-verified-badge {
+  @apply inline-flex items-center gap-1 text-xs font-medium;
+  color: var(--success, #15803d);
+}
+
+.sr-verified-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+
+/* Load more button */
+.sr-reviews-load-more {
+  @apply mt-4;
+  background: var(--secondary, #f3f4f6);
+  color: var(--foreground);
+}
+

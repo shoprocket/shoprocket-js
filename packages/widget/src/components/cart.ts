@@ -542,7 +542,7 @@ export class CartWidget extends ShoprocketElement {
 
   
   private handleAddItem = (event: CustomEvent): void => {
-    const { item, stockInfo } = event.detail;
+    const { item, stockInfo, bundleSelections } = event.detail;
     
     // Initialize cart first if needed
     if (!this.cart) {
@@ -578,8 +578,11 @@ export class CartWidget extends ShoprocketElement {
       this.cart.items = [];
     }
     
-    // Find existing item (do this once)
-    const existingItem = this.cart.items.find((cartItem: any) =>
+    // Bundle items never merge — each addition is a new line item
+    const isBundle = item.productType === 'bundle';
+
+    // Find existing item (do this once) — skip for bundles
+    const existingItem = isBundle ? undefined : this.cart.items.find((cartItem: any) =>
       cartItem.productId === item.productId &&
       cartItem.variantId === item.variantId
     );
@@ -665,10 +668,16 @@ export class CartWidget extends ShoprocketElement {
     
     // Make API call and refresh cart with real data
     this.sdk.cart.addItem({
-      product_id: item.productId,
-      variant_id: item.variantId,
+      productId: item.productId,
+      variantId: item.variantId,
       quantity: item.quantity,
-      source_url: item.source_url
+      sourceUrl: item.sourceUrl,
+      ...(bundleSelections && {
+        bundleSelections: bundleSelections.map((sel: any) => ({
+          variantId: sel.variantId,
+          quantity: sel.quantity
+        }))
+      })
     }).then(response => {
       // Replace optimistic cart with real cart data
       if (response) {
@@ -1866,12 +1875,11 @@ export class CartWidget extends ShoprocketElement {
       
       // First call checkout to get the order ID
       const checkoutApiResponse = await this.sdk.cart.checkout({
-        payment_method_type: 'card', // Default for now
+        paymentMethodType: 'card',
         locale: 'en',
-        // Initial return URLs without order ID - will be updated with redirect if needed
-        return_url: `${currentUrl}#!/payment-return`,
-        cancel_url: `${currentUrl}#!/payment-cancelled`
-      } as any);
+        returnUrl: `${currentUrl}#!/payment-return`,
+        cancelUrl: `${currentUrl}#!/payment-cancelled`
+      });
       
       // Handle wrapped API response format
       const checkoutResponse = 'data' in checkoutApiResponse ? checkoutApiResponse.data : checkoutApiResponse;
@@ -2660,14 +2668,14 @@ export class CartWidget extends ShoprocketElement {
 
   private navigateToProduct(item: any): void {
     // Use source URL if available, otherwise fallback to hash navigation
-    if (item.source_url) {
+    if (item.sourceUrl) {
       // Navigate to the original page where item was added
-      window.location.href = item.source_url;
-    } else if (item.product_slug) {
+      window.location.href = item.sourceUrl;
+    } else if (item.productSlug) {
       // Fallback to hash navigation on current page
       this.closeCart();
       // Use hash router to navigate properly
-      this.hashRouter.navigateToProduct(item.product_slug);
+      this.hashRouter.navigateToProduct(item.productSlug);
     }
   }
 

@@ -168,7 +168,7 @@ export class WidgetManager {
       const manager = window.Shoprocket as WidgetManager;
       const sdk = manager.getSdk();
       const response = await sdk.auth.login({ email, password });
-      const token = response.access_token;
+      const token = response.accessToken;
       if (token) {
         CookieManager.setAccessToken(token);
         sdk.setAuthToken(token);
@@ -185,7 +185,7 @@ export class WidgetManager {
       const manager = window.Shoprocket as WidgetManager;
       const sdk = manager.getSdk();
       const response = await sdk.auth.register({ email, password, name });
-      const token = response.access_token;
+      const token = response.accessToken;
       if (token) {
         CookieManager.setAccessToken(token);
         sdk.setAuthToken(token);
@@ -275,7 +275,7 @@ export class WidgetManager {
         internalState.setSdk(this.sdk);
         
         // Check for test mode and create banner if needed
-        if (store?.store_mode === 'test') {
+        if (store?.storeMode === 'test') {
           this.createTestModeBanner();
         }
         
