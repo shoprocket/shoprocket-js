@@ -184,6 +184,24 @@ export class ProductDetail extends ShoprocketElement {
         this.loadBundleConfigurator();
       }
     }
+
+    // Hide "Read more" buttons on reviews that aren't overflowing, and store clamped height for animation
+    if (changedProperties.has('reviews') || changedProperties.has('reviewsPage')) {
+      requestAnimationFrame(() => {
+        const root = this.renderRoot as HTMLElement;
+        root.querySelectorAll('.sr-review-content.sr-review-clamped').forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          const btn = htmlEl.nextElementSibling as HTMLElement;
+          if (!btn?.classList.contains('sr-review-read-more')) return;
+          const isOverflowing = htmlEl.scrollHeight > htmlEl.clientHeight;
+          btn.hidden = !isOverflowing;
+          if (isOverflowing) {
+            htmlEl.dataset.clampHeight = htmlEl.clientHeight + 'px';
+            htmlEl.style.maxHeight = htmlEl.clientHeight + 'px';
+          }
+        });
+      });
+    }
   }
 
   protected override render(): TemplateResult {
@@ -694,7 +712,26 @@ export class ProductDetail extends ShoprocketElement {
               <span class="sr-review-date">${this.formatReviewDate(review.createdAt)}</span>
             </div>
             ${review.title ? html`<h4 class="sr-review-title">${review.title}</h4>` : ''}
-            <p class="sr-review-content">${review.content}</p>
+            <p class="sr-review-content sr-review-clamped">${review.content}</p>
+            <button class="sr-review-read-more" @click="${(e: Event) => {
+              const btn = e.currentTarget as HTMLElement;
+              const content = btn.previousElementSibling as HTMLElement;
+              const expanding = content.classList.contains('sr-review-clamped');
+              if (expanding) {
+                content.classList.remove('sr-review-clamped');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                content.addEventListener('transitionend', () => { content.style.maxHeight = 'none'; }, { once: true });
+              } else {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                requestAnimationFrame(() => {
+                  content.style.maxHeight = content.dataset.clampHeight!;
+                });
+                content.addEventListener('transitionend', () => { content.classList.add('sr-review-clamped'); }, { once: true });
+              }
+              btn.textContent = expanding
+                ? t('reviews.read_less', 'Read less')
+                : t('reviews.read_more', 'Read more');
+            }}">${t('reviews.read_more', 'Read more')}</button>
             <div class="sr-review-footer">
               <span class="sr-review-author">${review.authorName}</span>
               ${review.isVerifiedPurchase ? html`
