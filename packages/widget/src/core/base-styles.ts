@@ -14,8 +14,8 @@ export const baseStyles = css`
     /* Block-level display by default */
     display: block;
     
-    /* Base font settings */
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* Base font settings — uses theme font with system font fallback */
+    font-family: var(--font-body, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
     line-height: normal;
     color: inherit;
   }
