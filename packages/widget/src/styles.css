@@ -5092,12 +5092,12 @@ details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline;
 
 .sr-rating-bar-track {
   @apply flex-1 h-2 rounded-full overflow-hidden;
-  background: var(--secondary, #f3f4f6);
+  background: var(--secondary);
 }
 
 .sr-rating-bar-fill {
   @apply h-full rounded-full transition-all;
-  background: var(--sr-star-color, #f59e0b);
+  background: var(--sr-star-color);
 }
 
 .sr-rating-bar-count {
@@ -5113,11 +5113,9 @@ details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline;
 /* Individual review card */
 .sr-review-card {
   @apply p-4;
-  border-bottom: 1px solid var(--border);
-}
-
-.sr-review-list .sr-review-card:first-child {
-  border-top: 1px solid var(--border);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .sr-review-header {
@@ -5135,7 +5133,26 @@ details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline;
 }
 
 .sr-review-content {
-  @apply text-sm mb-3 leading-relaxed;
+  @apply text-sm mb-1 leading-relaxed whitespace-pre-line overflow-hidden;
+  color: var(--foreground);
+  transition: max-height 0.3s ease;
+}
+
+.sr-review-content.sr-review-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.sr-review-read-more {
+  @apply text-xs font-medium mb-3 cursor-pointer;
+  color: var(--muted-foreground);
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.sr-review-read-more:hover {
   color: var(--foreground);
 }
 
@@ -5151,7 +5168,7 @@ details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline;
 /* Verified purchase badge */
 .sr-verified-badge {
   @apply inline-flex items-center gap-1 text-xs font-medium;
-  color: var(--success, #15803d);
+  color: var(--success);
 }
 
 .sr-verified-icon {
@@ -5163,7 +5180,7 @@ details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline;
 /* Load more button */
 .sr-reviews-load-more {
   @apply mt-4;
-  background: var(--secondary, #f3f4f6);
+  background: var(--secondary);
   color: var(--foreground);
 }
 
