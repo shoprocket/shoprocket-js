@@ -58,6 +58,9 @@
 
 /* Test @theme directive for Shadow DOM */
 @theme {
+  /* Override Tailwind's default font so all utilities use the theme body font */
+  --default-font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
+
   /* Define a custom shadow that maps to shadow-* utilities */
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 
@@ -180,6 +183,11 @@
 :host(shoprocket-product-view) {
   display: block;
   margin-bottom: 20px;
+}
+
+/* Heading font — applies to all semantic headings automatically */
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
 }
 
 @layer components {
@@ -475,7 +483,7 @@
 
   /* Product Price */
   .sr-product-price {
-    @apply font-semibold;
+    @apply font-medium;
     color: var(--foreground);
     font-size: var(--sr-product-price-size);
   }
@@ -975,7 +983,7 @@
 
   /* Cart Item Price */
   .sr-cart-item-price {
-    @apply text-sm font-semibold;
+    @apply text-sm font-medium;
     color: var(--card-foreground);
   }
 
@@ -1445,7 +1453,7 @@
   }
 
   .sr-product-description-title {
-    @apply text-2xl font-semibold mb-4;
+    @apply text-2xl font-medium mb-4;
     color: var(--foreground);
   }
 
@@ -5031,7 +5039,7 @@ details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline;
 }
 
 .sr-reviews-title {
-  @apply text-lg font-semibold mb-4;
+  @apply text-lg font-medium mb-4;
   color: var(--foreground);
 }
 
