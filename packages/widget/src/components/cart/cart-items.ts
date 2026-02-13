@@ -77,8 +77,8 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
               ${item.bundleSelections?.length ? html`
                 <details class="sr-cart-bundle-details">
                   <summary class="sr-cart-bundle-toggle">
-                    <span class="sr-cart-bundle-show">${t('bundle.show_items', 'Show {count} items', { count: item.bundleSelections.length })}</span>
-                    <span class="sr-cart-bundle-hide">${t('bundle.hide_items', 'Hide {count} items', { count: item.bundleSelections.length })}</span>
+                    <span class="sr-cart-bundle-show">${t('bundle.show_contents', 'Show contents')}</span>
+                    <span class="sr-cart-bundle-hide">${t('bundle.hide_contents', 'Hide contents')}</span>
                   </summary>
                   <div class="sr-cart-bundle-items">
                     ${item.bundleSelections.map((sel: any) => html`

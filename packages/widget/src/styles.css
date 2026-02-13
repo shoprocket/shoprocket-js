@@ -925,7 +925,7 @@ h1, h2, h3, h4 {
   }
 
   .sr-cart-item-title {
-    @apply font-medium text-sm mb-0.5 leading-tight cursor-pointer transition-colors;
+    @apply font-medium text-sm mb-0.5 leading-tight cursor-pointer transition-colors line-clamp-2;
     color: var(--card-foreground);
   }
 
@@ -3268,9 +3268,124 @@ h1, h2, h3, h4 {
   @apply mb-0;
 }
 
+/* Payment Methods */
+.sr-payment-methods {
+  @apply flex flex-col gap-2;
+}
+
+.sr-payment-methods-loading {
+  @apply flex justify-center py-8;
+}
+
+.sr-payment-method-card {
+  @apply w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-all duration-150;
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.sr-payment-method-card:hover {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+
+.sr-payment-method-card.sr-selected {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+}
+
+.sr-payment-method-card-inner {
+  @apply flex items-center gap-3;
+}
+
+.sr-payment-method-icon {
+  @apply shrink-0;
+  color: var(--muted-foreground);
+}
+
+.sr-payment-method-card.sr-selected .sr-payment-method-icon {
+  color: var(--primary);
+}
+
+.sr-payment-method-info {
+  @apply flex flex-col flex-1 min-w-0;
+}
+
+.sr-payment-method-name {
+  @apply text-sm font-medium;
+  color: var(--foreground);
+}
+
+.sr-payment-method-description {
+  @apply text-xs mt-0.5 truncate;
+  color: var(--muted-foreground);
+}
+
+.sr-payment-method-radio {
+  @apply shrink-0;
+}
+
+.sr-radio-circle {
+  @apply w-5 h-5 rounded-full border-2 flex items-center justify-center;
+  border-color: var(--border);
+}
+
+.sr-radio-circle.sr-radio-selected {
+  border-color: var(--primary);
+}
+
+.sr-radio-dot {
+  @apply w-2.5 h-2.5 rounded-full;
+  background: var(--primary);
+}
+
+/* Review: flat detail rows */
+.sr-review-details {
+  @apply rounded border overflow-hidden;
+  background: var(--card);
+  border-color: var(--border, #e5e7eb);
+}
+
+.sr-review-row {
+  @apply px-3 py-2;
+}
+
+.sr-review-row + .sr-review-row {
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+.sr-review-row-header {
+  @apply flex items-center justify-between mb-0.5;
+}
+
+.sr-review-row-label {
+  @apply text-xs font-medium uppercase tracking-wide flex items-center gap-1.5;
+  color: var(--muted-foreground);
+}
+
+.sr-review-row-icon {
+  @apply shrink-0 opacity-60;
+}
+
+.sr-review-row-value {
+  @apply text-sm;
+  color: var(--foreground);
+}
+
+/* Review: payment method display */
+.sr-review-payment-method {
+  @apply flex items-center gap-2;
+  color: var(--foreground);
+}
+
+.sr-review-payment-method .sr-payment-method-icon {
+  @apply w-5 h-5;
+  color: var(--muted-foreground);
+}
+
 /* Review Order Page */
 .sr-review-container {
-  @apply space-y-3;
+  @apply space-y-2;
 }
 
 /* Review Cards */
@@ -3281,7 +3396,7 @@ h1, h2, h3, h4 {
 }
 
 .sr-review-card-header {
-  @apply flex items-center justify-between px-4 py-3 border-b;
+  @apply flex items-center justify-between px-3 py-2 border-b;
   border-color: var(--border, #f3f4f6);
 }
 
@@ -3312,7 +3427,42 @@ h1, h2, h3, h4 {
 }
 
 .sr-review-card-content {
-  @apply px-4 py-3;
+  @apply px-3 py-2;
+}
+
+/* Review items toggle */
+.sr-review-items-toggle {
+  @apply flex items-center justify-between w-full py-1.5 text-sm cursor-pointer;
+  color: var(--muted-foreground);
+  background: none;
+  border: none;
+}
+
+.sr-review-items-toggle:hover {
+  color: var(--foreground);
+}
+
+.sr-review-items-chevron {
+  @apply transition-transform duration-200;
+}
+
+.sr-review-items-chevron.sr-expanded {
+  transform: rotate(180deg);
+}
+
+/* Collapsible items wrapper */
+.sr-review-items-collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+}
+
+.sr-review-items-collapsible > * {
+  overflow: hidden;
+}
+
+.sr-review-items-collapsible.sr-expanded {
+  grid-template-rows: 1fr;
 }
 
 /* Order Items Review */
@@ -5034,8 +5184,23 @@ shoprocket-product-modal.closing .sr-modal-content {
   color: var(--muted-foreground);
 }
 .sr-cart-bundle-toggle::-webkit-details-marker { display: none; }
-.sr-cart-bundle-toggle::after { content: ' ›'; }
-details[open] > .sr-cart-bundle-toggle::after { content: ' ‹'; }
+.sr-cart-bundle-toggle::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  margin-left: 4px;
+  margin-bottom: 2px;
+  vertical-align: middle;
+  transition: transform 0.2s ease;
+}
+details[open] > .sr-cart-bundle-toggle::after {
+  transform: rotate(-135deg);
+  margin-bottom: 0;
+}
 
 /* Show/hide toggle text */
 .sr-cart-bundle-show { display: inline; }
@@ -5044,7 +5209,7 @@ details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-show { display: none; }
 details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline; }
 
 .sr-cart-bundle-items {
-  @apply flex flex-col gap-1.5 mt-1.5 pl-1;
+  @apply flex flex-col gap-2.5 mt-2 pl-1 py-1.5;
   border-left: 2px solid var(--border);
 }
 
@@ -5219,8 +5384,8 @@ details[open] > .sr-cart-bundle-toggle > .sr-cart-bundle-hide { display: inline;
   @apply flex flex-col gap-4;
 }
 
-/* Individual review card */
-.sr-review-card {
+/* Individual product review card (scoped to review list to avoid overriding checkout review cards) */
+.sr-review-list .sr-review-card {
   @apply p-4;
   background: var(--card);
   border: 1px solid var(--border);

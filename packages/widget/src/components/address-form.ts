@@ -18,6 +18,7 @@ export interface AddressData {
 export interface AddressFormErrors {
   line1?: string;
   city?: string;
+  state?: string;
   postalCode?: string;
   country?: string;
   name?: string;
@@ -40,6 +41,12 @@ export interface State {
 // Simple module-level cache to avoid repeated API calls
 let cachedCountries: Country[] = [];
 const cachedStates = new Map<string, State[]>();
+
+/** Check if a country requires a state/province field */
+export function countryRequiresState(countryCode: string): boolean {
+  const country = cachedCountries.find(c => c.code === countryCode);
+  return country?.requiresState !== false;
+}
 
 /**
  * Address Form Component - Reusable address collection form with modern floating labels
@@ -279,10 +286,8 @@ export class AddressForm extends BaseComponent {
         }
       });
 
-      // Clear state if country doesn't require it, or if not autofilling
-      if (!this.currentCountryRequiresState || !isAutofill) {
-        updatedAddress.state = '';
-      }
+      // Always clear state when country changes - old state is invalid for new country
+      updatedAddress.state = '';
     }
 
     this.dispatchEvent(new CustomEvent('address-change', {
@@ -306,6 +311,7 @@ export class AddressForm extends BaseComponent {
 
   private isRequired(field: keyof AddressData): boolean {
     if (!this.required) return false;
+    if (field === 'state') return this.currentCountryRequiresState;
     const requiredFields: (keyof AddressData)[] = ['line1', 'city', 'postalCode', 'country'];
     return requiredFields.includes(field);
   }
@@ -549,7 +555,7 @@ export class AddressForm extends BaseComponent {
     return html`
       <select
         id="state"
-        class="sr-field-select peer ${this.address.state ? 'has-value' : ''}"
+        class="sr-field-select peer ${this.address.state ? 'has-value' : ''} ${this.getFieldError('state') ? 'sr-field-error' : ''}"
         .value="${this.address.state || ''}"
         .disabled="${isDisabled}"
         autocomplete="address-level1"
@@ -563,8 +569,8 @@ export class AddressForm extends BaseComponent {
           </option>
         ` : ''}
         ${this.states.map(state => html`
-          <option 
-            value="${state.code}" 
+          <option
+            value="${state.code}"
             ?selected="${state.code === this.address.state}"
             data-name="${state.name}"
           >
@@ -573,8 +579,11 @@ export class AddressForm extends BaseComponent {
         `)}
       </select>
       <label class="sr-field-label" for="state">
-        State/Province
+        State/Province${this.isRequired('state') ? html` <span class="sr-field-required">*</span>` : ''}
       </label>
+      ${this.getFieldError('state') ? html`
+        <div class="sr-field-error-message">${this.getFieldError('state')}</div>
+      ` : ''}
     `;
   }
 
