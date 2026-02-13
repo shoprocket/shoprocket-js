@@ -282,6 +282,18 @@ class CartStateManager {
   }
 
   /**
+   * Flush any pending changes to the API immediately.
+   * Call before checkout to ensure all data is synced.
+   */
+  async flush(): Promise<void> {
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
+      this.updateTimer = undefined;
+    }
+    await this.syncToApi();
+  }
+
+  /**
    * Check if we have changes to sync
    */
   private hasChanges(): boolean {

@@ -139,6 +139,9 @@ export class CartWidget extends ShoprocketElement {
   private orderFailureReason: string = '';
 
   @state()
+  private orderFailureCode: string = '';
+
+  @state()
   private isPaymentFailure = false; // Track if failure is from payment gateway (don't auto-hide)
 
   @state()
@@ -1921,15 +1924,16 @@ export class CartWidget extends ShoprocketElement {
     this.checkoutLoading = true;
     
     try {
-      // Cart state ensures data is already synced
+      // Flush any pending cart state changes to the API before checkout
+      await cartState.flush();
+
       // Server validates everything: stock levels, prices, addresses, etc.
       const currentUrl = window.location?.href?.split('?')[0]?.split('#')[0] || '';
       
       // Build checkout options from selected payment method
       const pm = this.selectedPaymentMethod;
       const checkoutApiResponse = await this.sdk.cart.checkout({
-        paymentMethodType: pm?.type || 'card',
-        gateway: pm?.gateway,
+        gateway: pm?.gateway || 'stripe',
         manualPaymentMethodId: pm?.manualMethodId || pm?.manual_method_id,
         locale: 'en',
         returnUrl: `${currentUrl}#!/payment-return`,
@@ -2044,9 +2048,18 @@ export class CartWidget extends ShoprocketElement {
         error_message: error.message || 'Unknown error'
       });
       
-      // Extract error message
+      // Extract error message — prefer specific validation errors over generic message
       let errorMessage = t('error.checkout_failed', 'Checkout failed. Please try again.');
-      if (error.response?.data?.error?.message) {
+
+      // Check for cart validation errors (stock, price changes, etc.)
+      const validationErrors = error.details?.validation_errors
+        || error.response?.data?.error?.details?.validation_errors
+        || error.data?.error?.details?.validation_errors;
+
+      if (validationErrors?.length) {
+        // Use the specific validation error messages (deduplicated)
+        errorMessage = [...new Set(validationErrors.map((e: any) => e.message))].join('\n');
+      } else if (error.response?.data?.error?.message) {
         errorMessage = error.response.data.error.message;
       } else if (error.data?.error?.message) {
         errorMessage = error.data.error.message;
@@ -2066,6 +2079,7 @@ export class CartWidget extends ShoprocketElement {
       this.showOrderFailureMessage = true;
       this.isPaymentFailure = false; // API errors can auto-hide
       this.orderFailureReason = errorMessage;
+      this.orderFailureCode = error.code || '';
 
       // Auto-hide after 10 seconds (only for API errors, not payment failures)
       const timeout = setTimeout(() => {
@@ -2361,7 +2375,7 @@ export class CartWidget extends ShoprocketElement {
       ...this.defaultAccountCreationContext()
     };
 
-    return this.cartModules.orderResult.renderOrderFailure(this.orderFailureReason, context);
+    return this.cartModules.orderResult.renderOrderFailure(this.orderFailureReason, context, this.orderFailureCode);
   }
 
   private renderOrderNotFound(): TemplateResult {

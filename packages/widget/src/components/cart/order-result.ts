@@ -232,24 +232,39 @@ export function renderPaymentPending(
 
 export function renderOrderFailure(
   orderFailureReason: string,
-  context: OrderResultContext
+  context: OrderResultContext,
+  errorCode?: string
 ): TemplateResult {
+  const isValidationError = errorCode === 'CART_VALIDATION_FAILED';
+  const title = isValidationError
+    ? t('error.checkout_issue', 'Checkout Issue')
+    : t('error.payment_failed', 'Payment Failed');
+  const defaultMessage = isValidationError
+    ? t('error.cart_validation_failed', 'Please review your cart and try again')
+    : t('error.payment_processing_failed', 'There was a problem processing your payment');
+
+  // Split multi-line messages (from multiple validation errors)
+  const messages = (orderFailureReason || defaultMessage).split('\n').filter(Boolean);
+
   return html`
     <div class="sr-order-failure">
       <svg class="sr-failure-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
       </svg>
-      <h2 class="sr-failure-title">Payment Failed</h2>
-      <p class="sr-failure-message">
-        ${orderFailureReason || t('error.payment_processing_failed', 'There was a problem processing your payment')}
-      </p>
+      <h2 class="sr-failure-title">${title}</h2>
+      ${messages.length > 1
+        ? html`<ul class="sr-failure-messages">${messages.map(m => html`<li>${m}</li>`)}</ul>`
+        : html`<p class="sr-failure-message">${messages[0]}</p>`
+      }
       <div class="sr-failure-actions">
-        <button class="sr-btn sr-btn-primary" @click="${context.handleRetryPayment}">
-          Try Again
+        <button class="sr-btn sr-btn-primary" @click="${isValidationError ? context.handleBackToCart : context.handleRetryPayment}">
+          ${isValidationError ? t('action.review_cart', 'Review Cart') : t('action.try_again', 'Try Again')}
         </button>
-        <button class="sr-btn sr-btn-secondary" @click="${context.handleBackToCart}">
-          Back to Cart
-        </button>
+        ${!isValidationError ? html`
+          <button class="sr-btn sr-btn-secondary" @click="${context.handleBackToCart}">
+            ${t('action.back_to_cart', 'Back to Cart')}
+          </button>
+        ` : ''}
       </div>
     </div>
   `;

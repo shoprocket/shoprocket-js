@@ -82,6 +82,7 @@ export class ApiClient {
         throw {
           message: data.error?.message || data.error || 'API request failed',
           code: data.error?.code,
+          details: data.error?.details,
           status: response.status
         };
       }
@@ -137,6 +138,7 @@ export class ApiClient {
         throw {
           message: data.error?.message || data.error || 'API request failed',
           code: data.error?.code,
+          details: data.error?.details,
           status: response.status
         };
       }

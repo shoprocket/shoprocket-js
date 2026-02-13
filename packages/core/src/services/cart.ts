@@ -142,21 +142,19 @@ export class CartService {
     };
   }
 
-  async checkout(options?: {
-    paymentMethodType?: string;
-    gateway?: string;
+  async checkout(options: {
+    gateway: string;
     manualPaymentMethodId?: string;
     locale?: string;
     returnUrl?: string;
     cancelUrl?: string;
   }): Promise<{ order: any }> {
     const data = {
-      paymentMethodType: options?.paymentMethodType || 'card',
-      locale: options?.locale || 'en',
-      ...(options?.gateway && { gateway: options.gateway }),
-      ...(options?.manualPaymentMethodId && { manualPaymentMethodId: options.manualPaymentMethodId }),
-      ...(options?.returnUrl && { returnUrl: options.returnUrl }),
-      ...(options?.cancelUrl && { cancelUrl: options.cancelUrl })
+      gateway: options.gateway,
+      locale: options.locale || 'en',
+      ...(options.manualPaymentMethodId && { manualPaymentMethodId: options.manualPaymentMethodId }),
+      ...(options.returnUrl && { returnUrl: options.returnUrl }),
+      ...(options.cancelUrl && { cancelUrl: options.cancelUrl })
     };
 
     const response = await this.api.post<any>('/cart/checkout', data);
