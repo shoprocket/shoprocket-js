@@ -21,7 +21,7 @@ export default defineConfig({
     lib: {
       entry: resolve(__dirname, 'src/loader.js'),
       formats: ['iife'],
-      fileName: () => 'shoprocket.js',
+      fileName: () => 'loader.js',
       name: 'ShoprocketLoader' // Required for IIFE format even though not used
     },
     rollupOptions: {
