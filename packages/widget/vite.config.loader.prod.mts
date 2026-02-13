@@ -20,7 +20,7 @@ export default defineConfig({
     lib: {
       entry: resolve(__dirname, 'src/loader.js'),
       formats: ['iife'],
-      fileName: () => 'shoprocket.js',
+      fileName: () => 'loader.js',
       name: 'ShoprocketLoader'
     },
     rollupOptions: {

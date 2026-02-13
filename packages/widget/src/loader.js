@@ -10,7 +10,7 @@
   
   // Prevent multiple executions
   if (window.Shoprocket || window.__ShoprocketInit) {
-    console.warn('Shoprocket: Multiple shoprocket.js scripts detected. Only one is required - please remove duplicate script tags.');
+    console.warn('Shoprocket: Multiple loader.js scripts detected. Only one is required - please remove duplicate script tags.');
     return;
   }
   
@@ -104,7 +104,7 @@
   
   // Determine bundle URL based on browser capabilities
   var useModules = supportsModules();
-  var bundleUrl = scriptUrl.replace(/shoprocket\.js/, 'main.shoprocket.js');
+  var bundleUrl = scriptUrl.replace(/loader\.js/, 'main.shoprocket.js');
   
   // Create and inject the appropriate bundle script
   var bundleScript = document.createElement('script');
@@ -115,7 +115,7 @@
     bundleScript.setAttribute('data-bundle-type', 'esm');
   } else {
     // Legacy browsers: Use IIFE bundle (fallback)
-    bundleUrl = scriptUrl.replace(/shoprocket\.js/, 'bundle.shoprocket.js');
+    bundleUrl = scriptUrl.replace(/loader\.js/, 'bundle.shoprocket.js');
     bundleScript.async = true;
     bundleScript.setAttribute('data-bundle-type', 'iife');
   }

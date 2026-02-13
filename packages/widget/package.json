@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Shoprocket Widget - Drop-in eCommerce solution",
-  "main": "dist/shoprocket.js",
+  "main": "dist/loader.js",
   "files": [
     "dist"
   ],
@@ -29,7 +29,7 @@
     "clean": "rm -rf dist",
     "clean:esm": "rm -rf dist-esm",
     "size": "npm run build && ls -lh dist/",
-    "size:prod": "npm run build:prod && ls -lh dist/shoprocket*.js"
+    "size:prod": "npm run build:prod && ls -lh dist/loader.js dist/*shoprocket*.js"
   },
   "keywords": [
     "shoprocket",

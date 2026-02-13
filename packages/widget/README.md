@@ -15,7 +15,7 @@ Copyright © 2025 Shoprocket Ltd. All rights reserved.
 Add this single line to your website:
 
 ```html
-<script src="https://cdn.shoprocket.io/v3/shoprocket.js?pk=YOUR_PUBLIC_KEY"></script>
+<script src="https://cdn.shoprocket.io/v3/loader.js" data-pk="YOUR_PUBLIC_KEY"></script>
 ```
 
 That's it! The widget will:
@@ -31,7 +31,7 @@ By default, a floating cart button appears in the bottom-right corner of your si
 
 To disable the automatic cart:
 ```html
-<script src="https://cdn.shoprocket.io/v3/shoprocket.js?pk=YOUR_PUBLIC_KEY" data-no-cart></script>
+<script src="https://cdn.shoprocket.io/v3/loader.js" data-pk="YOUR_PUBLIC_KEY" data-no-cart></script>
 ```
 
 To manually place the cart in a specific location:
