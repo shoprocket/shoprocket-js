@@ -133,8 +133,19 @@ export class CartService {
     };
   }
 
+  async getPaymentMethods(): Promise<{ paymentMethods: any[]; testMode: boolean }> {
+    const response = await this.api.get<any>('/payment-methods');
+    const data = response.data || response;
+    return {
+      paymentMethods: data.payment_methods || data.paymentMethods || [],
+      testMode: data.test_mode ?? data.testMode ?? false,
+    };
+  }
+
   async checkout(options?: {
     paymentMethodType?: string;
+    gateway?: string;
+    manualPaymentMethodId?: string;
     locale?: string;
     returnUrl?: string;
     cancelUrl?: string;
@@ -142,6 +153,8 @@ export class CartService {
     const data = {
       paymentMethodType: options?.paymentMethodType || 'card',
       locale: options?.locale || 'en',
+      ...(options?.gateway && { gateway: options.gateway }),
+      ...(options?.manualPaymentMethodId && { manualPaymentMethodId: options.manualPaymentMethodId }),
       ...(options?.returnUrl && { returnUrl: options.returnUrl }),
       ...(options?.cancelUrl && { cancelUrl: options.cancelUrl })
     };

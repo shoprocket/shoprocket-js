@@ -45,6 +45,14 @@ export interface CheckoutWizardContext {
   billingErrors: AddressFormErrors;
   sameAsBilling: boolean;
 
+  // Payment methods
+  paymentMethods: any[];
+  selectedPaymentMethod: any;
+  paymentMethodsLoading: boolean;
+
+  // Review step
+  reviewItemsExpanded: boolean;
+
   // SDK
   sdk: any;
 
@@ -65,6 +73,8 @@ export interface CheckoutWizardContext {
   handleShippingAddressChange: (e: CustomEvent) => void;
   handleSameAsBillingChange: (e: CustomEvent) => void;
   handleBillingAddressChange: (e: CustomEvent) => void;
+  handlePaymentMethodSelect: (method: any) => void;
+  toggleReviewItems: () => void;
   handleStepNext: () => void;
   handleCheckoutComplete: () => Promise<void>;
   setCheckoutStep: (step: CheckoutStep) => void;
@@ -143,7 +153,8 @@ export function renderCheckoutFlow(context: CheckoutWizardContext): TemplateResu
 }
 
 export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateResult {
-  const canProceed = true; // Let HTML5 validation handle this
+  // On payment step, require a method to be selected
+  const canProceed = context.checkoutStep !== 'payment' || !!context.selectedPaymentMethod;
 
   // Show cart summary during checkout (except review step which shows full breakdown in main content)
   const subtotal = context.cart?.totals?.subtotal || { amount: 0, currency: 'USD', formatted: '$0.00' };
@@ -429,12 +440,70 @@ function renderBillingContent(context: CheckoutWizardContext): TemplateResult {
   `;
 }
 
-function renderPaymentContent(_context: CheckoutWizardContext): TemplateResult {
-  return html`
-    <div class="sr-payment-placeholder">
-        <p>Payment integration coming soon...</p>
-        <p>For now, this will proceed with a test order.</p>
+function getPaymentMethodIcon(method: any): TemplateResult {
+  const icon = method.icon || 'credit-card';
+  switch (icon) {
+    case 'credit-card':
+      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`;
+    case 'paypal':
+      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.654h6.17c2.046 0 3.464.508 4.21 1.51.322.43.524.903.616 1.442.096.563.098 1.235.006 2.058l-.007.052v.46l.359.203c.304.163.546.35.73.563.307.354.505.793.589 1.307.087.527.058 1.152-.084 1.857-.164.812-.432 1.523-.793 2.105a4.418 4.418 0 0 1-1.218 1.349 4.912 4.912 0 0 1-1.627.759c-.614.175-1.32.264-2.098.264H11.57a.947.947 0 0 0-.936.808l-.035.203-1.166 7.39-.027.15a.097.097 0 0 1-.096.082H7.076z"/></svg>`;
+    case 'bitcoin':
+      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11.767 19.089c4.924.868 6.14-6.025 1.216-6.894m-1.216 6.894L5.86 18.047m5.908 1.042-.347 1.97m1.563-8.864c4.924.869 6.14-6.025 1.215-6.893m-1.215 6.893-6.91-1.22m6.91 1.22.347-1.97M7.116 16.94l-2.453-.433.478-2.711m7.455 1.316L5.86 18.047M7.116 4.174l-2.453-.433-.478 2.711m7.455-1.316-6.524-1.15"></path></svg>`;
+    case 'banknote':
+      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>`;
+    case 'apple':
+      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>`;
+    case 'smartphone':
+      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>`;
+    default:
+      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`;
+  }
+}
+
+function renderPaymentContent(context: CheckoutWizardContext): TemplateResult {
+  if (context.paymentMethodsLoading) {
+    return html`<div class="sr-payment-methods-loading">${loadingSpinner('md')}</div>`;
+  }
+
+  if (!context.paymentMethods.length) {
+    return html`
+      <div class="sr-payment-placeholder">
+        <p>${t('checkout.no_payment_methods', 'No payment methods available')}</p>
+        <p>${t('checkout.contact_store', 'Please contact the store for assistance.')}</p>
       </div>
+    `;
+  }
+
+  return html`
+    <div class="sr-payment-methods">
+      ${context.paymentMethods.map(method => {
+        const isSelected = context.selectedPaymentMethod?.type === method.type
+          && context.selectedPaymentMethod?.gateway === method.gateway
+          && (context.selectedPaymentMethod?.manualMethodId || context.selectedPaymentMethod?.manual_method_id) === (method.manualMethodId || method.manual_method_id);
+        return html`
+          <button
+            class="sr-payment-method-card ${isSelected ? 'sr-selected' : ''}"
+            @click="${() => context.handlePaymentMethodSelect(method)}"
+            type="button"
+          >
+            <div class="sr-payment-method-card-inner">
+              ${getPaymentMethodIcon(method)}
+              <div class="sr-payment-method-info">
+                <span class="sr-payment-method-name">${method.name}</span>
+                ${method.description ? html`
+                  <span class="sr-payment-method-description">${method.description}</span>
+                ` : ''}
+              </div>
+              <div class="sr-payment-method-radio">
+                <div class="sr-radio-circle ${isSelected ? 'sr-radio-selected' : ''}">
+                  ${isSelected ? html`<div class="sr-radio-dot"></div>` : ''}
+                </div>
+              </div>
+            </div>
+          </button>
+        `;
+      })}
+    </div>
   `;
 }
 
@@ -457,35 +526,47 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
         </div>
 
         <div class="sr-review-card-content">
-          <div class="sr-order-items-review">
-            ${context.cart?.items?.map(item => html`
-              <div class="sr-order-item-review">
-                <div class="sr-order-item-details">
-                  <div class="sr-order-item-image-container">
-                    <img
-                      src="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=64,h=64,fit=cover')}"
-                      alt="${item.productName}"
-                      class="sr-order-item-image"
-                      @load="${(e: Event) => {
-                        const img = e.target as HTMLImageElement;
-                        img.classList.add('loaded');
-                      }}"
-                      @error="${(e: Event) => context.handleImageError(e)}"
-                    >
+          <!-- Collapsible items toggle -->
+          <button class="sr-review-items-toggle" @click="${context.toggleReviewItems}" type="button">
+            <span>${context.cart?.itemCount || context.cart?.items?.length || 0} ${(context.cart?.itemCount || context.cart?.items?.length || 0) === 1 ? 'item' : 'items'}</span>
+            <svg class="sr-review-items-chevron ${context.reviewItemsExpanded ? 'sr-expanded' : ''}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <!-- Items list (collapsible) -->
+          <div class="sr-review-items-collapsible ${context.reviewItemsExpanded ? 'sr-expanded' : ''}">
+            <div class="sr-order-items-review">
+              ${context.cart?.items?.map(item => html`
+                <div class="sr-order-item-review">
+                  <div class="sr-order-item-details">
+                    <div class="sr-order-item-image-container">
+                      <img
+                        src="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=64,h=64,fit=cover')}"
+                        alt="${item.productName}"
+                        class="sr-order-item-image"
+                        @load="${(e: Event) => {
+                          const img = e.target as HTMLImageElement;
+                          img.classList.add('loaded');
+                        }}"
+                        @error="${(e: Event) => context.handleImageError(e)}"
+                      >
+                    </div>
+                    <div class="sr-order-item-info">
+                      <span class="sr-order-item-name">${item.productName}</span>
+                      ${item.variantName ? html`
+                        <span class="sr-order-item-variant">${item.variantName}</span>
+                      ` : ''}
+                      <span class="sr-order-item-quantity">Qty: ${item.quantity}</span>
+                    </div>
                   </div>
-                  <div class="sr-order-item-info">
-                    <span class="sr-order-item-name">${item.productName}</span>
-                    ${item.variantName ? html`
-                      <span class="sr-order-item-variant">${item.variantName}</span>
-                    ` : ''}
-                    <span class="sr-order-item-quantity">Qty: ${item.quantity}</span>
-                  </div>
+                  <span class="sr-order-item-price">${context.formatPrice(item.price)}</span>
                 </div>
-                <span class="sr-order-item-price">${context.formatPrice(item.price)}</span>
-              </div>
-            `)}
+              `)}
+            </div>
           </div>
 
+          <!-- Totals (always visible) -->
           <div class="sr-order-totals-review">
             <div class="sr-order-total-line">
               <span>Subtotal</span>
@@ -517,112 +598,78 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
         </div>
       </div>
 
-      <!-- Contact Information Card -->
-      <div class="sr-review-card">
-        <div class="sr-review-card-header">
-          <div class="sr-review-card-title">
-            <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <h4>Contact Information</h4>
-          </div>
-          <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('customer')}">
-            Edit
-          </button>
-        </div>
-
-        <div class="sr-review-card-content">
-          <p class="sr-review-value">${context.customerData.email}</p>
-          ${context.customerData.phone ? html`
-            <p class="sr-review-value">${context.customerData.phone}</p>
-          ` : ''}
-        </div>
-      </div>
-
-      <!-- Shipping Address Card -->
-      <div class="sr-review-card">
-        <div class="sr-review-card-header">
-          <div class="sr-review-card-title">
-            <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-              <line x1="12" y1="22.08" x2="12" y2="12"></line>
-            </svg>
-            <h4>Shipping Address</h4>
-          </div>
-          <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('shipping')}">
-            Edit
-          </button>
-        </div>
-
-        <div class="sr-review-card-content">
-          <div class="sr-review-address">
-            ${context.shippingAddress.name ? html`<p>${context.shippingAddress.name}</p>` : ''}
-            ${context.shippingAddress.company ? html`<p>${context.shippingAddress.company}</p>` : ''}
-            <p>${context.shippingAddress.line1}</p>
-            ${context.shippingAddress.line2 ? html`<p>${context.shippingAddress.line2}</p>` : ''}
-            <p>${context.shippingAddress.city}, ${context.shippingAddress.state} ${context.shippingAddress.postalCode}</p>
-            <p>${context.shippingAddress.country}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Billing Address Card -->
-      <div class="sr-review-card">
-        <div class="sr-review-card-header">
-          <div class="sr-review-card-title">
-            <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
-              <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-            <h4>Billing Address</h4>
-          </div>
-          ${!context.sameAsBilling ? html`
-            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('billing')}">
-              Edit
-            </button>
-          ` : ''}
-        </div>
-
-        <div class="sr-review-card-content">
-          ${context.sameAsBilling ? html`
-            <div class="sr-review-same-address">
-              <svg class="sr-check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
+      <!-- Details Section (flat rows, no card borders) -->
+      <div class="sr-review-details">
+        <!-- Contact -->
+        <div class="sr-review-row">
+          <div class="sr-review-row-header">
+            <span class="sr-review-row-label">
+              <svg class="sr-review-row-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
               </svg>
-              <span>Same as shipping address</span>
-            </div>
-          ` : html`
-            <div class="sr-review-address">
-              ${context.billingAddress.name ? html`<p>${context.billingAddress.name}</p>` : ''}
-              ${context.billingAddress.company ? html`<p>${context.billingAddress.company}</p>` : ''}
-              <p>${context.billingAddress.line1}</p>
-              ${context.billingAddress.line2 ? html`<p>${context.billingAddress.line2}</p>` : ''}
-              <p>${context.billingAddress.city}, ${context.billingAddress.state} ${context.billingAddress.postalCode}</p>
-              <p>${context.billingAddress.country}</p>
-            </div>
-          `}
-        </div>
-      </div>
-
-      <!-- Payment Method Card (placeholder for now) -->
-      <div class="sr-review-card">
-        <div class="sr-review-card-header">
-          <div class="sr-review-card-title">
-            <svg class="sr-review-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-              <line x1="1" y1="10" x2="23" y2="10"></line>
-            </svg>
-            <h4>Payment Method</h4>
+              Contact
+            </span>
+            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('customer')}">Edit</button>
           </div>
-          <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('payment')}">
-            Edit
-          </button>
+          <div class="sr-review-row-value">
+            ${context.customerData.email}${context.customerData.phone ? html`, ${context.customerData.phone}` : ''}
+          </div>
         </div>
 
-        <div class="sr-review-card-content">
-          <p class="sr-review-payment-placeholder">Payment will be processed securely</p>
+        <!-- Ship to -->
+        <div class="sr-review-row">
+          <div class="sr-review-row-header">
+            <span class="sr-review-row-label">
+              <svg class="sr-review-row-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+              Ship to
+            </span>
+            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('shipping')}">Edit</button>
+          </div>
+          <div class="sr-review-row-value">
+            ${context.shippingAddress.line1}${context.shippingAddress.line2 ? html`, ${context.shippingAddress.line2}` : ''}, ${context.shippingAddress.city}, ${context.shippingAddress.state} ${context.shippingAddress.postalCode}, ${context.shippingAddress.country}
+          </div>
+        </div>
+
+        <!-- Bill to -->
+        <div class="sr-review-row">
+          <div class="sr-review-row-header">
+            <span class="sr-review-row-label">
+              <svg class="sr-review-row-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              Bill to
+            </span>
+            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep(context.sameAsBilling ? 'shipping' : 'billing')}">Edit</button>
+          </div>
+          <div class="sr-review-row-value">
+            ${context.sameAsBilling
+              ? 'Same as shipping'
+              : html`${context.billingAddress.line1}${context.billingAddress.line2 ? html`, ${context.billingAddress.line2}` : ''}, ${context.billingAddress.city}, ${context.billingAddress.state} ${context.billingAddress.postalCode}, ${context.billingAddress.country}`
+            }
+          </div>
+        </div>
+
+        <!-- Payment -->
+        <div class="sr-review-row">
+          <div class="sr-review-row-header">
+            <span class="sr-review-row-label">
+              <svg class="sr-review-row-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+              Payment
+            </span>
+            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('payment')}">Edit</button>
+          </div>
+          <div class="sr-review-row-value">
+            ${context.selectedPaymentMethod?.name || 'Not selected'}
+          </div>
         </div>
       </div>
 

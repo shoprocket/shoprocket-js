@@ -15,7 +15,7 @@ import { t } from '../utils/i18n';
 
 // Lazy import checkout components only when needed
 import type { CustomerData, CustomerFormErrors } from './customer-form';
-import type { AddressData, AddressFormErrors } from './address-form';
+import { type AddressData, type AddressFormErrors, countryRequiresState } from './address-form';
 
 // Import SVG as string - Vite will inline it at build time
 import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
@@ -255,6 +255,22 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private shouldResetOnNextOpen = false;
 
+  // Payment method state
+  @state()
+  private paymentMethods: any[] = [];
+
+  @state()
+  private selectedPaymentMethod: any = null;
+
+  @state()
+  private paymentMethodsLoading = false;
+
+  private paymentMethodsLoaded = false;
+
+  // Review step state
+  @state()
+  private reviewItemsExpanded = false;
+
   // Account creation state (post-checkout)
   @state()
   private accountPassword = '';
@@ -318,6 +334,12 @@ export class CartWidget extends ShoprocketElement {
     this.accountCreated = false;
     this.accountError = '';
     this.authenticatedDuringCheckout = false;
+
+    // Payment method states
+    this.paymentMethods = [];
+    this.selectedPaymentMethod = null;
+    this.paymentMethodsLoading = false;
+    this.paymentMethodsLoaded = false;
 
     // Error states
     this.customerErrors = {};
@@ -875,6 +897,24 @@ export class CartWidget extends ShoprocketElement {
     }
   }
   
+  private async loadPaymentMethods(): Promise<void> {
+    if (this.paymentMethodsLoaded || this.paymentMethodsLoading) return;
+    this.paymentMethodsLoading = true;
+    try {
+      const result = await this.sdk.cart.getPaymentMethods();
+      this.paymentMethods = result.paymentMethods;
+      // Auto-select if only one method
+      if (this.paymentMethods.length === 1) {
+        this.selectedPaymentMethod = this.paymentMethods[0];
+      }
+      this.paymentMethodsLoaded = true;
+    } catch (err) {
+      console.error('Failed to load payment methods:', err);
+    } finally {
+      this.paymentMethodsLoading = false;
+    }
+  }
+
   private preloadCheckoutComponents(): void {
     // Preload checkout components if we have items and haven't prefetched yet
     if (this.cart?.items?.length && !this.checkoutChunksPrefetched) {
@@ -1114,13 +1154,15 @@ export class CartWidget extends ShoprocketElement {
     this.chunkLoading = true;
 
     try {
-      // Lazy load checkout components and data in parallel
+      // Lazy load checkout components, data, and payment methods in parallel
       const [_customerForm, _addressForm, checkoutWizard] = await Promise.all([
         import('./customer-form'),
         import('./address-form'),
         import('./cart/checkout-wizard'),
         // Always try to load checkout data when starting checkout
-        this.loadCheckoutData()
+        this.loadCheckoutData(),
+        // Prefetch payment methods so they're ready for the payment step
+        this.loadPaymentMethods()
       ]);
 
       // Populate the module cache
@@ -1274,6 +1316,11 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private handleBackButton(): void {
+    // Clear any error state when navigating back
+    this.showOrderFailureMessage = false;
+    this.isPaymentFailure = false;
+    this.orderFailureReason = '';
+
     // Special case: if showing OTP form, go back to contact form
     if (this.checkoutStep === 'customer' && this.loginLinkSent) {
       this.loginLinkSent = false;
@@ -1281,7 +1328,7 @@ export class CartWidget extends ShoprocketElement {
       this.otpError = '';
       return;
     }
-    
+
     // Otherwise handle normal back navigation
     if (this.checkoutStep === 'customer') {
       this.exitCheckout();
@@ -1824,35 +1871,40 @@ export class CartWidget extends ShoprocketElement {
       }
     } else if (this.checkoutStep === 'shipping') {
       // Basic required field check - no complex validation
-      const schema = {
-        line1: ['required' as const],
-        city: ['required' as const],
-        postalCode: ['required' as const],
-        country: ['required' as const]
-        // State requirement will be validated server-side
+      const schema: Record<string, ('required')[]> = {
+        line1: ['required'],
+        city: ['required'],
+        postalCode: ['required'],
+        country: ['required'],
+        ...(countryRequiresState(this.shippingAddress.country) ? { state: ['required'] } : {})
       };
-      
+
       this.shippingErrors = validateForm(this.shippingAddress, schema) as AddressFormErrors;
-      
+
       if (hasErrors(this.shippingErrors)) {
         this.requestUpdate();
         return;
       }
     } else if (this.checkoutStep === 'billing' && !this.sameAsBilling) {
       // Basic required field check - no complex validation
-      const schema = {
-        line1: ['required' as const],
-        city: ['required' as const],
-        postalCode: ['required' as const],
-        country: ['required' as const]
-        // State requirement will be validated server-side
+      const schema: Record<string, ('required')[]> = {
+        line1: ['required'],
+        city: ['required'],
+        postalCode: ['required'],
+        country: ['required'],
+        ...(countryRequiresState(this.billingAddress.country) ? { state: ['required'] } : {})
       };
-      
+
       this.billingErrors = validateForm(this.billingAddress, schema) as AddressFormErrors;
-      
+
       if (hasErrors(this.billingErrors)) {
         this.requestUpdate();
         return;
+      }
+    } else if (this.checkoutStep === 'payment') {
+      // Must have a payment method selected
+      if (!this.selectedPaymentMethod) {
+        return; // Don't proceed without selection
       }
     }
 
@@ -1873,9 +1925,12 @@ export class CartWidget extends ShoprocketElement {
       // Server validates everything: stock levels, prices, addresses, etc.
       const currentUrl = window.location?.href?.split('?')[0]?.split('#')[0] || '';
       
-      // First call checkout to get the order ID
+      // Build checkout options from selected payment method
+      const pm = this.selectedPaymentMethod;
       const checkoutApiResponse = await this.sdk.cart.checkout({
-        paymentMethodType: 'card',
+        paymentMethodType: pm?.type || 'card',
+        gateway: pm?.gateway,
+        manualPaymentMethodId: pm?.manualMethodId || pm?.manual_method_id,
         locale: 'en',
         returnUrl: `${currentUrl}#!/payment-return`,
         cancelUrl: `${currentUrl}#!/payment-cancelled`
@@ -2390,6 +2445,10 @@ export class CartWidget extends ShoprocketElement {
       billingAddress: this.billingAddress,
       billingErrors: this.billingErrors,
       sameAsBilling: this.sameAsBilling,
+      paymentMethods: this.paymentMethods,
+      selectedPaymentMethod: this.selectedPaymentMethod,
+      paymentMethodsLoading: this.paymentMethodsLoading,
+      reviewItemsExpanded: this.reviewItemsExpanded,
       sdk: this.sdk,
       handleBackButton: () => this.handleBackButton(),
       handleCustomerChange: (e) => this.handleCustomerChange(e),
@@ -2414,6 +2473,8 @@ export class CartWidget extends ShoprocketElement {
         });
       },
       handleBillingAddressChange: (e) => this.handleBillingAddressChange(e),
+      handlePaymentMethodSelect: (method: any) => { this.selectedPaymentMethod = method; },
+      toggleReviewItems: () => { this.reviewItemsExpanded = !this.reviewItemsExpanded; },
       handleStepNext: () => this.handleStepNext(),
       handleCheckoutComplete: () => this.handleCheckoutComplete(),
       setCheckoutStep: (step) => { this.checkoutStep = step; },
@@ -2458,6 +2519,10 @@ export class CartWidget extends ShoprocketElement {
       billingAddress: this.billingAddress,
       billingErrors: this.billingErrors,
       sameAsBilling: this.sameAsBilling,
+      paymentMethods: this.paymentMethods,
+      selectedPaymentMethod: this.selectedPaymentMethod,
+      paymentMethodsLoading: this.paymentMethodsLoading,
+      reviewItemsExpanded: this.reviewItemsExpanded,
       sdk: this.sdk,
       handleBackButton: () => this.handleBackButton(),
       handleCustomerChange: (e) => this.handleCustomerChange(e),
@@ -2482,6 +2547,8 @@ export class CartWidget extends ShoprocketElement {
         });
       },
       handleBillingAddressChange: (e) => this.handleBillingAddressChange(e),
+      handlePaymentMethodSelect: (method: any) => { this.selectedPaymentMethod = method; },
+      toggleReviewItems: () => { this.reviewItemsExpanded = !this.reviewItemsExpanded; },
       handleStepNext: () => this.handleStepNext(),
       handleCheckoutComplete: () => this.handleCheckoutComplete(),
       setCheckoutStep: (step) => { this.checkoutStep = step; },
