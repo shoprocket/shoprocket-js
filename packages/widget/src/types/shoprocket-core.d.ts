@@ -74,7 +74,7 @@ declare module '@shoprocket/core' {
       billingAddress?: any; 
       same_as_billing?: boolean; 
     }): Promise<any>;
-    checkout(data: { paymentMethodType: string; locale: string }): Promise<any>;
+    checkout(data: { gateway: string; locale?: string; manualPaymentMethodId?: string; returnUrl?: string; cancelUrl?: string }): Promise<any>;
   }
 
   export class AuthService {
