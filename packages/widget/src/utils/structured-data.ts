@@ -1,12 +1,12 @@
 /**
- * Structured Data (Schema.org JSON-LD) Utilities
+ * Structured Data & OG Meta Tags
  *
- * Injects structured data into the document head for SEO and rich results.
- * Even though our widgets use Shadow DOM, Google can still read JSON-LD
- * when it's injected into the document head.
+ * Injects structured data (JSON-LD) and OpenGraph meta tags into document head
+ * for SEO, rich results, and social sharing previews.
  *
  * @see https://developers.google.com/search/docs/appearance/structured-data/product
  * @see https://schema.org/Product
+ * @see https://ogp.me/
  */
 
 import type { Product, Store, ShoprocketCore } from '@shoprocket/core';
@@ -228,4 +228,69 @@ export function removeAllSchemas(): void {
 export function getInjectedSchemaIds(): string[] {
   const scripts = document.querySelectorAll('script[data-shoprocket-schema]');
   return Array.from(scripts).map(script => script.getAttribute('data-shoprocket-schema') || '');
+}
+
+// ============================================================================
+// OpenGraph Meta Tags
+// ============================================================================
+
+/**
+ * Strip HTML tags and truncate text for OG description
+ */
+function stripHtmlAndTruncate(html: string, maxLength = 200): string {
+  const text = html.replace(/<[^>]*>/g, '').trim();
+  return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+}
+
+/**
+ * Inject OpenGraph meta tags for a product into document head
+ */
+export function injectProductOgTags(product: Product, sdk: ShoprocketCore, store?: Store): void {
+  // Don't duplicate
+  if (document.querySelector(`meta[data-shoprocket-og="${product.id}"]`)) return;
+
+  const tags: Record<string, string> = {
+    'og:type': 'product',
+    'og:title': product.name,
+    'og:url': getProductUrl(product),
+    'product:price:amount': formatPrice(product),
+    'product:price:currency': getCurrency(product),
+  };
+
+  if (product.summary || product.description) {
+    tags['og:description'] = stripHtmlAndTruncate(product.summary || product.description || '');
+  }
+
+  if (product.media?.length) {
+    const imageUrl = getMediaUrl(sdk, product.media[0]);
+    if (imageUrl && !imageUrl.includes('placeholder.svg')) {
+      tags['og:image'] = imageUrl;
+    }
+  }
+
+  if (store?.name) {
+    tags['og:site_name'] = store.name;
+  }
+
+  for (const [property, content] of Object.entries(tags)) {
+    const meta = document.createElement('meta');
+    meta.setAttribute('property', property);
+    meta.setAttribute('content', content);
+    meta.setAttribute('data-shoprocket-og', product.id);
+    document.head.appendChild(meta);
+  }
+}
+
+/**
+ * Remove OG meta tags for a specific product
+ */
+export function removeProductOgTags(productId: string): void {
+  document.querySelectorAll(`meta[data-shoprocket-og="${productId}"]`).forEach(el => el.remove());
+}
+
+/**
+ * Remove all Shoprocket OG meta tags
+ */
+export function removeAllOgTags(): void {
+  document.querySelectorAll('meta[data-shoprocket-og]').forEach(el => el.remove());
 }

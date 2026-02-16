@@ -133,6 +133,16 @@ export class CartService {
     };
   }
 
+  async applyDiscount(code: string): Promise<{ message: string; cart: Cart }> {
+    const response = await this.api.post<any>('/cart/discount', { code });
+    return { message: response.message, cart: response.cart || response.data?.cart };
+  }
+
+  async removeDiscount(): Promise<{ message: string; cart: Cart }> {
+    const response = await this.api.delete<any>('/cart/discount');
+    return { message: response.message, cart: response.cart || response.data?.cart };
+  }
+
   async getPaymentMethods(): Promise<{ paymentMethods: any[]; testMode: boolean }> {
     const response = await this.api.get<any>('/payment-methods');
     const data = response.data || response;

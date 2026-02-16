@@ -6,7 +6,7 @@ import type { Category } from '@shoprocket/core';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { ProductListTemplates } from './product-list';
 import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
-import { injectProductSchema, removeProductSchema } from '../utils/structured-data';
+import { injectProductSchema, removeProductSchema, injectProductOgTags, removeProductOgTags } from '../utils/structured-data';
 import './catalog-filters'; // Register filter component
 import { t } from '../utils/i18n';
 
@@ -387,9 +387,10 @@ export class ProductCatalog extends ShoprocketElement {
    * Clears all cached pages and reloads from page 1
    */
   public async reload(): Promise<void> {
-    // Clean up all schemas before reloading
+    // Clean up all schemas and OG tags before reloading
     this.productsWithSchemas.forEach(productId => {
       removeProductSchema(productId);
+      removeProductOgTags(productId);
     });
     this.productsWithSchemas.clear();
 
@@ -415,6 +416,7 @@ export class ProductCatalog extends ShoprocketElement {
       const product = this.allProducts.get(i);
       if (product && this.productsWithSchemas.has(product.id)) {
         removeProductSchema(product.id);
+        removeProductOgTags(product.id);
         this.productsWithSchemas.delete(product.id);
       }
     }
@@ -512,9 +514,10 @@ export class ProductCatalog extends ShoprocketElement {
           this.cleanupOldPageSchemas(previousPage);
         }
 
-        // Inject JSON-LD structured data for current page products
+        // Inject JSON-LD structured data and OG tags for current page products
         products.forEach(product => {
           injectProductSchema(product, this.sdk, this.sdk.store);
+          injectProductOgTags(product, this.sdk, this.sdk.store);
           this.productsWithSchemas.add(product.id);
         });
 
@@ -763,9 +766,10 @@ export class ProductCatalog extends ShoprocketElement {
       this.productLoadAbortController.abort();
     }
 
-    // Clean up JSON-LD schemas
+    // Clean up JSON-LD schemas and OG tags
     this.productsWithSchemas.forEach(productId => {
       removeProductSchema(productId);
+      removeProductOgTags(productId);
     });
     this.productsWithSchemas.clear();
 

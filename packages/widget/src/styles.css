@@ -209,6 +209,25 @@ h1, h2, h3, h4 {
     grid-template-columns: repeat(var(--cols-sm, 2), minmax(0, 1fr));
   }
 
+  /* Subgrid: each card spans 4 row tracks (image, title, price, button)
+     so titles/prices/buttons align across cards in the same row */
+  .sr-product-grid > .sr-product-card {
+    display: grid;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+  }
+
+  .sr-product-grid .sr-card-content,
+  .sr-product-grid .sr-product-info {
+    display: contents;
+  }
+
+  .sr-product-grid .sr-product-meta {
+    margin-top: var(--sr-product-section-gap);
+  }
+
+
   @media (min-width: 768px) {
     .sr-product-grid {
       grid-template-columns: repeat(var(--cols-md, 3), minmax(0, 1fr));
@@ -326,6 +345,7 @@ h1, h2, h3, h4 {
     user-select: none;
     min-width: 3.5rem;
     min-height: 2.5rem;
+    opacity: 1 !important;
   }
 
   [data-loading] .sr-variant-option::before {
@@ -337,6 +357,10 @@ h1, h2, h3, h4 {
     animation: skeleton-shimmer var(--skeleton-shimmer-duration) ease-in-out infinite;
     border-radius: var(--radius);
     z-index: 1;
+  }
+
+  [data-loading] .sr-variant-option::after {
+    display: none;
   }
 
   /* Button skeletons */
@@ -461,7 +485,7 @@ h1, h2, h3, h4 {
 
   /* Product Info Section */
   .sr-product-info {
-    @apply flex-1 flex flex-col;
+    @apply flex flex-col;
     gap: var(--sr-product-section-gap);
   }
 
@@ -470,7 +494,6 @@ h1, h2, h3, h4 {
     @apply font-medium leading-tight transition-colors;
     color: var(--foreground);
     font-size: var(--sr-product-title-size);
-    margin-bottom: 0.5rem;
   }
 
   .sr-product-title.sr-product-clickable {
@@ -486,6 +509,12 @@ h1, h2, h3, h4 {
     @apply font-medium;
     color: var(--foreground);
     font-size: var(--sr-product-price-size);
+  }
+
+  /* Product Meta - price + optional rating */
+  .sr-product-meta {
+    @apply flex flex-col;
+    gap: var(--sr-product-section-gap);
   }
 
   /* Product Actions Container */
@@ -848,6 +877,22 @@ h1, h2, h3, h4 {
     @apply inline-block w-4 h-4 me-2 align-middle;
   }
 
+  /* Cart Estimated Total (visible when discount applied) */
+  .sr-cart-estimated-total {
+    @apply flex justify-between items-center pt-2 mt-2;
+    border-top: 1px solid var(--border);
+  }
+
+  .sr-cart-estimated-total-label {
+    @apply text-sm font-semibold;
+    color: var(--card-foreground);
+  }
+
+  .sr-cart-estimated-total-amount {
+    @apply text-base font-semibold;
+    color: var(--card-foreground);
+  }
+
   /* Cart Checkout Button - extends sr-btn sr-btn-primary */
   .sr-cart-checkout-button {
     @apply border-none py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99];
@@ -860,6 +905,111 @@ h1, h2, h3, h4 {
 
   .sr-cart-checkout-button:hover {
     opacity: 0.9;
+  }
+
+  /* Coupon Code */
+  .sr-coupon-form {
+    @apply flex gap-2 my-3;
+  }
+
+  .sr-coupon-input {
+    @apply flex-1 px-3 py-2 border text-sm;
+    background: var(--card);
+    color: var(--foreground);
+    border-color: var(--border);
+    border-radius: var(--radius);
+    min-width: 0;
+  }
+
+  .sr-coupon-input::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.6;
+  }
+
+  .sr-coupon-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .sr-coupon-input.sr-field-error {
+    border-color: var(--destructive, #ef4444);
+  }
+
+  .sr-coupon-apply {
+    @apply px-3 py-2 border-none text-sm font-medium cursor-pointer whitespace-nowrap;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-radius: var(--radius);
+  }
+
+  .sr-coupon-apply:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .sr-coupon-apply:disabled {
+    @apply cursor-not-allowed;
+    opacity: 0.5;
+  }
+
+  .sr-coupon-applied {
+    @apply flex items-center justify-between my-3 text-sm;
+  }
+
+  .sr-coupon-applied-info {
+    @apply flex items-center gap-2;
+  }
+
+  .sr-coupon-remove-btn {
+    @apply bg-transparent border-none cursor-pointer p-1 transition-colors;
+    color: var(--card-foreground);
+    opacity: 0.4;
+  }
+
+  .sr-coupon-remove-btn:hover {
+    color: var(--destructive);
+    opacity: 1;
+  }
+
+  .sr-coupon-remove-icon {
+    @apply w-4 h-4;
+  }
+
+  .sr-coupon-badge {
+    @apply text-xs font-semibold px-2 py-0.5 uppercase;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-radius: var(--radius);
+  }
+
+  .sr-coupon-discount {
+    color: var(--success, #22c55e);
+    font-weight: 500;
+  }
+
+  .sr-coupon-applied-compact {
+    @apply my-3;
+  }
+
+  .sr-coupon-desc {
+    @apply text-xs;
+    color: var(--muted-foreground);
+  }
+
+  .sr-coupon-error {
+    @apply text-xs mt-1 mb-2;
+    color: var(--destructive, #ef4444);
+  }
+
+  .sr-coupon-badge-sm {
+    @apply text-xs font-semibold px-1.5 py-0.5 uppercase;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-radius: var(--radius);
+  }
+
+  .sr-discount-desc {
+    @apply text-xs;
+    color: var(--muted-foreground);
   }
 
   /* Cart Empty State */
@@ -4142,6 +4292,15 @@ h1, h2, h3, h4 {
 
 .sr-pending-actions {
   @apply flex gap-4 flex-wrap justify-center;
+}
+
+.sr-pending-reassurance {
+  @apply mt-6 m-0 max-w-md text-xs;
+  color: var(--muted-foreground);
+}
+
+.sr-pending-hint-polling {
+  @apply text-xs opacity-60;
 }
 
 /* Order Failure */

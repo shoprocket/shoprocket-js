@@ -2,7 +2,7 @@ import { html, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import type { Product } from '@shoprocket/core';
-import { injectProductSchema, removeProductSchema } from '../utils/structured-data';
+import { injectProductSchema, removeProductSchema, injectProductOgTags, removeProductOgTags } from '../utils/structured-data';
 import { t } from '../utils/i18n';
 
 /**
@@ -140,9 +140,10 @@ export class ProductView extends ShoprocketElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
 
-    // Clean up JSON-LD schema
+    // Clean up JSON-LD schema and OG tags
     if (this.schemaInjected && this.productData) {
       removeProductSchema(this.productData.id);
+      removeProductOgTags(this.productData.id);
       this.schemaInjected = false;
     }
   }
@@ -156,9 +157,10 @@ export class ProductView extends ShoprocketElement {
 
     await this.withLoading('product', async () => {
       try {
-        // Clean up old schema if changing products
+        // Clean up old schema and OG tags if changing products
         if (this.schemaInjected && this.productData) {
           removeProductSchema(this.productData.id);
+          removeProductOgTags(this.productData.id);
           this.schemaInjected = false;
         }
 
@@ -167,8 +169,9 @@ export class ProductView extends ShoprocketElement {
         this.productData = data;
         this.hasLoadedProduct = true;
 
-        // Inject JSON-LD structured data for SEO
+        // Inject JSON-LD structured data and OG tags for SEO/social sharing
         injectProductSchema(this.productData, this.sdk!, this.sdk!.store);
+        injectProductOgTags(this.productData, this.sdk!, this.sdk!.store);
         this.schemaInjected = true;
 
         // Note: view_item tracking is handled by product-detail component

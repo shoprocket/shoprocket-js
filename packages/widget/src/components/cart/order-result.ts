@@ -17,6 +17,7 @@ export interface OrderResultContext {
   handleBackToCart: () => void;
   getMediaUrl: (media: any, transforms?: string) => string;
   handleImageError: (e: Event) => void;
+  checkingOrderStatus: boolean;
 
   // Account creation (order success only)
   isAuthenticated: boolean;
@@ -204,26 +205,31 @@ export function renderPaymentPending(
         <svg class="sr-pending-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
-        <h2 class="sr-pending-title">Payment Taking Longer Than Expected</h2>
+        <h2 class="sr-pending-title">${t('payment.taking_longer', 'Payment Taking Longer Than Expected')}</h2>
         <p class="sr-pending-message">
-          Your payment is still being processed. This can sometimes take a few minutes.
+          ${t('payment.still_processing', 'Your payment is still being processed. This can sometimes take a few minutes.')}
         </p>
         <p class="sr-pending-hint">
-          Check your email for a confirmation, or you can check your order status below.
+          ${t('payment.check_email_hint', 'Check your email for a confirmation, or you can check your order status below.')}
         </p>
         <div class="sr-pending-actions">
-          <button class="sr-btn sr-btn-primary" @click="${context.handleCheckOrderStatus}">
-            Check Order Status
-          </button>
-          <button class="sr-btn sr-btn-secondary" @click="${context.handleBackToCart}">
-            Back to Cart
+          <button class="sr-btn sr-btn-primary" ?disabled="${context.checkingOrderStatus}" @click="${context.handleCheckOrderStatus}">
+            ${context.checkingOrderStatus ? html`
+              <span class="sr-spinner"></span> ${t('payment.checking_status', 'Checking...')}
+            ` : t('payment.check_status', 'Check Order Status')}
           </button>
         </div>
+        <p class="sr-pending-reassurance">
+          ${t('payment.charged_reassurance', 'If you were charged, your order will be confirmed shortly. Check your email for confirmation.')}
+        </p>
       ` : html`
         ${loadingOverlay()}
-        <h2 class="sr-pending-title">Processing Payment</h2>
+        <h2 class="sr-pending-title">${t('payment.processing', 'Processing Payment')}</h2>
         <p class="sr-pending-message">
-          Please wait while we process your payment...
+          ${t('payment.please_wait', 'Please wait while we confirm your payment...')}
+        </p>
+        <p class="sr-pending-hint sr-pending-hint-polling">
+          ${t('payment.do_not_close', 'Please do not close this window.')}
         </p>
       `}
     </div>
