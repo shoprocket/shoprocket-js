@@ -221,6 +221,9 @@ export interface Cart {
   totals: CartTotals;
   currency: string;
   itemCount: number;
+  discountCode?: string;
+  discountType?: 'fixed' | 'percentage';
+  discountValue?: number;
   visitorCountry?: string;
   hasCheckoutData?: boolean;
   hasBillingAddress?: boolean;

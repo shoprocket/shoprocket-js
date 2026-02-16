@@ -49,6 +49,7 @@ export interface CheckoutWizardContext {
   paymentMethods: any[];
   selectedPaymentMethod: any;
   paymentMethodsLoading: boolean;
+  paymentStepSkipped: boolean;
 
   // Review step
   reviewItemsExpanded: boolean;
@@ -129,6 +130,15 @@ export function renderCheckoutFlow(context: CheckoutWizardContext): TemplateResu
       `;
 
     case 'payment':
+      // Skip payment if only one non-manual gateway (auto-selected)
+      if (context.paymentStepSkipped) {
+        context.setCheckoutStep('review');
+        return html`
+          <div class="sr-checkout-step">
+            ${renderReviewContent(context)}
+          </div>
+        `;
+      }
       return html`
         <div class="sr-checkout-step">
           ${renderPaymentContent(context)}
@@ -158,15 +168,35 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
 
   // Show cart summary during checkout (except review step which shows full breakdown in main content)
   const subtotal = context.cart?.totals?.subtotal || { amount: 0, currency: 'USD', formatted: '$0.00' };
+  const discount = context.cart?.totals?.discount;
+  const hasDiscount = discount && discount.amount > 0;
+  const discountCode = context.cart?.discountCode;
+  const discountDesc = context.cart?.discountType === 'percentage' && context.cart?.discountValue
+    ? `${Math.round(Number(context.cart.discountValue))}% off` : '';
 
   return html`
     ${context.checkoutStep !== 'review' ? html`
       <div class="sr-cart-subtotal">
-        <span class="sr-cart-subtotal-label">Subtotal</span>
+        <span class="sr-cart-subtotal-label">${t('cart.subtotal', 'Subtotal')}</span>
         <span class="sr-cart-subtotal-amount">
           <span class="sr-cart-total-price">${context.formatPrice(subtotal)}</span>
         </span>
       </div>
+      ${hasDiscount ? html`
+        <div class="sr-coupon-applied sr-coupon-applied-compact">
+          <div class="sr-coupon-applied-info">
+            ${discountCode ? html`<span class="sr-coupon-badge">${discountCode}</span>` : ''}
+            ${discountDesc ? html`<span class="sr-coupon-desc">${discountDesc}</span>` : ''}
+          </div>
+          <span class="sr-coupon-discount">-${context.formatPrice(discount)}</span>
+        </div>
+        <div class="sr-cart-estimated-total">
+          <span class="sr-cart-estimated-total-label">${t('cart.estimated_total', 'Estimated total')}</span>
+          <span class="sr-cart-estimated-total-amount">
+            <span class="sr-cart-total-price">${context.formatPrice(context.cart?.totals?.total)}</span>
+          </span>
+        </div>
+      ` : ''}
     ` : ''}
 
     ${context.checkoutStep === 'review' ? html`
@@ -448,13 +478,9 @@ function getPaymentMethodIcon(method: any): TemplateResult {
     case 'paypal':
       return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.654h6.17c2.046 0 3.464.508 4.21 1.51.322.43.524.903.616 1.442.096.563.098 1.235.006 2.058l-.007.052v.46l.359.203c.304.163.546.35.73.563.307.354.505.793.589 1.307.087.527.058 1.152-.084 1.857-.164.812-.432 1.523-.793 2.105a4.418 4.418 0 0 1-1.218 1.349 4.912 4.912 0 0 1-1.627.759c-.614.175-1.32.264-2.098.264H11.57a.947.947 0 0 0-.936.808l-.035.203-1.166 7.39-.027.15a.097.097 0 0 1-.096.082H7.076z"/></svg>`;
     case 'bitcoin':
-      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11.767 19.089c4.924.868 6.14-6.025 1.216-6.894m-1.216 6.894L5.86 18.047m5.908 1.042-.347 1.97m1.563-8.864c4.924.869 6.14-6.025 1.215-6.893m-1.215 6.893-6.91-1.22m6.91 1.22.347-1.97M7.116 16.94l-2.453-.433.478-2.711m7.455 1.316L5.86 18.047M7.116 4.174l-2.453-.433-.478 2.711m7.455-1.316-6.524-1.15"></path></svg>`;
+      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M23.638 14.904c-1.602 6.43-8.113 10.34-14.542 8.736C2.67 22.05-1.244 15.525.362 9.105 1.962 2.67 8.475-1.243 14.9.358c6.43 1.605 10.342 8.115 8.738 14.548v-.002zm-6.35-4.613c.24-1.59-.974-2.45-2.64-3.03l.54-2.153-1.315-.33-.525 2.107c-.345-.087-.705-.167-1.064-.25l.526-2.127-1.32-.33-.54 2.165c-.285-.067-.565-.132-.84-.2l-1.815-.45-.35 1.407s.975.225.955.236c.535.136.63.486.615.766l-1.477 5.92c-.075.166-.24.406-.614.314.015.02-.96-.24-.96-.24l-.66 1.51 1.71.426.93.242-.54 2.19 1.32.327.54-2.17c.36.1.705.19 1.05.273l-.51 2.154 1.32.33.545-2.19c2.24.427 3.93.257 4.64-1.774.57-1.637-.03-2.58-1.217-3.196.854-.193 1.5-.76 1.68-1.93h.01zm-3.01 4.22c-.404 1.64-3.157.75-4.05.53l.72-2.9c.896.23 3.757.67 3.33 2.37zm.41-4.24c-.37 1.49-2.662.735-3.405.55l.654-2.64c.744.18 3.137.524 2.75 2.084v.006z"/></svg>`;
     case 'banknote':
       return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>`;
-    case 'apple':
-      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>`;
-    case 'smartphone':
-      return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>`;
     default:
       return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`;
   }
@@ -477,9 +503,8 @@ function renderPaymentContent(context: CheckoutWizardContext): TemplateResult {
   return html`
     <div class="sr-payment-methods">
       ${context.paymentMethods.map(method => {
-        const isSelected = context.selectedPaymentMethod?.type === method.type
-          && context.selectedPaymentMethod?.gateway === method.gateway
-          && (context.selectedPaymentMethod?.manualMethodId || context.selectedPaymentMethod?.manual_method_id) === (method.manualMethodId || method.manual_method_id);
+        const isSelected = context.selectedPaymentMethod?.gateway === method.gateway
+          && (context.selectedPaymentMethod?.manual_method_id) === (method.manual_method_id);
         return html`
           <button
             class="sr-payment-method-card ${isSelected ? 'sr-selected' : ''}"
@@ -574,7 +599,12 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
             </div>
             ${context.cart?.totals?.discount && context.cart.totals.discount.amount > 0 ? html`
               <div class="sr-order-total-line sr-discount-line">
-                <span>Discount</span>
+                <span>${context.cart.discountCode ? html`
+                  <span class="sr-coupon-badge-sm">${context.cart.discountCode}</span>
+                  ${context.cart.discountType === 'percentage' && context.cart.discountValue
+                    ? html` <span class="sr-discount-desc">${Math.round(Number(context.cart.discountValue))}% off</span>`
+                    : ''}
+                ` : t('cart.discount', 'Discount')}</span>
                 <span class="sr-discount-amount">-${context.formatPrice(context.cart.totals.discount)}</span>
               </div>
             ` : ''}
@@ -665,7 +695,9 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
               </svg>
               Payment
             </span>
-            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('payment')}">Edit</button>
+            ${!context.paymentStepSkipped ? html`
+              <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('payment')}">Edit</button>
+            ` : ''}
           </div>
           <div class="sr-review-row-value">
             ${context.selectedPaymentMethod?.name || 'Not selected'}

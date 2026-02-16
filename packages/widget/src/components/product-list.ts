@@ -188,15 +188,14 @@ export class ProductListTemplates {
                   @click="${!isSkeleton && isClickable ? () => handlers.handleProductClick(product) : null}">${isSkeleton ? '' : product.name}</h3>
             ` : ''}
 
-            ${hasPrice ? html`
-              <div>
+            <div class="sr-product-meta">
+              ${!isSkeleton && product.reviewCount && product.averageRating ? html`
+                ${renderStarRating(product.averageRating, product.reviewCount, true)}
+              ` : ''}
+              ${hasPrice ? html`
                 <span class="sr-product-price">${isSkeleton ? '' : formatProductPrice(product as any)}</span>
-              </div>
-            ` : ''}
-
-            ${!isSkeleton && product.reviewCount && product.averageRating ? html`
-              ${renderStarRating(product.averageRating, product.reviewCount, true)}
-            ` : ''}
+              ` : ''}
+            </div>
           </div>
 
           <!-- Quick Actions -->
