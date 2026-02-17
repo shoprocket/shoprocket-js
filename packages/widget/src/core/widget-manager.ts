@@ -212,9 +212,11 @@ export class WidgetManager {
       // Clear client-side auth
       CookieManager.clearAccessToken();
       sdk.clearAuthToken();
-      
+
       // Regenerate cart token for privacy
-      CookieManager.regenerateCartToken();
+      const newToken = CookieManager.regenerateCartToken();
+      internalState.setCartToken(newToken);
+      sdk.setCartToken(newToken);
     },
     
     /**

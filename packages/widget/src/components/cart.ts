@@ -2,7 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
-import type { Cart, ApiResponse, Money } from '@shoprocket/core';
+import type { Cart, ApiResponse, Money, CheckoutSettings } from '@shoprocket/core';
 import { loadingOverlay } from './loading-spinner';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
@@ -274,6 +274,19 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private reviewItemsExpanded = false;
 
+  // Checkout settings state
+  @state()
+  private termsAccepted = false;
+
+  @state()
+  private marketingOptIn = false;
+
+  @state()
+  private orderNotes = '';
+
+  @state()
+  private redirecting = false;
+
   // Account creation state (post-checkout)
   @state()
   private accountPassword = '';
@@ -296,6 +309,10 @@ export class CartWidget extends ShoprocketElement {
 
   @state()
   private couponLoading = false;
+
+  private get checkoutSettings(): CheckoutSettings | undefined {
+    return this.getStore()?.checkout;
+  }
 
   // Tracks if user authenticated during this checkout session (OTP or password)
   private authenticatedDuringCheckout = false;
@@ -356,6 +373,12 @@ export class CartWidget extends ShoprocketElement {
     this.couponError = null;
     this.couponLoading = false;
 
+    // Checkout settings states
+    this.termsAccepted = false;
+    this.marketingOptIn = false;
+    this.orderNotes = '';
+    this.redirecting = false;
+
     // Payment method states
     this.paymentMethods = [];
     this.selectedPaymentMethod = null;
@@ -390,6 +413,14 @@ export class CartWidget extends ShoprocketElement {
       this.shippingAddress = state.shippingAddress as AddressData;
       this.billingAddress = state.billingAddress as AddressData;
       this.sameAsBilling = state.sameAsBilling;
+
+      // Pre-select country from geo-detection if no address saved yet
+      if (!this.shippingAddress.country && state.cart?.visitorCountry) {
+        this.shippingAddress = { ...this.shippingAddress, country: state.cart.visitorCountry };
+        if (this.sameAsBilling) {
+          this.billingAddress = { ...this.billingAddress, country: state.cart.visitorCountry };
+        }
+      }
 
       // Prefetch checkout data/components when cart has items (improves checkout start performance)
       if (this.cart?.items?.length && this.isOpen) {
@@ -444,18 +475,15 @@ export class CartWidget extends ShoprocketElement {
 
       // Detect if the loaded cart is actually an order (e.g. page refresh during payment)
       // The backend returns orders within the edit window via GET /cart
-      if (!this.paymentPending && !this.showOrderFailureMessage && this.cart?.type === 'order') {
-        const status = (this.cart as any)?.order?.paymentStatus;
+      // Skip if checkPaymentReturn() already handled this (e.g. payment-cancelled → review step)
+      if (!this.paymentPending && !this.showOrderFailureMessage && !this.isCheckingOut && this.cart?.type === 'order') {
+        const status = this.cart?.order?.paymentStatus;
         if (status === 'paid' || status === 'processing' || status === 'completed') {
           await this.handlePaymentConfirmed(this.cart.id);
-        } else if (status === 'failed' || status === 'cancelled') {
-          this.showOrderFailureMessage = true;
-          this.orderDetails = this.cart;
-        } else if (status === 'pending') {
-          this.paymentPending = true;
-          this.orderDetails = this.cart;
-          this.startPaymentPolling();
         }
+        // For failed/cancelled/pending orders on normal page load (no #!/payment-return),
+        // just show cart normally so customer can re-checkout.
+        // Failure messages are only shown during active payment return flow (checkPaymentReturn).
       }
     }
     
@@ -537,13 +565,11 @@ export class CartWidget extends ShoprocketElement {
           import('./cart/order-result')
         ]);
 
-        // Cache the loaded modules
-        this.cartModules = {
-          cartItems,
-          cartFooter,
-          cartTrigger,
-          orderResult
-        };
+        // Cache the loaded modules (merge, don't replace — checkoutWizard may already be cached)
+        this.cartModules.cartItems = cartItems;
+        this.cartModules.cartFooter = cartFooter;
+        this.cartModules.cartTrigger = cartTrigger;
+        this.cartModules.orderResult = orderResult;
 
         this.modulesPrefetched = true;
       } catch (error) {
@@ -708,8 +734,8 @@ export class CartWidget extends ShoprocketElement {
       this.cart.items.push(newItem);
     }
     
-    // Update totals and cart state
-    this.updateCartTotals();
+    // Update item count optimistically (totals update when API responds)
+    this.cart.itemCount = this.cart.items.reduce((count, i) => count + i.quantity, 0) || 0;
     cartState.setCart(this.cart);
     this.showEmptyState = false;
     
@@ -949,7 +975,7 @@ export class CartWidget extends ShoprocketElement {
 
       if (!this.selectedPaymentMethod && this.paymentMethods.length) {
         // Restore from order's gateway if retrying (cancel return, browser back, retry)
-        const orderGateway = (this.cart as any)?.order?.paymentGateway;
+        const orderGateway = this.cart?.order?.paymentGateway;
         if (orderGateway) {
           const match = this.paymentMethods.find((m: any) => m.gateway === orderGateway);
           if (match) this.selectedPaymentMethod = match;
@@ -1038,6 +1064,9 @@ export class CartWidget extends ShoprocketElement {
       this.checkoutStep = 'review';
       this.orderDetails = cart;
 
+      // Restore checkout preferences (resetToInitialState wiped them)
+      this.marketingOptIn = this.checkoutSettings?.precheckMarketingOptIn ?? false;
+
       // Load checkout module, checkout data, and payment methods so review step renders fully
       // Gateway matching is handled centrally by loadPaymentMethods()
       await Promise.all([
@@ -1057,8 +1086,8 @@ export class CartWidget extends ShoprocketElement {
     }
 
     // Step 4: Determine what to show based on API response (for payment-return URLs)
-    if (cart && (cart as any).type === 'order' && (cart as any).order) {
-      const order = (cart as any).order;
+    if (cart && cart.type === 'order' && cart.order) {
+      const order = cart.order;
       const status = order.paymentStatus;
 
       if (status === 'paid' || status === 'completed' || status === 'processing') {
@@ -1069,6 +1098,7 @@ export class CartWidget extends ShoprocketElement {
 
         this.showOrderSuccessMessage = true;
         this.orderDetails = cart;
+        this.schedulePostCheckoutRedirect();
 
         // Clear stored order ID and auth flag
         sessionStorage.removeItem('shoprocket_order_id');
@@ -1206,6 +1236,7 @@ export class CartWidget extends ShoprocketElement {
 
     this.showOrderSuccessMessage = true;
     this.orderDetails = this.cart;
+    this.schedulePostCheckoutRedirect();
 
     // Clean up sessionStorage
     sessionStorage.removeItem('shoprocket_order_id');
@@ -1337,6 +1368,11 @@ export class CartWidget extends ShoprocketElement {
       this.isCheckingOut = true;
       this.checkoutStep = 'customer';
 
+      // Initialize checkout settings state
+      this.termsAccepted = false;
+      this.marketingOptIn = this.checkoutSettings?.precheckMarketingOptIn ?? false;
+      this.orderNotes = '';
+
       // Track checkout started with enhanced data
       this.track(EVENTS.BEGIN_CHECKOUT, {
         cart: this.cart,
@@ -1425,30 +1461,46 @@ export class CartWidget extends ShoprocketElement {
       ['customer', 'shipping', 'billing', 'payment', 'review'];
 
     return allSteps.filter(step => {
-      if (step === 'billing' && this.sameAsBilling) return false;
+      if (step === 'shipping' && this.cart?.requiresShipping === false) return false;
+      if (step === 'billing' && this.sameAsBilling && this.cart?.requiresShipping !== false) return false;
       if (step === 'payment' && this.shouldSkipPaymentStep) return false;
       return true;
     });
   }
 
-  private nextCheckoutStep(): void {
+  private async nextCheckoutStep(): Promise<void> {
     const steps = this.getCheckoutSteps();
-    
+
     const currentIndex = steps.indexOf(this.checkoutStep);
     if (currentIndex >= 0 && currentIndex < steps.length - 1) {
       const nextStep = steps[currentIndex + 1];
       if (nextStep) {
         const previousStep = this.checkoutStep;
-        
+
+        // After shipping step, flush checkout data in the background to trigger
+        // tax calculation on the backend while user completes billing/payment steps
+        if (previousStep === 'shipping') {
+          cartState.flush();
+        }
+
+        // Before entering review step, refresh cart to get updated totals
+        // (tax/shipping should already be calculated from the earlier flush)
+        if (nextStep === 'review') {
+          this.checkoutLoading = true;
+          this.requestUpdate();
+          await this.loadCart();
+          this.checkoutLoading = false;
+        }
+
         // Map internal step names to readable names
         const stepNames: Record<string, string> = {
           'customer': 'contact_information',
           'shipping': 'shipping_address',
-          'billing': 'billing_address', 
+          'billing': 'billing_address',
           'payment': 'payment_method',
           'review': 'order_review'
         };
-        
+
         // Track completion of current step with specific event
         this.track(this.getStepEventName(previousStep, 'completed'), {
           step_name: stepNames[previousStep],
@@ -1458,10 +1510,10 @@ export class CartWidget extends ShoprocketElement {
           cart_value: this.cart?.totals?.total?.amount,
           progress_percentage: Math.round(((steps.indexOf(nextStep) + 1) / steps.length) * 100)
         });
-        
+
         // Move to next step
         this.checkoutStep = nextStep;
-        
+
         // Track viewing the new step with specific event
         this.track(this.getStepEventName(nextStep, 'viewed'), {
           step_name: stepNames[nextStep],
@@ -2026,10 +2078,12 @@ export class CartWidget extends ShoprocketElement {
     // Full validation happens server-side on checkout submit
     if (this.checkoutStep === 'customer') {
       // Basic required field check
+      const cs = this.checkoutSettings;
       const schema = {
         email: ['required' as const, 'email' as const],
         firstName: this.isGuest ? ['required' as const] : [],
-        lastName: this.isGuest ? ['required' as const] : []
+        lastName: this.isGuest ? ['required' as const] : [],
+        ...(cs?.phoneNumberField === 'required' ? { phone: ['required' as const] } : {})
       };
       
       this.customerErrors = validateForm(this.customerData, schema) as CustomerFormErrors;
@@ -2039,13 +2093,16 @@ export class CartWidget extends ShoprocketElement {
         return;
       }
     } else if (this.checkoutStep === 'shipping') {
-      // Basic required field check - no complex validation
+      // Basic required field check - respect checkout settings visibility
+      const cs = this.checkoutSettings;
       const schema: Record<string, ('required')[]> = {
         line1: ['required'],
         city: ['required'],
         postalCode: ['required'],
         country: ['required'],
-        ...(countryRequiresState(this.shippingAddress.country) ? { state: ['required'] } : {})
+        ...(countryRequiresState(this.shippingAddress.country) ? { state: ['required'] } : {}),
+        ...(cs?.companyNameField === 'required' ? { company: ['required'] } : {}),
+        ...(cs?.addressLine2Field === 'required' ? { line2: ['required'] } : {})
       };
 
       this.shippingErrors = validateForm(this.shippingAddress, schema) as AddressFormErrors;
@@ -2055,13 +2112,16 @@ export class CartWidget extends ShoprocketElement {
         return;
       }
     } else if (this.checkoutStep === 'billing' && !this.sameAsBilling) {
-      // Basic required field check - no complex validation
+      // Basic required field check - respect checkout settings visibility
+      const cs = this.checkoutSettings;
       const schema: Record<string, ('required')[]> = {
         line1: ['required'],
         city: ['required'],
         postalCode: ['required'],
         country: ['required'],
-        ...(countryRequiresState(this.billingAddress.country) ? { state: ['required'] } : {})
+        ...(countryRequiresState(this.billingAddress.country) ? { state: ['required'] } : {}),
+        ...(cs?.companyNameField === 'required' ? { company: ['required'] } : {}),
+        ...(cs?.addressLine2Field === 'required' ? { line2: ['required'] } : {})
       };
 
       this.billingErrors = validateForm(this.billingAddress, schema) as AddressFormErrors;
@@ -2085,6 +2145,12 @@ export class CartWidget extends ShoprocketElement {
   }
 
   private async handleCheckoutComplete(): Promise<void> {
+    // Validate terms acceptance if required
+    if (this.checkoutSettings?.termsMode === 'required_checkbox' && !this.termsAccepted) {
+      this.showAnimatedError(t('checkout.terms_required', 'Please accept the terms and conditions to continue.'));
+      return;
+    }
+
     // Validate payment method is selected before proceeding
     if (!this.selectedPaymentMethod) {
       // Ensure methods are loaded
@@ -2103,14 +2169,14 @@ export class CartWidget extends ShoprocketElement {
     // Server will perform full validation (stock, prices, taxes, addresses, etc.)
     // and return errors if anything is invalid
     this.checkoutLoading = true;
-    
+
     try {
       // Flush any pending cart state changes to the API before checkout
       await cartState.flush();
 
       // Server validates everything: stock levels, prices, addresses, etc.
       const currentUrl = window.location?.href?.split('?')[0]?.split('#')[0] || '';
-      
+
       // Build checkout options from selected payment method
       const pm = this.selectedPaymentMethod;
       const checkoutApiResponse = await this.sdk.cart.checkout({
@@ -2118,7 +2184,10 @@ export class CartWidget extends ShoprocketElement {
         manualPaymentMethodId: pm?.manualMethodId || pm?.manual_method_id,
         locale: 'en',
         returnUrl: `${currentUrl}#!/payment-return`,
-        cancelUrl: `${currentUrl}#!/payment-cancelled`
+        cancelUrl: `${currentUrl}#!/payment-cancelled`,
+        agreeToTerms: this.termsAccepted || undefined,
+        marketingOptIn: this.marketingOptIn || undefined,
+        notes: this.orderNotes || undefined
       });
       
       // Handle wrapped API response format
@@ -2162,10 +2231,11 @@ export class CartWidget extends ShoprocketElement {
         // Show success in the cart body
         this.showOrderSuccessMessage = true;
         this.orderDetails = checkoutResponse;
-        
+        this.schedulePostCheckoutRedirect();
+
         // Clear cart state and checkout data
         cartState.clear();
-        
+
         // Reset the UI to show empty cart
         this.cart = null;
         this.exitCheckout();
@@ -2196,7 +2266,7 @@ export class CartWidget extends ShoprocketElement {
         // Show success with offline payment instructions
         this.showOrderSuccessMessage = true;
         this.orderDetails = checkoutResponse;
-        // Could add a flag like this.showOfflineInstructions = true;
+        this.schedulePostCheckoutRedirect();
         
         // Clear cart and reset as with completed orders
         cartState.clear();
@@ -2386,6 +2456,7 @@ export class CartWidget extends ShoprocketElement {
       couponCode: this.couponCode,
       couponError: this.couponError,
       couponLoading: this.couponLoading,
+      showCouponField: this.checkoutSettings?.showCouponField ?? true,
       onCouponInput: (value: string) => { this.couponCode = value; this.couponError = null; },
       onApplyCoupon: () => this.applyCoupon(),
       onRemoveCoupon: () => this.removeCoupon(),
@@ -2457,8 +2528,14 @@ export class CartWidget extends ShoprocketElement {
       handleImageError: (e) => this.handleImageError(e),
       checkingOrderStatus: false,
 
+      // Checkout settings
+      confirmationMessage: this.checkoutSettings?.confirmationMessage,
+      redirectAfterCheckout: this.checkoutSettings?.redirectAfterCheckout,
+      redirectUrl: this.checkoutSettings?.redirectUrl,
+      redirecting: this.redirecting,
+
       // Account creation - hide if authenticated or customer already has an account
-      isAuthenticated: this.authenticatedDuringCheckout || !!this.customerCheckResult?.hasPassword || !!(this.cart as any)?.isAuthenticated,
+      isAuthenticated: this.authenticatedDuringCheckout || !!this.customerCheckResult?.hasPassword || !!this.cart?.isAuthenticated,
       accountPassword: this.accountPassword,
       creatingAccount: this.creatingAccount,
       accountCreated: this.accountCreated,
@@ -2506,6 +2583,27 @@ export class CartWidget extends ShoprocketElement {
     return this.cartModules.orderResult.renderOrderSuccess(this.orderDetails as OrderDetails, customerEmail, context);
   }
   
+  /**
+   * Schedule post-checkout redirect if configured.
+   * Shows success for 3s, then auto-redirects with fallback link.
+   */
+  private schedulePostCheckoutRedirect(): void {
+    const settings = this.checkoutSettings;
+    if (settings?.redirectAfterCheckout && settings?.redirectUrl) {
+      const timeout = setTimeout(() => {
+        this.redirecting = true;
+        // Give 500ms for "Redirecting..." text to show, then redirect
+        const redirectTimeout = setTimeout(() => {
+          if (settings.redirectUrl) {
+            window.location.href = settings.redirectUrl;
+          }
+        }, 500);
+        this.timeouts.add(redirectTimeout);
+      }, 3000);
+      this.timeouts.add(timeout);
+    }
+  }
+
   private handleContinueShopping(): void {
     this.stopPaymentPolling();
     this.showOrderSuccessMessage = false;
@@ -2684,12 +2782,8 @@ export class CartWidget extends ShoprocketElement {
     return this.cartModules.orderResult.renderOrderNotFound(context);
   }
 
-  private renderCheckoutFlow(): TemplateResult {
-    if (!this.cartModules.checkoutWizard) {
-      return loadingOverlay();
-    }
-
-    const context: CheckoutWizardContext = {
+  private buildCheckoutWizardContext(): CheckoutWizardContext {
+    return {
       cart: this.cart,
       checkoutStep: this.checkoutStep,
       chunkLoading: this.chunkLoading,
@@ -2719,6 +2813,15 @@ export class CartWidget extends ShoprocketElement {
       paymentMethodsLoading: this.paymentMethodsLoading,
       paymentStepSkipped: this.shouldSkipPaymentStep,
       reviewItemsExpanded: this.reviewItemsExpanded,
+      checkoutSettings: this.checkoutSettings,
+      termsAccepted: this.termsAccepted,
+      marketingOptIn: this.marketingOptIn,
+      orderNotes: this.orderNotes,
+      handleTermsAcceptedChange: (checked: boolean) => { this.termsAccepted = checked; },
+      handleMarketingOptInChange: (checked: boolean) => { this.marketingOptIn = checked; },
+      handleOrderNotesChange: (value: string) => { this.orderNotes = value; },
+      addressAutocompleteEnabled: !!this.getStore()?.features?.addressAutocomplete,
+      visitorCountry: this.cart?.visitorCountry || '',
       sdk: this.sdk,
       handleBackButton: () => this.handleBackButton(),
       handleCustomerChange: (e) => this.handleCustomerChange(e),
@@ -2755,8 +2858,14 @@ export class CartWidget extends ShoprocketElement {
       getCheckoutStepTitle: () => this.getCheckoutStepTitle(),
       track: (event, data) => this.track(event, data),
     };
+  }
 
-    return this.cartModules.checkoutWizard.renderCheckoutFlow(context);
+  private renderCheckoutFlow(): TemplateResult {
+    if (!this.cartModules.checkoutWizard) {
+      return loadingOverlay();
+    }
+
+    return this.cartModules.checkoutWizard.renderCheckoutFlow(this.buildCheckoutWizardContext());
   }
 
   private renderCheckoutFooter(): TemplateResult {
@@ -2764,123 +2873,12 @@ export class CartWidget extends ShoprocketElement {
       return html``;
     }
 
-    const context: CheckoutWizardContext = {
-      cart: this.cart,
-      checkoutStep: this.checkoutStep,
-      chunkLoading: this.chunkLoading,
-      checkoutLoading: this.checkoutLoading,
-      customerData: this.customerData,
-      customerErrors: this.customerErrors,
-      isGuest: this.isGuest,
-      checkingCustomer: this.checkingCustomer,
-      customerCheckResult: this.customerCheckResult,
-      showPasswordField: this.showPasswordField,
-      authDismissed: this.authDismissed,
-      customerPassword: this.customerPassword,
-      signingIn: this.signingIn,
-      sendingLoginLink: this.sendingLoginLink,
-      loginLinkSent: this.loginLinkSent,
-      otpCode: this.otpCode,
-      verifyingOtp: this.verifyingOtp,
-      otpError: this.otpError,
-      resendingOtp: this.resendingOtp,
-      shippingAddress: this.shippingAddress,
-      shippingErrors: this.shippingErrors,
-      billingAddress: this.billingAddress,
-      billingErrors: this.billingErrors,
-      sameAsBilling: this.sameAsBilling,
-      paymentMethods: this.paymentMethods,
-      selectedPaymentMethod: this.selectedPaymentMethod,
-      paymentMethodsLoading: this.paymentMethodsLoading,
-      paymentStepSkipped: this.shouldSkipPaymentStep,
-      reviewItemsExpanded: this.reviewItemsExpanded,
-      sdk: this.sdk,
-      handleBackButton: () => this.handleBackButton(),
-      handleCustomerChange: (e) => this.handleCustomerChange(e),
-      handleCustomerCheck: (e) => this.handleCustomerCheck(e),
-      handleGuestToggle: (e: CustomEvent) => { this.isGuest = e.detail.isGuest; },
-      handlePasswordInput: (e: Event) => { this.customerPassword = (e.target as HTMLInputElement).value; },
-      handleSendLoginLink: () => this.handleSendLoginLink(),
-      handlePasswordLogin: () => this.handlePasswordLogin(),
-      handleShowPasswordField: () => { this.showPasswordField = true; },
-      handleDismissAuth: () => { this.authDismissed = true; },
-      handleOtpInput: (e, i) => this.handleOtpInput(e, i),
-      handleOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
-      handleOtpPaste: (e) => this.handleOtpPaste(e),
-      handleResendOtp: () => this.handleResendOtp(),
-      handleShippingAddressChange: (e) => this.handleShippingAddressChange(e),
-      handleSameAsBillingChange: (e: CustomEvent) => {
-        const checked = e.detail.checked;
-        cartState.setSameAsBilling(checked);
-        this.track(EVENTS.CHECKOUT_SAME_BILLING_TOGGLED, {
-          step: 'shipping',
-          same_as_shipping: checked
-        });
-      },
-      handleBillingAddressChange: (e) => this.handleBillingAddressChange(e),
-      handlePaymentMethodSelect: (method: any) => { this.selectedPaymentMethod = method; },
-      toggleReviewItems: () => { this.reviewItemsExpanded = !this.reviewItemsExpanded; },
-      handleStepNext: () => this.handleStepNext(),
-      handleCheckoutComplete: () => this.handleCheckoutComplete(),
-      setCheckoutStep: (step) => { this.checkoutStep = step; },
-      exitCheckout: () => this.exitCheckout(),
-      formatPrice: (amount) => this.formatPrice(amount),
-      getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),
-      handleImageError: (e) => this.handleImageError(e),
-      getCheckoutStepTitle: () => this.getCheckoutStepTitle(),
-      track: (event, data) => this.track(event, data),
-    };
-
-    return this.cartModules.checkoutWizard.renderCheckoutFooter(context);
+    return this.cartModules.checkoutWizard.renderCheckoutFooter(this.buildCheckoutWizardContext());
   }
 
   // Track the last requested quantity for each item
   private lastRequestedQuantity: Map<string, number> = new Map();
   
-  // Shared method to update cart totals
-  private updateCartTotals(): void {
-    if (!this.cart || !this.cart.totals) return; // Don't try to update optimistic carts
-
-    // Update item count
-    this.cart.itemCount = this.cart.items?.reduce((count, item) => count + item.quantity, 0) || 0;
-
-    const currency = this.cart.currency || this.getStoreCurrency();
-    const locale = navigator.language || 'en-US';
-
-    // Update each line item's subtotal (for optimistic updates)
-    this.cart.items?.forEach((item: any) => {
-      const price = item.price?.amount || 0;
-      const qty = item.quantity || 0;
-      const lineTotal = price * qty;
-
-      item.subtotal = {
-        amount: lineTotal,
-        currency,
-        formatted: new Intl.NumberFormat(locale, {
-          style: 'currency',
-          currency
-        }).format(lineTotal / 100)
-      };
-    });
-
-    // Calculate new cart subtotal
-    const newSubtotalAmount = this.cart.items?.reduce((sum: number, i: any) => {
-      return sum + (i.subtotal?.amount || 0);
-    }, 0) || 0;
-
-    const subtotalObj: Money = {
-      amount: newSubtotalAmount,
-      currency,
-      formatted: new Intl.NumberFormat(locale, {
-        style: 'currency',
-        currency
-      }).format(newSubtotalAmount / 100)
-    };
-
-    this.cart.totals.subtotal = subtotalObj;
-    this.cart.totals.total = subtotalObj; // Simplified - doesn't account for tax/shipping
-  }
-
   private async updateQuantity(itemId: string, quantity: number): Promise<void> {
     if (quantity < 1) return;
     
@@ -2911,13 +2909,11 @@ export class CartWidget extends ShoprocketElement {
     // Track what quantity we're requesting
     this.lastRequestedQuantity.set(itemId, quantity);
     
-    // Optimistic update - immediately update UI
+    // Optimistic update - immediately update quantity in UI (no totals recalc)
     item.quantity = quantity;
-
-    // Update totals
-    this.updateCartTotals();
+    this.cart.itemCount = this.cart.items?.reduce((count, i) => count + i.quantity, 0) || 0;
     this.requestUpdate();
-    
+
     // Track quantity change with dedicated event
     this.track(EVENTS.CART_QUANTITY_UPDATED, {
       ...item,
@@ -2925,26 +2921,26 @@ export class CartWidget extends ShoprocketElement {
       new_quantity: quantity,
       delta: quantity - originalQuantity  // positive = increase, negative = decrease
     });
-    
+
     // Cancel any pending update for this item
     if (this.pendingUpdates.has(itemId)) {
       clearTimeout(this.pendingUpdates.get(itemId));
       this.pendingUpdates.delete(itemId);
     }
-    
-    // Debounce the API call - wait 1 second after last click
+
+    // Debounce the API call - server response updates totals authoritatively
     const timeoutId = setTimeout(() => {
-      // Fire and forget - don't await or handle response
-      this.sdk.cart.updateItem(itemId, quantity).catch(error => {
+      this.sdk.cart.updateItem(itemId, quantity).then(response => {
+        if (response) cartState.setCart(response);
+      }).catch(error => {
         console.error('Failed to update quantity:', error);
-        // Don't rollback UI state - keep the optimistic update
       });
-      
+
       // Clean up
       this.pendingUpdates.delete(itemId);
       this.lastRequestedQuantity.delete(itemId);
-    }, TIMEOUTS.DEBOUNCE); // Wait 300ms after last click
-    
+    }, TIMEOUTS.DEBOUNCE);
+
     this.pendingUpdates.set(itemId, timeoutId);
   }
 
@@ -2970,22 +2966,21 @@ export class CartWidget extends ShoprocketElement {
       
       // Optimistic update - remove from UI after animation
       this.cart.items.splice(itemIndex, 1);
-      
+      this.cart.itemCount = this.cart.items.reduce((count, i) => count + i.quantity, 0) || 0;
+
       // Check if cart is now empty
       if (this.cart.items.length === 0) {
         this.showEmptyState = true;
       }
-    
-      // Update totals
-      this.updateCartTotals();
 
       this.removingItems.delete(itemId);
       this.requestUpdate();
 
-      // Fire and forget - don't await or handle response
-      this.sdk.cart.removeItem(itemId).catch(error => {
+      // Server response updates totals authoritatively
+      this.sdk.cart.removeItem(itemId).then(response => {
+        if (response) cartState.setCart(response);
+      }).catch(error => {
         console.error('Failed to remove item:', error);
-        // Don't rollback UI state - keep the optimistic update
       });
       
       // Force cart to stay open after update

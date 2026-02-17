@@ -345,14 +345,17 @@ class CartStateManager {
         payload.billingAddress = this.state.billingAddress;
       }
 
-      await this.sdk.cart.updateCheckoutData(payload);
-      
-      // Don't update UI with response - this prevents race conditions
-      // where slow API responses overwrite user input
-      // We only load from API on initial load or after auth
-      
+      const checkoutResponse = await this.sdk.cart.updateCheckoutData(payload);
+
       // Clear pending fields to indicate successful sync
       this.pendingFields.clear();
+
+      // Refetch cart to get updated totals (tax/shipping recalculated by backend)
+      // This only updates cart totals, not checkout form data
+      const updatedCart = await this.sdk.cart.get();
+      if (updatedCart) {
+        this.setCart(updatedCart);
+      }
       
     } catch (error) {
       console.error('Failed to sync cart to API:', error);

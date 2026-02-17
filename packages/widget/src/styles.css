@@ -1174,6 +1174,186 @@ h1, h2, h3, h4 {
     animation: badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
+  /* Terms text (review step) */
+  .sr-cart-terms {
+    @apply text-xs text-center m-0 mb-2;
+    color: var(--card-foreground);
+    opacity: 0.7;
+  }
+
+  .sr-cart-terms a {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  /* Terms checkbox row */
+  .sr-terms-checkbox-row {
+    @apply flex items-start gap-2 text-xs mb-3 cursor-pointer;
+    color: var(--card-foreground);
+  }
+
+  .sr-terms-checkbox {
+    @apply mt-0.5 shrink-0;
+    accent-color: var(--primary);
+  }
+
+  .sr-terms-checkbox-label {
+    @apply leading-relaxed;
+    color: var(--card-foreground);
+    opacity: 0.8;
+  }
+
+  .sr-terms-link {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  .sr-terms-details {
+    @apply text-xs mt-2 rounded-md;
+    border: 1px solid var(--border);
+    background: var(--card);
+  }
+
+  .sr-terms-details-summary {
+    @apply px-3 py-2.5 cursor-pointer select-none flex items-center justify-between gap-2;
+    color: var(--card-foreground);
+    opacity: 0.7;
+    list-style: none;
+  }
+
+  .sr-terms-details-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .sr-terms-chevron {
+    @apply shrink-0 transition-transform duration-200;
+  }
+
+  .sr-terms-details.sr-expanded .sr-terms-chevron {
+    transform: rotate(180deg);
+  }
+
+  .sr-terms-text-wrapper {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.2s ease;
+  }
+
+  .sr-terms-details.sr-expanded .sr-terms-text-wrapper {
+    grid-template-rows: 1fr;
+  }
+
+  .sr-terms-text-overflow {
+    overflow: hidden;
+  }
+
+  .sr-terms-text-content {
+    @apply px-3 pt-2 pb-3 text-xs leading-relaxed whitespace-pre-wrap;
+    color: var(--card-foreground);
+    opacity: 0.8;
+    max-height: 200px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Policy links */
+  .sr-policy-links {
+    @apply flex items-center justify-center gap-2 text-xs mb-1;
+    color: var(--card-foreground);
+    opacity: 0.6;
+  }
+
+  .sr-policy-link {
+    color: var(--card-foreground);
+    text-decoration: underline;
+    opacity: 0.8;
+  }
+
+  .sr-policy-link:hover {
+    opacity: 1;
+  }
+
+  .sr-policy-separator {
+    opacity: 0.4;
+  }
+
+  /* Review extras (notes, marketing opt-in) — inside sr-review-details card */
+  .sr-review-notes-toggle {
+    @apply flex items-center justify-between w-full text-left cursor-pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  .sr-review-notes-chevron {
+    @apply shrink-0 transition-transform duration-200;
+    color: var(--muted-foreground);
+  }
+
+  .sr-review-notes-row.sr-expanded .sr-review-notes-chevron {
+    transform: rotate(180deg);
+  }
+
+  .sr-review-notes-body {
+    @apply overflow-hidden;
+    max-height: 0;
+    transition: max-height 0.2s ease;
+  }
+
+  .sr-review-notes-row.sr-expanded .sr-review-notes-body {
+    max-height: 120px;
+  }
+
+  .sr-review-notes-input {
+    @apply w-full text-xs rounded border px-3 py-2 resize-none mt-1.5;
+    background: var(--input);
+    color: var(--card-foreground);
+    border-color: var(--border);
+  }
+
+  .sr-review-notes-input:focus {
+    @apply outline-none ring-1;
+    border-color: var(--ring);
+    ring-color: var(--ring);
+  }
+
+  .sr-review-row-marketing {
+    @apply py-2.5;
+  }
+
+  .sr-review-checkbox-row {
+    @apply flex items-start gap-2 text-xs cursor-pointer;
+    color: var(--card-foreground);
+  }
+
+  .sr-review-checkbox {
+    @apply mt-0.5 shrink-0;
+    accent-color: var(--primary);
+  }
+
+  .sr-review-checkbox-label {
+    @apply leading-relaxed;
+    color: var(--muted-foreground);
+  }
+
+  /* Redirect notice */
+  .sr-redirect-notice {
+    @apply text-center mt-2;
+  }
+
+  .sr-redirect-text {
+    @apply text-sm;
+    color: var(--card-foreground);
+    opacity: 0.7;
+  }
+
+  .sr-redirect-link {
+    @apply text-xs;
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
   /* Powered by text */
   .sr-cart-powered-by {
     @apply text-xs text-center m-0 flex items-center justify-center gap-1;
@@ -1985,8 +2165,17 @@ h1, h2, h3, h4 {
 
 .sr-spinner {
   @apply animate-spin inline-block rounded-full border-solid;
+  border-color: var(--foreground);
   border-right-color: transparent;
   opacity: 0.25;
+}
+
+/* Inside buttons, spinner should use the button's text color */
+button .sr-spinner,
+.sr-btn .sr-spinner,
+.sr-cart-checkout-button .sr-spinner {
+  border-color: var(--primary-foreground);
+  border-right-color: transparent;
 }
 
 .sr-spinner-sm {
@@ -2940,6 +3129,56 @@ h1, h2, h3, h4 {
 
 /* Using space-y-3 directly in components */
 
+/* ==========================================
+   Address Autocomplete Dropdown
+   ========================================== */
+
+.sr-autocomplete-container {
+  @apply relative;
+}
+
+.sr-autocomplete-dropdown {
+  @apply absolute left-0 right-0 overflow-y-auto m-0 p-0 list-none;
+  top: 100%;
+  z-index: 50;
+  max-height: 15rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 0.25rem;
+}
+
+.sr-autocomplete-item {
+  @apply px-3 py-2.5 cursor-pointer flex flex-col gap-0.5;
+  transition: background-color 150ms;
+}
+
+.sr-autocomplete-item:hover,
+.sr-autocomplete-item.sr-highlighted {
+  background: var(--muted);
+}
+
+.sr-autocomplete-main {
+  @apply text-sm font-medium;
+  color: var(--foreground);
+}
+
+.sr-autocomplete-secondary {
+  @apply text-xs;
+  color: var(--muted-foreground);
+}
+
+.sr-autocomplete-spinner {
+  @apply absolute pointer-events-none animate-spin rounded-full;
+  right: 0.75rem;
+  top: 0.875rem;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+}
+
 /* Modern Floating Label Field Group */
 .sr-field-group {
   @apply relative;
@@ -3690,6 +3929,18 @@ h1, h2, h3, h4 {
   color: var(--success, #15803d);
 }
 
+.sr-tax-inclusive-note {
+  @apply text-xs italic;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.sr-tax-info-icon {
+  @apply cursor-help;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
 .sr-order-total-final {
   @apply flex justify-between items-center pt-2 mt-2 border-t;
   border-color: var(--border, #f3f4f6);
@@ -3795,16 +4046,6 @@ h1, h2, h3, h4 {
   background: var(--primary, #f59e0b);
   color: var(--primary-foreground, #fff);
   @apply hover:shadow transition-shadow;
-}
-
-/* Security Notice */
-.sr-review-security {
-  @apply flex items-center gap-2 px-3 py-2 rounded bg-blue-50 text-blue-700 text-xs;
-}
-
-.sr-security-icon {
-  @apply flex-shrink-0;
-  color: currentColor;
 }
 
 /* Keep old styles for backward compatibility */

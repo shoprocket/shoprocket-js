@@ -4,10 +4,17 @@
  * These are only needed after order submission, making them ideal for lazy loading
  */
 import { html, type TemplateResult } from 'lit';
-import type { Money } from '@shoprocket/core';
+import type { Money, TaxBreakdownItem } from '@shoprocket/core';
 import type { OrderDetails } from './cart-types';
 import { loadingOverlay } from '../loading-spinner';
 import { t } from '../../utils/i18n';
+
+/** Renders an info icon with tooltip showing per-jurisdiction tax breakdown (only when multiple items) */
+function taxBreakdownTooltip(breakdown: TaxBreakdownItem[] | undefined, context: { formatPrice: (m: any) => string }): TemplateResult | string {
+  if (!breakdown || breakdown.length < 2) return '';
+  const text = breakdown.map(t => `${t.name} (${t.rate}%): ${context.formatPrice({ amount: t.amount, currency: '', formatted: t.formatted })}`).join('\n');
+  return html`<sr-tooltip text="${text}" position="top" wrap><span class="sr-tax-info-icon">ⓘ</span></sr-tooltip>`;
+}
 
 export interface OrderResultContext {
   formatPrice: (money: Money | undefined) => string;
@@ -18,6 +25,12 @@ export interface OrderResultContext {
   getMediaUrl: (media: any, transforms?: string) => string;
   handleImageError: (e: Event) => void;
   checkingOrderStatus: boolean;
+
+  // Checkout settings
+  confirmationMessage?: string | null;
+  redirectAfterCheckout?: boolean;
+  redirectUrl?: string | null;
+  redirecting?: boolean;
 
   // Account creation (order success only)
   isAuthenticated: boolean;
@@ -52,7 +65,14 @@ export function renderOrderSuccess(
       </div>
 
       <h2 class="sr-success-title">Order Confirmed!</h2>
-      <p class="sr-success-subtitle">Thank you for your purchase</p>
+      <p class="sr-success-subtitle">${context.confirmationMessage || t('checkout.thank_you', 'Thank you for your purchase')}</p>
+
+      ${context.redirecting && context.redirectUrl ? html`
+        <div class="sr-redirect-notice">
+          <p class="sr-redirect-text">${t('checkout.redirecting', 'Redirecting you...')}</p>
+          <a href="${context.redirectUrl}" class="sr-redirect-link">${t('checkout.click_if_not_redirected', 'Click here if not redirected')}</a>
+        </div>
+      ` : ''}
 
       ${customerEmail && customerEmail.trim() ? html`
         <div class="sr-email-notice">
@@ -120,9 +140,11 @@ export function renderOrderSuccess(
             </div>
           ` : ''}
 
-          ${tax && tax.amount > 0 ? html`
+          ${tax && tax.amount > 0 && !orderData?.taxInclusive ? html`
             <div class="sr-order-row">
-              <span class="sr-order-label">Tax</span>
+              <span class="sr-order-label">${orderData?.taxBreakdown?.length === 1
+                ? `${orderData.taxBreakdown[0].name} (${orderData.taxBreakdown[0].rate}%)`
+                : html`Tax ${taxBreakdownTooltip(orderData?.taxBreakdown, context)}`}</span>
               <span class="sr-order-value">${context.formatPrice(tax)}</span>
             </div>
           ` : ''}
@@ -138,6 +160,13 @@ export function renderOrderSuccess(
             <div class="sr-order-total-row">
               <span class="sr-total-label">Total Paid</span>
               <span class="sr-total-value">${context.formatPrice(total)}</span>
+            </div>
+          ` : ''}
+          ${tax && tax.amount > 0 && orderData?.taxInclusive ? html`
+            <div class="sr-tax-inclusive-note">
+              <span>Includes ${context.formatPrice(tax)} ${orderData?.taxBreakdown?.length === 1
+                ? `${orderData.taxBreakdown[0].name} (${orderData.taxBreakdown[0].rate}%)`
+                : orderData?.taxBreakdown?.[0]?.name || 'tax'} ${taxBreakdownTooltip(orderData?.taxBreakdown, context)}</span>
             </div>
           ` : ''}
         </div>
