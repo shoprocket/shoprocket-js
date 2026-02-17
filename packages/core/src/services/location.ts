@@ -13,10 +13,13 @@ export class LocationService {
 
   /**
    * Get list of countries with optional locale for translations
+   * @param locale - Language code for country name translations
+   * @param shippable - When true, only returns countries the store ships to
    */
-  async getCountries(locale = 'en'): Promise<CountriesResponse> {
-    const endpoint = `/countries?locale=${encodeURIComponent(locale)}`;
-    return this.api.get<CountriesResponse>(endpoint);
+  async getCountries(locale = 'en', shippable = false): Promise<CountriesResponse> {
+    const params = new URLSearchParams({ locale });
+    if (shippable) params.set('shippable', '1');
+    return this.api.get<CountriesResponse>(`/countries?${params.toString()}`);
   }
 
   /**

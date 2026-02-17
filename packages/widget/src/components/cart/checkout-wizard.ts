@@ -7,8 +7,15 @@ import { loadingSpinner, loadingOverlay } from '../loading-spinner';
 import type { CheckoutStep, CustomerCheckResult } from './cart-types';
 import type { CustomerData, CustomerFormErrors } from '../customer-form';
 import type { AddressData, AddressFormErrors } from '../address-form';
-import type { Cart } from '@shoprocket/core';
+import type { Cart, CheckoutSettings, TaxBreakdownItem } from '@shoprocket/core';
 import { t } from '../../utils/i18n';
+
+/** Renders an info icon with tooltip showing per-jurisdiction tax breakdown (only when multiple items) */
+function taxBreakdownTooltip(breakdown: TaxBreakdownItem[] | undefined, context: { formatPrice: (m: any) => string }): TemplateResult | string {
+  if (!breakdown || breakdown.length < 2) return '';
+  const text = breakdown.map(t => `${t.name} (${t.rate}%): ${context.formatPrice({ amount: t.amount, currency: '', formatted: t.formatted })}`).join('\n');
+  return html`<sr-tooltip text="${text}" position="top" wrap><span class="sr-tax-info-icon">ⓘ</span></sr-tooltip>`;
+}
 
 export interface CheckoutWizardContext {
   // Cart state
@@ -53,6 +60,19 @@ export interface CheckoutWizardContext {
 
   // Review step
   reviewItemsExpanded: boolean;
+
+  // Checkout settings
+  checkoutSettings?: CheckoutSettings;
+  termsAccepted: boolean;
+  marketingOptIn: boolean;
+  orderNotes: string;
+  handleTermsAcceptedChange: (checked: boolean) => void;
+  handleMarketingOptInChange: (checked: boolean) => void;
+  handleOrderNotesChange: (value: string) => void;
+
+  // Features
+  addressAutocompleteEnabled: boolean;
+  visitorCountry: string;
 
   // SDK
   sdk: any;
@@ -163,8 +183,15 @@ export function renderCheckoutFlow(context: CheckoutWizardContext): TemplateResu
 }
 
 export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateResult {
+  const settings = context.checkoutSettings;
+  const termsMode = settings?.termsMode ?? 'hidden';
+
   // On payment step, require a method to be selected
-  const canProceed = context.checkoutStep !== 'payment' || !!context.selectedPaymentMethod;
+  // On review step with required_checkbox, also require terms acceptance
+  let canProceed = context.checkoutStep !== 'payment' || !!context.selectedPaymentMethod;
+  if (context.checkoutStep === 'review' && termsMode === 'required_checkbox' && !context.termsAccepted) {
+    canProceed = false;
+  }
 
   // Show cart summary during checkout (except review step which shows full breakdown in main content)
   const subtotal = context.cart?.totals?.subtotal || { amount: 0, currency: 'USD', formatted: '$0.00' };
@@ -199,13 +226,15 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
       ` : ''}
     ` : ''}
 
+    ${context.checkoutStep === 'review' ? renderTermsSection(context) : ''}
+
     ${context.checkoutStep === 'review' ? html`
       <button
         class="sr-cart-checkout-button"
         @click="${context.handleCheckoutComplete}"
         ?disabled="${context.checkoutLoading || !canProceed}"
       >
-        ${context.checkoutLoading ? loadingSpinner('sm') : t('checkout.complete_order', 'Complete Order')}
+        ${context.checkoutLoading ? loadingSpinner('sm') : t('checkout.place_order', 'Place Order')}
       </button>
     ` : html`
       <button
@@ -217,22 +246,132 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
       </button>
     `}
 
+    ${context.checkoutStep === 'review' ? renderPolicyLinks(context) : ''}
     <p class="sr-cart-powered-by">
-      ${context.checkoutStep === 'review' ? html`
-        By completing your order, you agree to our terms
-      ` : html`
-        <svg class="sr-secure-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M6 0.75L1.5 2.625V5.625C1.5 8.4375 3.4875 11.0625 6 11.625C8.5125 11.0625 10.5 8.4375 10.5 5.625V2.625L6 0.75ZM9.375 5.625C9.375 7.9125 7.8 9.9375 6 10.4625C4.2 9.9375 2.625 7.9125 2.625 5.625V3.3L6 1.875L9.375 3.3V5.625ZM4.6875 6L4.125 6.5625L5.25 7.6875L7.875 5.0625L7.3125 4.5L5.25 6.5625L4.6875 6Z" fill="#10B981"/>
-        </svg>
-        Secure checkout powered by
-        <a href="https://shoprocket.io?utm_source=widget&utm_medium=cart&utm_campaign=powered_by"
-           target="_blank"
-           rel="noopener noreferrer"
-           class="sr-cart-powered-by-link">
-          <b>Shoprocket</b>
-        </a>
-      `}
+      <svg class="sr-secure-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 0.75L1.5 2.625V5.625C1.5 8.4375 3.4875 11.0625 6 11.625C8.5125 11.0625 10.5 8.4375 10.5 5.625V2.625L6 0.75ZM9.375 5.625C9.375 7.9125 7.8 9.9375 6 10.4625C4.2 9.9375 2.625 7.9125 2.625 5.625V3.3L6 1.875L9.375 3.3V5.625ZM4.6875 6L4.125 6.5625L5.25 7.6875L7.875 5.0625L7.3125 4.5L5.25 6.5625L4.6875 6Z" fill="#10B981"/>
+      </svg>
+      Secure checkout powered by
+      <a href="https://shoprocket.io?utm_source=widget&utm_medium=cart&utm_campaign=powered_by"
+         target="_blank"
+         rel="noopener noreferrer"
+         class="sr-cart-powered-by-link">
+        <b>Shoprocket</b>
+      </a>
     </p>
+  `;
+}
+
+function renderTermsLink(settings: CheckoutSettings): TemplateResult {
+  if (settings.termsDisplay === 'url' && settings.termsUrl) {
+    return html`<a href="${settings.termsUrl}" target="_blank" rel="noopener noreferrer" class="sr-terms-link">${t('checkout.terms_conditions', 'Terms & Conditions')}</a>`;
+  }
+  return html`<span class="sr-terms-link">${t('checkout.terms_conditions', 'Terms & Conditions')}</span>`;
+}
+
+/** Chevron SVG matching the one used in review items toggle */
+const termsChevron = html`<svg class="sr-terms-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+function toggleTermsExpander(e: Event) {
+  (e.currentTarget as HTMLElement).closest('.sr-terms-details')?.classList.toggle('sr-expanded');
+}
+
+function renderTermsNotice(settings: CheckoutSettings): TemplateResult {
+  const noticeText = settings.termsNoticeText
+    || t('checkout.terms_notice_default', 'By completing this purchase, you agree to our Terms & Conditions');
+
+  // Text mode: wrap notice in an expandable panel so clicking reveals the full terms
+  if (settings.termsDisplay === 'text' && settings.termsText) {
+    return html`
+      <div class="sr-terms-details">
+        <button type="button" class="sr-terms-details-summary" @click="${toggleTermsExpander}">${noticeText} ${termsChevron}</button>
+        <div class="sr-terms-text-wrapper">
+          <div class="sr-terms-text-overflow">
+            <div class="sr-terms-text-content">${settings.termsText}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // URL mode with custom notice: show notice + inline link
+  if (settings.termsDisplay === 'url' && settings.termsUrl && settings.termsNoticeText) {
+    return html`
+      <p class="sr-cart-terms">
+        ${settings.termsNoticeText} <a href="${settings.termsUrl}" target="_blank" rel="noopener noreferrer" class="sr-terms-link">${t('checkout.view_terms', 'View Terms')}</a>
+      </p>
+    `;
+  }
+
+  // URL mode with default text: "By completing... you agree to our [Terms & Conditions]"
+  if (settings.termsDisplay === 'url' && settings.termsUrl) {
+    return html`
+      <p class="sr-cart-terms">
+        ${t('checkout.terms_notice_default_partial', 'By completing this purchase, you agree to our')} ${renderTermsLink(settings)}
+      </p>
+    `;
+  }
+
+  // Fallback: plain notice text
+  return html`<p class="sr-cart-terms">${noticeText}</p>`;
+}
+
+function renderTermsSection(context: CheckoutWizardContext): TemplateResult {
+  const settings = context.checkoutSettings;
+  if (!settings) return html``;
+
+  const termsMode = settings.termsMode;
+
+  if (termsMode === 'required_checkbox') {
+    const hasTextExpander = settings.termsDisplay === 'text' && settings.termsText;
+    return html`
+      <label class="sr-terms-checkbox-row">
+        <input
+          type="checkbox"
+          class="sr-terms-checkbox"
+          .checked="${context.termsAccepted}"
+          @change="${(e: Event) => context.handleTermsAcceptedChange((e.target as HTMLInputElement).checked)}"
+        >
+        <span class="sr-terms-checkbox-label">
+          ${t('checkout.agree_to', 'I agree to the')} ${renderTermsLink(settings)}
+        </span>
+      </label>
+      ${hasTextExpander ? html`
+        <div class="sr-terms-details">
+          <button type="button" class="sr-terms-details-summary" @click="${toggleTermsExpander}">${t('checkout.view_terms', 'View Terms & Conditions')} ${termsChevron}</button>
+          <div class="sr-terms-text-wrapper">
+            <div class="sr-terms-text-content">${settings.termsText}</div>
+          </div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  if (termsMode === 'notice') {
+    return renderTermsNotice(settings);
+  }
+
+  // hidden - no terms shown
+  return html``;
+}
+
+function renderPolicyLinks(context: CheckoutWizardContext): TemplateResult {
+  const settings = context.checkoutSettings;
+  if (!settings) return html``;
+
+  const { privacyPolicyUrl, refundPolicyUrl } = settings;
+  if (!privacyPolicyUrl && !refundPolicyUrl) return html``;
+
+  return html`
+    <div class="sr-policy-links">
+      ${privacyPolicyUrl ? html`
+        <a href="${privacyPolicyUrl}" target="_blank" rel="noopener noreferrer" class="sr-policy-link">${t('checkout.privacy_policy', 'Privacy Policy')}</a>
+      ` : ''}
+      ${privacyPolicyUrl && refundPolicyUrl ? html`<span class="sr-policy-separator">&middot;</span>` : ''}
+      ${refundPolicyUrl ? html`
+        <a href="${refundPolicyUrl}" target="_blank" rel="noopener noreferrer" class="sr-policy-link">${t('checkout.refund_policy', 'Refund Policy')}</a>
+      ` : ''}
+    </div>
   `;
 }
 
@@ -321,9 +460,13 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
         .required="${true}"
         .show-guest-option="${true}"
         .is-guest="${context.isGuest}"
+        .phoneVisibility="${context.checkoutSettings?.phoneNumberField ?? 'optional'}"
+        .showMarketing="${context.checkoutSettings?.showMarketingOptIn ?? false}"
+        .marketingOptIn="${context.marketingOptIn}"
         @customer-change="${context.handleCustomerChange}"
         @customer-check="${context.handleCustomerCheck}"
         @guest-toggle="${context.handleGuestToggle}"
+        @marketing-change="${(e: CustomEvent) => context.handleMarketingOptInChange(e.detail.optIn)}"
       ></shoprocket-customer-form>
 
     ${context.checkingCustomer && context.customerData.email ? html`
@@ -437,6 +580,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
 }
 
 function renderShippingContent(context: CheckoutWizardContext): TemplateResult {
+  const settings = context.checkoutSettings;
   return html`
     <shoprocket-address-form
       title=""
@@ -446,9 +590,13 @@ function renderShippingContent(context: CheckoutWizardContext): TemplateResult {
       .errors="${context.shippingErrors}"
       .required="${true}"
       .show-name="${false}"
-      .show-phone="${false}"
       .showSameAsBilling="${true}"
       .sameAsBilling="${context.sameAsBilling}"
+      .autocompleteEnabled="${context.addressAutocompleteEnabled}"
+      .visitorCountry="${context.visitorCountry}"
+      .companyVisibility="${settings?.companyNameField ?? 'hidden'}"
+      .phoneVisibility="${'hidden'}"
+      .line2Visibility="${settings?.addressLine2Field ?? 'optional'}"
       @address-change="${context.handleShippingAddressChange}"
       @same-as-billing-change="${context.handleSameAsBillingChange}"
     ></shoprocket-address-form>
@@ -456,6 +604,7 @@ function renderShippingContent(context: CheckoutWizardContext): TemplateResult {
 }
 
 function renderBillingContent(context: CheckoutWizardContext): TemplateResult {
+  const settings = context.checkoutSettings;
   return html`
     <shoprocket-address-form
         title=""
@@ -465,6 +614,11 @@ function renderBillingContent(context: CheckoutWizardContext): TemplateResult {
         .errors="${context.billingErrors}"
         .required="${true}"
         .show-name="${false}"
+        .autocompleteEnabled="${context.addressAutocompleteEnabled}"
+        .visitorCountry="${context.visitorCountry}"
+        .companyVisibility="${settings?.companyNameField ?? 'hidden'}"
+        .phoneVisibility="${'hidden'}"
+        .line2Visibility="${settings?.addressLine2Field ?? 'optional'}"
         @address-change="${context.handleBillingAddressChange}"
             ></shoprocket-address-form>
   `;
@@ -585,7 +739,7 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
                       <span class="sr-order-item-quantity">Qty: ${item.quantity}</span>
                     </div>
                   </div>
-                  <span class="sr-order-item-price">${context.formatPrice(item.price)}</span>
+                  <span class="sr-order-item-price">${context.formatPrice(item.subtotal)}</span>
                 </div>
               `)}
             </div>
@@ -608,9 +762,11 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
                 <span class="sr-discount-amount">-${context.formatPrice(context.cart.totals.discount)}</span>
               </div>
             ` : ''}
-            ${context.cart?.totals?.tax ? html`
+            ${context.cart?.totals?.tax && context.cart.totals.tax.amount > 0 && !context.cart?.taxInclusive ? html`
               <div class="sr-order-total-line">
-                <span>Tax</span>
+                <span>${context.cart.taxBreakdown?.length === 1
+                  ? `${context.cart.taxBreakdown[0].name} (${context.cart.taxBreakdown[0].rate}%)`
+                  : html`Tax ${taxBreakdownTooltip(context.cart.taxBreakdown, context)}`}</span>
                 <span>${context.formatPrice(context.cart.totals.tax)}</span>
               </div>
             ` : ''}
@@ -624,6 +780,13 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
               <span>Total</span>
               <span class="sr-order-total-amount">${context.formatPrice(context.cart?.totals?.total)}</span>
             </div>
+            ${context.cart?.totals?.tax && context.cart.totals.tax.amount > 0 && context.cart?.taxInclusive ? html`
+              <div class="sr-tax-inclusive-note">
+                <span>Includes ${context.formatPrice(context.cart.totals.tax)} ${context.cart.taxBreakdown?.length === 1
+                  ? `${context.cart.taxBreakdown[0].name} (${context.cart.taxBreakdown[0].rate}%)`
+                  : context.cart.taxBreakdown?.[0]?.name || 'tax'} ${taxBreakdownTooltip(context.cart.taxBreakdown, context)}</span>
+              </div>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -647,23 +810,25 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
           </div>
         </div>
 
-        <!-- Ship to -->
-        <div class="sr-review-row">
-          <div class="sr-review-row-header">
-            <span class="sr-review-row-label">
-              <svg class="sr-review-row-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                <line x1="12" y1="22.08" x2="12" y2="12"></line>
-              </svg>
-              Ship to
-            </span>
-            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('shipping')}">Edit</button>
+        <!-- Ship to (hidden for digital-only carts) -->
+        ${context.cart?.requiresShipping !== false ? html`
+          <div class="sr-review-row">
+            <div class="sr-review-row-header">
+              <span class="sr-review-row-label">
+                <svg class="sr-review-row-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                Ship to
+              </span>
+              <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep('shipping')}">Edit</button>
+            </div>
+            <div class="sr-review-row-value">
+              ${context.shippingAddress.formatted || [context.shippingAddress.line1, context.shippingAddress.city, context.shippingAddress.postalCode, context.shippingAddress.country].filter(Boolean).join(', ')}
+            </div>
           </div>
-          <div class="sr-review-row-value">
-            ${context.shippingAddress.line1}${context.shippingAddress.line2 ? html`, ${context.shippingAddress.line2}` : ''}, ${context.shippingAddress.city}, ${context.shippingAddress.state} ${context.shippingAddress.postalCode}, ${context.shippingAddress.country}
-          </div>
-        </div>
+        ` : ''}
 
         <!-- Bill to -->
         <div class="sr-review-row">
@@ -675,12 +840,12 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
               </svg>
               Bill to
             </span>
-            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep(context.sameAsBilling ? 'shipping' : 'billing')}">Edit</button>
+            <button class="sr-review-edit-btn" @click="${() => context.setCheckoutStep(context.sameAsBilling && context.cart?.requiresShipping !== false ? 'shipping' : 'billing')}">Edit</button>
           </div>
           <div class="sr-review-row-value">
-            ${context.sameAsBilling
+            ${context.sameAsBilling && context.cart?.requiresShipping !== false
               ? 'Same as shipping'
-              : html`${context.billingAddress.line1}${context.billingAddress.line2 ? html`, ${context.billingAddress.line2}` : ''}, ${context.billingAddress.city}, ${context.billingAddress.state} ${context.billingAddress.postalCode}, ${context.billingAddress.country}`
+              : (context.billingAddress.formatted || [context.billingAddress.line1, context.billingAddress.city, context.billingAddress.postalCode, context.billingAddress.country].filter(Boolean).join(', '))
             }
           </div>
         </div>
@@ -703,15 +868,45 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
             ${context.selectedPaymentMethod?.name || 'Not selected'}
           </div>
         </div>
-      </div>
 
-      <!-- Security Notice -->
-      <div class="sr-review-security">
-        <svg class="sr-security-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0110 0v4"></path>
-        </svg>
-        <span>Your information is secure and encrypted</span>
+        ${renderOrderExtras(context)}
+      </div>
+    </div>
+  `;
+}
+
+function renderOrderExtras(context: CheckoutWizardContext): TemplateResult {
+  const settings = context.checkoutSettings;
+  const showNotes = settings?.showNotesField ?? false;
+
+  if (!showNotes) return html``;
+
+  return html`
+    <div class="sr-review-row sr-review-notes-row ${context.orderNotes ? 'sr-expanded' : ''}">
+      <button type="button" class="sr-review-notes-toggle" @click="${(e: Event) => {
+        const row = (e.currentTarget as HTMLElement).closest('.sr-review-notes-row')!;
+        row.classList.toggle('sr-expanded');
+        const textarea = row.querySelector('textarea');
+        if (row.classList.contains('sr-expanded') && textarea) textarea.focus();
+      }}">
+        <span class="sr-review-row-label">
+          <svg class="sr-review-row-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          ${t('checkout.add_note', 'Add a note')}
+        </span>
+        <svg class="sr-review-notes-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="sr-review-notes-body">
+        <textarea
+          id="sr-order-notes"
+          class="sr-review-notes-input"
+          placeholder="${t('checkout.order_notes_placeholder', 'Special instructions or notes for your order...')}"
+          .value="${context.orderNotes}"
+          @input="${(e: Event) => context.handleOrderNotesChange((e.target as HTMLTextAreaElement).value)}"
+          rows="2"
+        ></textarea>
       </div>
     </div>
   `;

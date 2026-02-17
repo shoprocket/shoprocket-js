@@ -50,6 +50,9 @@ Thumbs.db
 .temp/
 *.tmp
 
+# Fonts (symlinked from Laravel backend for local dev)
+packages/widget/public/fonts
+
 # Package files
 *.tgz
 packages/*/package-lock.json

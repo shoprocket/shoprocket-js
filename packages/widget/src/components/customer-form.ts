@@ -63,8 +63,17 @@ export class CustomerForm extends BaseComponent {
   @property({ type: Boolean })
   disabled = false;
 
+  @property({ type: String, attribute: 'phone-visibility' })
+  phoneVisibility: 'required' | 'optional' | 'hidden' = 'optional';
+
   @property({ type: Boolean, attribute: 'show-company' })
   showCompany = false;
+
+  @property({ type: Boolean, attribute: 'show-marketing' })
+  showMarketing = false;
+
+  @property({ type: Boolean, attribute: 'marketing-opt-in' })
+  marketingOptIn = false;
 
   @property({ type: Boolean, attribute: 'show-guest-option' })
   showGuestOption = false;
@@ -150,13 +159,16 @@ export class CustomerForm extends BaseComponent {
 
   private getRequiredAttribute(field: keyof CustomerData): boolean {
     if (!this.required) return false;
-    
+
     // Email is always required
     if (field === 'email') return true;
-    
+
     // Name fields required for guest checkout
     if ((field === 'firstName' || field === 'lastName') && this.isGuest) return true;
-    
+
+    // Phone required if setting says so
+    if (field === 'phone') return this.phoneVisibility === 'required';
+
     return false;
   }
 
@@ -334,26 +346,32 @@ export class CustomerForm extends BaseComponent {
             </div>
           ` : ''}
 
-          <!-- Phone Field -->
-          <div class="sr-field-group-with-icon ${this.isFieldValid('phone') ? 'sr-field-valid' : ''}">
-            <input
-              type="tel"
-              id="phone"
-              class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.phone) ? 'has-value' : ''} ${this.getFieldError('phone') ? 'sr-field-error' : ''}"
-              .value="${this.customer.phone || ''}"
-              .disabled="${this.disabled}"
-              placeholder=" "
-              autocomplete="tel"
-              @input="${(e: Event) => this.handleInputChange('phone', (e.target as HTMLInputElement).value)}"
-              @blur="${() => this.handleBlur('phone')}"
-            >
-            ${this.renderPhoneIcon()}
-            <label class="sr-field-label" for="phone">Phone Number (optional)</label>
-            ${this.renderCheckIcon()}
-            ${this.getFieldError('phone') ? html`
-              <div class="sr-field-error-message">${this.getFieldError('phone')}</div>
-            ` : ''}
-          </div>
+          ${this.phoneVisibility !== 'hidden' ? html`
+            <!-- Phone Field -->
+            <div class="sr-field-group-with-icon ${this.isFieldValid('phone') ? 'sr-field-valid' : ''}">
+              <input
+                type="tel"
+                id="phone"
+                class="sr-field-input sr-field-input-with-icon peer ${this.hasValue(this.customer.phone) ? 'has-value' : ''} ${this.getFieldError('phone') ? 'sr-field-error' : ''}"
+                .value="${this.customer.phone || ''}"
+                .disabled="${this.disabled}"
+                ?required="${this.getRequiredAttribute('phone')}"
+                placeholder=" "
+                autocomplete="tel"
+                @input="${(e: Event) => this.handleInputChange('phone', (e.target as HTMLInputElement).value)}"
+                @blur="${() => this.handleBlur('phone')}"
+              >
+              ${this.renderPhoneIcon()}
+              <label class="sr-field-label" for="phone">
+                Phone Number
+                ${this.phoneVisibility === 'required' ? html`<span class="sr-field-required">*</span>` : html` (${t('field.optional', 'optional')})`}
+              </label>
+              ${this.renderCheckIcon()}
+              ${this.getFieldError('phone') ? html`
+                <div class="sr-field-error-message">${this.getFieldError('phone')}</div>
+              ` : ''}
+            </div>
+          ` : ''}
 
           ${this.showCompany ? html`
             <!-- Company Field -->
@@ -370,6 +388,23 @@ export class CustomerForm extends BaseComponent {
               >
               <label class="sr-field-label" for="company">Company (optional)</label>
             </div>
+          ` : ''}
+
+          ${this.showMarketing ? html`
+            <!-- Marketing Opt-in -->
+            <shoprocket-toggle
+              id="marketing-opt-in"
+              name="marketing_opt_in"
+              label="${t('checkout.marketing_opt_in', 'Email me news and offers')}"
+              .checked="${this.marketingOptIn}"
+              @change="${(e: CustomEvent) => {
+                this.dispatchEvent(new CustomEvent('marketing-change', {
+                  detail: { optIn: e.detail.checked },
+                  bubbles: true,
+                  composed: true
+                }));
+              }}"
+            ></shoprocket-toggle>
           ` : ''}
 
           ${!this.isGuest ? html`

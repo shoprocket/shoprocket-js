@@ -158,13 +158,19 @@ export class CartService {
     locale?: string;
     returnUrl?: string;
     cancelUrl?: string;
+    agreeToTerms?: boolean;
+    marketingOptIn?: boolean;
+    notes?: string;
   }): Promise<{ order: any }> {
     const data = {
       gateway: options.gateway,
       locale: options.locale || 'en',
       ...(options.manualPaymentMethodId && { manualPaymentMethodId: options.manualPaymentMethodId }),
       ...(options.returnUrl && { returnUrl: options.returnUrl }),
-      ...(options.cancelUrl && { cancelUrl: options.cancelUrl })
+      ...(options.cancelUrl && { cancelUrl: options.cancelUrl }),
+      ...(options.agreeToTerms !== undefined && { agreeToTerms: options.agreeToTerms }),
+      ...(options.marketingOptIn !== undefined && { marketingOptIn: options.marketingOptIn }),
+      ...(options.notes && { notes: options.notes })
     };
 
     const response = await this.api.post<any>('/cart/checkout', data);

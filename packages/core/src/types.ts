@@ -215,8 +215,17 @@ export interface CartTotals {
   total: Money;
 }
 
+export interface TaxBreakdownItem {
+  name: string;
+  rate: number;
+  amount: number;
+  formatted: string;
+  jurisdiction?: string;
+}
+
 export interface Cart {
   id: string;
+  type?: 'cart' | 'order';
   items: CartItem[];
   totals: CartTotals;
   currency: string;
@@ -229,15 +238,17 @@ export interface Cart {
   hasBillingAddress?: boolean;
   hasShippingAddress?: boolean;
   requiresShipping?: boolean;
-  // Order fields for post-checkout state
-  orderStatus?: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'cancelled' | 'failed';
-  orderDetails?: {
-    orderId: string;
-    orderNumber?: string;
-    createdAt?: string;
-    paymentMethod?: string;
+  taxInclusive?: boolean;
+  taxBreakdown?: TaxBreakdownItem[];
+  isAuthenticated?: boolean;
+  // Order fields (only present when type === 'order')
+  order?: {
+    number: string;
+    paymentStatus: string;
+    fulfillmentStatus: string;
+    paymentGateway: string;
+    completedAt: string | null;
   };
-  orderId?: string;
 }
 
 export interface AddToCartParams {
@@ -257,12 +268,35 @@ export interface UpdateCartItemParams {
 // Store Types
 // ============================================================================
 
+export type FieldVisibility = 'required' | 'optional' | 'hidden';
+
+export interface CheckoutSettings {
+  termsMode: 'required_checkbox' | 'notice' | 'hidden';
+  termsDisplay: 'url' | 'text';
+  termsUrl: string | null;
+  termsText: string | null;
+  termsNoticeText: string | null;
+  privacyPolicyUrl: string | null;
+  refundPolicyUrl: string | null;
+  showMarketingOptIn: boolean;
+  precheckMarketingOptIn: boolean;
+  companyNameField: FieldVisibility;
+  phoneNumberField: FieldVisibility;
+  addressLine2Field: FieldVisibility;
+  showCouponField: boolean;
+  showNotesField: boolean;
+  confirmationMessage: string | null;
+  redirectAfterCheckout: boolean;
+  redirectUrl: string | null;
+}
+
 export interface Store {
   id: string;
   name: string;
   currency: string;
   locale: string;
   baseCurrencyCode?: string;
+  checkout?: CheckoutSettings;
   tracking?: {
     googleAnalytics?: {
       enabled: boolean;

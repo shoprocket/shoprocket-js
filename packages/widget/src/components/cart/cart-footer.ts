@@ -22,6 +22,7 @@ export interface CartFooterContext {
   couponCode: string;
   couponError: string | null;
   couponLoading: boolean;
+  showCouponField: boolean;
   onCouponInput: (value: string) => void;
   onApplyCoupon: () => Promise<void>;
   onRemoveCoupon: () => Promise<void>;
@@ -98,7 +99,7 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
         `)}
       </span>
     </div>
-    ${renderCouponSection(context)}
+    ${context.showCouponField ? renderCouponSection(context) : ''}
     ${hasDiscount ? html`
       <div class="sr-cart-estimated-total">
         <span class="sr-cart-estimated-total-label">${t('cart.estimated_total', 'Estimated total')}</span>
