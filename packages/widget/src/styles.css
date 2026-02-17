@@ -501,7 +501,7 @@ h1, h2, h3, h4 {
   }
 
   .sr-product-title.sr-product-clickable:hover {
-    opacity: 0.6;
+    color: var(--muted-foreground);
   }
 
   /* Product Price */
@@ -834,8 +834,7 @@ h1, h2, h3, h4 {
 
   .sr-cart-subtotal-label {
     @apply text-sm;
-    color: var(--card-foreground);
-    opacity: 0.6;
+    color: var(--muted-foreground);
   }
 
   .sr-cart-subtotal-amount {
@@ -884,7 +883,7 @@ h1, h2, h3, h4 {
   }
 
   .sr-cart-estimated-total-label {
-    @apply text-sm font-semibold;
+    @apply text-sm font-medium;
     color: var(--card-foreground);
   }
 
@@ -923,7 +922,6 @@ h1, h2, h3, h4 {
 
   .sr-coupon-input::placeholder {
     color: var(--muted-foreground);
-    opacity: 0.6;
   }
 
   .sr-coupon-input:focus {
@@ -961,13 +959,11 @@ h1, h2, h3, h4 {
 
   .sr-coupon-remove-btn {
     @apply bg-transparent border-none cursor-pointer p-1 transition-colors;
-    color: var(--card-foreground);
-    opacity: 0.4;
+    color: var(--muted-foreground);
   }
 
   .sr-coupon-remove-btn:hover {
     color: var(--destructive);
-    opacity: 1;
   }
 
   .sr-coupon-remove-icon {
@@ -1019,14 +1015,12 @@ h1, h2, h3, h4 {
 
   .sr-cart-empty-icon {
     @apply w-16 h-16 mb-4;
-    color: var(--card-foreground);
-    opacity: 0.3;
+    color: var(--muted-foreground);
   }
 
   .sr-cart-empty-text {
     @apply text-base mb-6;
-    color: var(--card-foreground);
-    opacity: 0.6;
+    color: var(--muted-foreground);
   }
 
   .sr-cart-empty-button {
@@ -1035,7 +1029,7 @@ h1, h2, h3, h4 {
   }
 
   .sr-cart-empty-button:hover {
-    opacity: 0.8;
+    color: var(--muted-foreground);
   }
 
   /* Cart Item */
@@ -1080,13 +1074,12 @@ h1, h2, h3, h4 {
   }
 
   .sr-cart-item-title:hover {
-    opacity: 0.6;
+    color: var(--muted-foreground);
   }
 
   .sr-cart-item-variant {
     @apply text-xs mb-0;
-    color: var(--card-foreground);
-    opacity: 0.4;
+    color: var(--muted-foreground);
   }
 
   .sr-cart-item-footer {
@@ -1140,15 +1133,13 @@ h1, h2, h3, h4 {
   /* Cart Item Remove */
   .sr-cart-item-remove {
     @apply border-none bg-transparent p-1 cursor-pointer transition-colors;
-    color: var(--card-foreground);
-    opacity: 0.4;
+    color: var(--muted-foreground);
     user-select: none;
     -webkit-user-select: none;
   }
 
   .sr-cart-item-remove:hover {
     color: var(--destructive);
-    opacity: 1;
   }
 
   /* Cart Badge */
@@ -1177,8 +1168,7 @@ h1, h2, h3, h4 {
   /* Terms text (review step) */
   .sr-cart-terms {
     @apply text-xs text-center m-0 mb-2;
-    color: var(--card-foreground);
-    opacity: 0.7;
+    color: var(--muted-foreground);
   }
 
   .sr-cart-terms a {
@@ -1199,8 +1189,7 @@ h1, h2, h3, h4 {
 
   .sr-terms-checkbox-label {
     @apply leading-relaxed;
-    color: var(--card-foreground);
-    opacity: 0.8;
+    color: var(--muted-foreground);
   }
 
   .sr-terms-link {
@@ -1216,8 +1205,7 @@ h1, h2, h3, h4 {
 
   .sr-terms-details-summary {
     @apply px-3 py-2.5 cursor-pointer select-none flex items-center justify-between gap-2;
-    color: var(--card-foreground);
-    opacity: 0.7;
+    color: var(--muted-foreground);
     list-style: none;
   }
 
@@ -1249,8 +1237,7 @@ h1, h2, h3, h4 {
 
   .sr-terms-text-content {
     @apply px-3 pt-2 pb-3 text-xs leading-relaxed whitespace-pre-wrap;
-    color: var(--card-foreground);
-    opacity: 0.8;
+    color: var(--muted-foreground);
     max-height: 200px;
     overflow-y: auto;
     border-top: 1px solid var(--border);
@@ -1259,22 +1246,20 @@ h1, h2, h3, h4 {
   /* Policy links */
   .sr-policy-links {
     @apply flex items-center justify-center gap-2 text-xs mb-1;
-    color: var(--card-foreground);
-    opacity: 0.6;
+    color: var(--muted-foreground);
   }
 
   .sr-policy-link {
-    color: var(--card-foreground);
+    color: var(--muted-foreground);
     text-decoration: underline;
-    opacity: 0.8;
   }
 
   .sr-policy-link:hover {
-    opacity: 1;
+    color: var(--card-foreground);
   }
 
   .sr-policy-separator {
-    opacity: 0.4;
+    color: var(--muted-foreground);
   }
 
   /* Review extras (notes, marketing opt-in) — inside sr-review-details card */
@@ -1344,8 +1329,7 @@ h1, h2, h3, h4 {
 
   .sr-redirect-text {
     @apply text-sm;
-    color: var(--card-foreground);
-    opacity: 0.7;
+    color: var(--muted-foreground);
   }
 
   .sr-redirect-link {
@@ -1357,17 +1341,16 @@ h1, h2, h3, h4 {
   /* Powered by text */
   .sr-cart-powered-by {
     @apply text-xs text-center m-0 flex items-center justify-center gap-1;
-    color: var(--card-foreground);
-    opacity: 0.8;
+    color: var(--muted-foreground);
   }
 
   .sr-cart-powered-by-link {
-    @apply inline-flex items-center gap-1 no-underline transition-opacity;
+    @apply inline-flex items-center gap-1 no-underline transition-colors;
     color: inherit;
   }
 
   .sr-cart-powered-by-link:hover {
-    opacity: 0.7;
+    color: var(--card-foreground);
   }
 
   .sr-secure-icon {
@@ -1421,12 +1404,11 @@ h1, h2, h3, h4 {
 
   .sr-back-button {
     @apply bg-transparent border-none cursor-pointer text-sm font-medium inline-flex items-center gap-2 transition-colors;
-    color: var(--card-foreground);
-    opacity: 0.6;
+    color: var(--muted-foreground);
   }
 
   .sr-back-button:hover {
-    opacity: 1;
+    color: var(--card-foreground);
   }
   
   .sr-product-nav-buttons {
@@ -1556,8 +1538,7 @@ h1, h2, h3, h4 {
 
   .sr-product-detail-summary {
     @apply mb-6 text-sm leading-relaxed;
-    color: var(--card-foreground);
-    opacity: 0.6;
+    color: var(--muted-foreground);
   }
 
   /* Product Detail Variants */
@@ -2040,7 +2021,7 @@ h1, h2, h3, h4 {
 
 .sr-notification-icon {
   @apply w-5 h-5 flex-shrink-0;
-  opacity: 0.6;
+  color: inherit;
 }
 
 .sr-notification-message {
@@ -3195,7 +3176,6 @@ button .sr-spinner,
   width: 1.125rem;
   height: 1.125rem;
   color: var(--muted-foreground);
-  opacity: 0.5;
 }
 
 /* Adjust input padding when icon is present */
@@ -3264,7 +3244,7 @@ button .sr-spinner,
 }
 
 .sr-field-required {
-  @apply text-red-500;
+  color: var(--destructive, #ef4444);
 }
 
 /* Base theming for all form inputs - shared by sr-field-input, sr-otp-input, etc. */
@@ -3379,7 +3359,6 @@ button .sr-spinner,
 .sr-form-intro-text {
   @apply text-xs mb-3;
   color: var(--muted-foreground);
-  opacity: 0.7;
   line-height: 1.5;
 }
 
@@ -3636,8 +3615,8 @@ button .sr-spinner,
 
 /* Toggle label */
 .sr-toggle-label {
-  @apply cursor-pointer text-sm font-medium min-w-0;
-  color: var(--foreground);
+  @apply cursor-pointer text-sm font-normal min-w-0;
+  color: var(--card-foreground);
 }
 
 .sr-toggle-label-disabled {
@@ -3753,18 +3732,19 @@ button .sr-spinner,
 }
 
 .sr-review-row-icon {
-  @apply shrink-0 opacity-60;
+  @apply shrink-0;
+  color: var(--muted-foreground);
 }
 
 .sr-review-row-value {
   @apply text-sm;
-  color: var(--foreground);
+  color: var(--card-foreground);
 }
 
 /* Review: payment method display */
 .sr-review-payment-method {
   @apply flex items-center gap-2;
-  color: var(--foreground);
+  color: var(--card-foreground);
 }
 
 .sr-review-payment-method .sr-payment-method-icon {
@@ -3799,8 +3779,7 @@ button .sr-spinner,
 }
 
 .sr-review-icon {
-  color: var(--foreground);
-  opacity: 0.6;
+  color: var(--muted-foreground);
   flex-shrink: 0;
 }
 
@@ -3932,13 +3911,11 @@ button .sr-spinner,
 .sr-tax-inclusive-note {
   @apply text-xs italic;
   color: var(--muted-foreground);
-  opacity: 0.7;
 }
 
 .sr-tax-info-icon {
   @apply cursor-help;
   color: var(--muted-foreground);
-  opacity: 0.7;
 }
 
 .sr-order-total-final {
