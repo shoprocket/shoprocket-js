@@ -6,7 +6,7 @@ import widgetStyles from '../styles.css?inline';
 
 /**
  * Shared styles for all Shoprocket components
- * This includes all Tailwind CSS with the sr: prefix
+ * This includes all Tailwind CSS utilities and the widget design system
  */
 export const sharedStyles = css`${unsafeCSS(widgetStyles)}`;
 
