@@ -391,7 +391,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
             <!-- Show loading state while resending -->
             <div class="sr-otp-resending" style="text-align: center; padding: 2rem 0;">
               <span class="sr-spinner"></span>
-              <p style="margin-top: 1rem; color: var(--color-text-muted); font-size: 0.875rem;">
+              <p style="margin-top: 1rem; color: var(--muted-foreground); font-size: 0.875rem;">
                 Sending new code...
               </p>
             </div>

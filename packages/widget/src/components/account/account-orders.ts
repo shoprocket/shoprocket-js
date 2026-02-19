@@ -91,7 +91,7 @@ function renderOrderDetail(ctx: AccountOrdersContext): TemplateResult {
         <span class="sr-account-order-date">${formatDate(order.createdAt)}</span>
       </div>
 
-      <div class="sr-account-order-statuses" style="margin-bottom: var(--spacing-4, 1rem);">
+      <div class="sr-account-order-statuses" style="margin-bottom: 1rem;">
         <span class="sr-account-status-badge sr-account-status-${getStatusType(order.paymentStatus)}">
           ${formatStatus(order.paymentStatus)}
         </span>

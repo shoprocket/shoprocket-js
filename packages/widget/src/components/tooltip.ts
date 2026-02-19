@@ -49,8 +49,8 @@ export class Tooltip extends LitElement {
       position: fixed;
       z-index: 10002;
       padding: 8px 12px;
-      background: var(--color-text, #1f2937);
-      color: var(--color-surface, #fff);
+      background: var(--foreground, #1f2937);
+      color: var(--background, #fff);
       font-size: 13px;
       line-height: 1.4;
       border-radius: 6px;
@@ -74,12 +74,12 @@ export class Tooltip extends LitElement {
         bottom: -10px;
         left: 50%;
         transform: translateX(-50%);
-        border-top-color: var(--color-text, #1f2937);
+        border-top-color: var(--foreground, #1f2937);
       ` : `
         top: -10px;
         left: 50%;
         transform: translateX(-50%);
-        border-bottom-color: var(--color-text, #1f2937);
+        border-bottom-color: var(--foreground, #1f2937);
       `}
     `;
     this.tooltipElement.appendChild(arrow);

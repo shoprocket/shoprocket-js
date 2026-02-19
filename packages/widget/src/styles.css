@@ -56,13 +56,19 @@
 /* Tell Tailwind where to look for classes */
 @source "./index.ts";
 
-/* Test @theme directive for Shadow DOM */
+/* Tailwind v4 Theme Extensions */
 @theme {
   /* Override Tailwind's default font so all utilities use the theme body font */
   --default-font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
 
-  /* Define a custom shadow that maps to shadow-* utilities */
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  /* Custom shadow utility: @apply shadow-card
+     Composes a box-shadow from theme variables at runtime.
+     Themes provide: --shadow-offset-x, --shadow-offset-y, --shadow-blur,
+     --shadow-spread, --shadow-color, --shadow-opacity.
+     IMPORTANT: Always use @apply shadow-card, NEVER box-shadow: var(--tw-shadow).
+     Using var(--tw-shadow) directly breaks on host pages that use Tailwind,
+     because their @property --tw-shadow { inherits: false } blocks inheritance. */
+  --shadow-card: var(--shadow-offset-x, 0px) var(--shadow-offset-y, 0px) var(--shadow-blur, 0px) var(--shadow-spread, 0px) color-mix(in srgb, var(--shadow-color, transparent) calc(var(--shadow-opacity, 0) * 100%), transparent);
 
   /* Define a custom color that maps to color utilities */
   --card: #f3f4f6;
@@ -77,67 +83,65 @@
  * 3. JavaScript: element.style.setProperty('--primary', '#ff0000')
  */
 :host {
-  /*
-   * Tailwind CSS internal variable reset — required for Shadow DOM isolation.
+  /* =====================================================
+   * TAILWIND v4 INTERNAL VARIABLE INITIALIZATION
+   * !! DO NOT REMOVE THIS BLOCK !!
    *
-   * CSS custom properties inherit through the shadow boundary by design.
-   * If the host page also uses Tailwind, its --tw-* variables (shadow, ring,
-   * transform, filters, etc.) leak into our widget and break utility output.
-   * Explicitly resetting them here ensures our utilities resolve correctly
-   * regardless of the host page's CSS.
+   * WHY THIS IS NEEDED:
+   * Tailwind v4 registers @property for --tw-* vars with inherits:false,
+   * and initializes them via a * selector. Inside Shadow DOM, this
+   * initialization fails — the * selector in adoptedStyleSheets doesn't
+   * reliably set values when @property { inherits: false } is registered.
    *
-   * This list is manually maintained. The long-term fix is to use Tailwind v4's
-   * `prefix(sr)` feature (`@import "tailwindcss" prefix(sr)`) which namespaces
-   * all internal variables to --sr-*, making them immune to host-page Tailwind.
-   * That also prefixes class names (flex → sr:flex), so it requires a dedicated
-   * migration across all components and this stylesheet.
-   */
-  /* Transform */
+   * Without these defaults, multi-variable utilities silently break:
+   *   - translate-x-full → cart drawer won't close (stays visible)
+   *   - scale-0 → bubble cart won't animate
+   *   - shadow-card → box-shadow becomes 'none'
+   *   - ring-* → focus rings disappear
+   * The failure is SILENT — no errors, things just don't move/show.
+   *
+   * HOW IT WORKS:
+   * Inside shadow trees, @property doesn't register from adopted
+   * stylesheets, so --tw-* vars behave as regular custom properties
+   * that inherit normally. Setting them on :host cascades to all
+   * shadow tree children, providing the initialization that the
+   * broken * selector fails to deliver.
+   *
+   * MAINTENANCE:
+   * These values MUST match Tailwind v4's * selector output.
+   * After upgrading Tailwind, rebuild and run:
+   *   grep -oE '\*,[^{]+\{[^}]+\}' dist/main.shoprocket.js
+   * Then update the values below to match.
+   * ===================================================== */
   --tw-translate-x: 0;
   --tw-translate-y: 0;
-  --tw-rotate: 0;
-  --tw-skew-x: 0;
-  --tw-skew-y: 0;
+  --tw-translate-z: 0;
+  --tw-rotate-x: initial;
+  --tw-rotate-y: initial;
+  --tw-rotate-z: initial;
+  --tw-skew-x: initial;
+  --tw-skew-y: initial;
   --tw-scale-x: 1;
   --tw-scale-y: 1;
-
-  /* Shadows - neutralize Tailwind's extras so shadow-[…] can resolve */
-   --tw-inset-shadow: 0 0 #0000;
-   --tw-inset-ring-shadow: 0 0 #0000;
-   --tw-ring-offset-shadow: 0 0 #0000;
-   --tw-ring-shadow: 0 0 #0000;
-
-  --tw-ring-inset: ;
+  --tw-scale-z: 1;
+  --tw-space-y-reverse: 0;
+  --tw-space-x-reverse: 0;
+  --tw-border-style: solid;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-color: initial;
+  --tw-shadow-alpha: 100%;
+  --tw-inset-shadow: 0 0 #0000;
+  --tw-inset-shadow-color: initial;
+  --tw-inset-shadow-alpha: 100%;
+  --tw-ring-color: initial;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-inset-ring-color: initial;
+  --tw-inset-ring-shadow: 0 0 #0000;
+  --tw-ring-inset: initial;
   --tw-ring-offset-width: 0px;
   --tw-ring-offset-color: #fff;
-  --tw-ring-color: rgb(59 130 246 / 0.5);
-
-  /* Blur/Filters */
-  --tw-blur: ;
-  --tw-brightness: ;
-  --tw-contrast: ;
-  --tw-grayscale: ;
-  --tw-hue-rotate: ;
-  --tw-invert: ;
-  --tw-saturate: ;
-  --tw-sepia: ;
-  --tw-drop-shadow: ;
-
-  /* Backdrop filters */
-  --tw-backdrop-blur: ;
-  --tw-backdrop-brightness: ;
-  --tw-backdrop-contrast: ;
-  --tw-backdrop-grayscale: ;
-  --tw-backdrop-hue-rotate: ;
-  --tw-backdrop-invert: ;
-  --tw-backdrop-opacity: ;
-  --tw-backdrop-saturate: ;
-  --tw-backdrop-sepia: ;
-
-  /* Borders */
-  --tw-border-style: solid;
-  --tw-border-spacing-x: 0;
-  --tw-border-spacing-y: 0;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-outline-style: solid;
 
   /* =====================================================
    * STRUCTURAL VARIABLES - Non-Color Settings
@@ -148,20 +152,17 @@
   /* We only define custom spacing for non-Tailwind use cases */
   --spacing: 0.25rem; /* Base unit: 4px - matches Tailwind default */
 
-  /* Border radius - ONE value for consistency across all elements */
-  /* Radius uses theme variable --radius (from shadcn standard) */
-
-  /* Shadow - Theme provides individual variables, we combine them like Tailwind does */
-  /* Themes define: --shadow-color, --shadow-opacity, --shadow-offset-x, --shadow-offset-y, --shadow-blur, --shadow-spread */
-  --tw-shadow: var(--shadow-offset-x, 0px) var(--shadow-offset-y, 0px) var(--shadow-blur, 0px) var(--shadow-spread, 0px) color-mix(in srgb, var(--shadow-color, transparent) calc(var(--shadow-opacity, 0) * 100%), transparent);
-
-  /* Skeleton shimmer duration (gradient changes per mode) */
+  /* Skeleton shimmer — uses theme colors so it adapts to light/dark modes */
+  --skeleton-shimmer-gradient: linear-gradient(90deg, var(--muted, #f3f4f6) 0%, var(--card, #f9fafb) 50%, var(--muted, #f3f4f6) 100%);
   --skeleton-shimmer-duration: 2.5s;
 
   /* Grid columns */
   --cols: 4;
   --cols-md: 3;
   --cols-sm: 2;
+
+  /* Overlay backdrop for modals and cart drawer */
+  --overlay: rgba(0, 0, 0, 0.5);
 
   /* Component-specific */
   --cart-size: 64px;
@@ -450,10 +451,9 @@ h1, h2, h3, h4 {
 
   /* Product Image Container */
   .sr-product-image-container {
-    @apply relative w-full overflow-hidden flex-shrink-0 mb-4;
+    @apply relative w-full overflow-hidden flex-shrink-0 mb-4 shadow-card;
     aspect-ratio: var(--sr-product-image-aspect-ratio);
     border-radius: var(--sr-product-image-radius);
-    box-shadow: var(--tw-shadow);
   }
 
   .sr-product-image-container.sr-product-clickable {
@@ -543,11 +543,10 @@ h1, h2, h3, h4 {
 
   /* Button Base */
   .sr-button {
-    @apply font-medium transition-all transform cursor-pointer w-full h-11;
+    @apply font-medium transition-all transform cursor-pointer w-full h-11 shadow-card;
     padding: var(--sr-button-padding-y) var(--sr-button-padding-x);
     border-radius: var(--radius);
     font-size: var(--sr-button-font-size);
-    box-shadow: var(--tw-shadow);
   }
 
   .sr-button:hover {
@@ -602,8 +601,7 @@ h1, h2, h3, h4 {
   /* Cart Overlay */
   .sr-cart-overlay {
     @apply fixed inset-0 z-[9998] transition-opacity;
-    /* Hardcoded overlay - critical UI element for cart drawer backdrop */
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--overlay);
   }
 
   .sr-cart-overlay.open {
@@ -1430,10 +1428,9 @@ h1, h2, h3, h4 {
   }
   
   .sr-nav-button {
-    @apply px-3 py-1 bg-transparent border rounded-md cursor-pointer text-sm font-medium transition-all;
+    @apply px-3 py-1 bg-transparent border rounded-md cursor-pointer text-sm font-medium transition-all shadow-card;
     border-color: var(--border);
     color: var(--card-foreground);
-    box-shadow: var(--tw-shadow);
   }
   
   .sr-nav-button:hover:not(.disabled) {
@@ -1596,7 +1593,7 @@ h1, h2, h3, h4 {
     border-color: var(--border);
     background: var(--card);
     color: var(--card-foreground);
-    box-shadow: var(--tw-shadow);
+    @apply shadow-card;
   }
 
   .sr-variant-option:hover {
@@ -1686,10 +1683,9 @@ h1, h2, h3, h4 {
   }
 
   .sr-quantity-controls {
-    @apply flex items-center border w-full overflow-hidden;
+    @apply flex items-center border w-full overflow-hidden shadow-card;
     border-radius: var(--radius); /* Match global border radius */
     border-color: var(--border);
-    box-shadow: var(--tw-shadow);
   }
 
   .sr-quantity-button {
@@ -2003,10 +1999,9 @@ h1, h2, h3, h4 {
 }
 
 .sr-notification-content {
-  @apply rounded-lg p-4 shadow flex items-start gap-3;
+  @apply rounded-lg p-4 shadow-card flex items-start gap-3;
   border-radius: var(--radius);
   padding: var(--spacing);
-  box-shadow: var(--tw-shadow);
 }
 
 .sr-notification-error .sr-notification-content {
@@ -2064,9 +2059,8 @@ h1, h2, h3, h4 {
 
 /* Unified Media Container System */
 .sr-media-container {
-  @apply relative w-full h-full overflow-hidden;
+  @apply relative w-full h-full overflow-hidden shadow-card;
   background: var(--media-bg, var(--muted));
-  box-shadow: var(--tw-shadow);
 }
 
 /* Only apply border-radius when media container is the outermost element */
@@ -2390,10 +2384,9 @@ button .sr-spinner,
 
 /* Add Notification Styles */
 .sr-add-notification {
-  @apply absolute px-3 py-3 min-w-[260px] max-w-[320px];
+  @apply absolute px-3 py-3 min-w-[260px] max-w-[320px] shadow-card;
   background: var(--card);
   border-radius: var(--radius);
-  box-shadow: var(--tw-shadow);
   z-index: -1;
 }
 
@@ -2727,8 +2720,7 @@ button .sr-spinner,
 }
 
 .sr-filter-price-range .sr-field-group {
-  @apply w-full rounded-md;
-  box-shadow: var(--tw-shadow);
+  @apply w-full rounded-md shadow-card;
 }
 
 /* Price Range Field - matches field-select styling EXACTLY */
@@ -2835,25 +2827,23 @@ button .sr-spinner,
 
 /* Thumb styling - balanced size for touch targets and visual appeal */
 .sr-price-range-slider input[type="range"]::-webkit-slider-thumb {
-  @apply rounded-full cursor-grab;
+  @apply rounded-full cursor-grab shadow-card;
   -webkit-appearance: none;
   width: 20px;
   height: 20px;
   background: var(--background);
   border: 2px solid var(--border);
-  box-shadow: var(--tw-shadow);
   position: relative;
   z-index: 4;
   transition: all 0.15s ease;
 }
 
 .sr-price-range-slider input[type="range"]::-moz-range-thumb {
-  @apply rounded-full cursor-grab;
+  @apply rounded-full cursor-grab shadow-card;
   width: 20px;
   height: 20px;
   background: var(--background);
   border: 2px solid var(--border);
-  box-shadow: var(--tw-shadow);
   position: relative;
   z-index: 4;
   transition: all 0.15s ease;
@@ -2861,27 +2851,25 @@ button .sr-spinner,
 
 /* Hover states */
 .sr-price-range-slider input[type="range"]:hover::-webkit-slider-thumb {
+  @apply shadow-card;
   transform: scale(1.1);
-  box-shadow: var(--tw-shadow);
 }
 
 .sr-price-range-slider input[type="range"]:hover::-moz-range-thumb {
+  @apply shadow-card;
   transform: scale(1.1);
-  box-shadow: var(--tw-shadow);
 }
 
 /* Active/dragging state */
 .sr-price-range-slider input[type="range"]:active::-webkit-slider-thumb {
-  @apply cursor-grabbing;
+  @apply cursor-grabbing shadow-card;
   transform: scale(1.05);
-  box-shadow: var(--tw-shadow);
   border-color: var(--foreground);
 }
 
 .sr-price-range-slider input[type="range"]:active::-moz-range-thumb {
-  @apply cursor-grabbing;
+  @apply cursor-grabbing shadow-card;
   transform: scale(1.05);
-  box-shadow: var(--tw-shadow);
   border-color: var(--foreground);
 }
 
@@ -2900,11 +2888,11 @@ button .sr-spinner,
 }
 
 .sr-pagination-button {
-  @apply px-3 py-2 border rounded-md cursor-pointer text-sm font-medium transition-all;
+  @apply px-3 py-2 border cursor-pointer text-sm font-medium transition-all shadow-card;
+  border-radius: var(--radius, 0.375rem);
   background: var(--card);
   border-color: var(--border);
   color: var(--card-foreground);
-  box-shadow: var(--tw-shadow);
 }
 
 .sr-pagination-button:hover:not(:disabled):not(.disabled) {
@@ -3263,9 +3251,9 @@ button .sr-spinner,
 
 /* Base theming for all form inputs - shared by sr-field-input, sr-otp-input, etc. */
 @utility sr-field-base {
+  @apply shadow-card;
   background: var(--card);
   color: var(--foreground);
-  box-shadow: var(--tw-shadow);
 }
 
 /* Modern Input and Select Styles - Base */
@@ -4629,6 +4617,7 @@ shoprocket-product-modal {
 }
 
 .sr-modal-content {
+  @apply shadow-card;
   position: relative;
   background: var(--sr-modal-background, var(--card, white));
   border-radius: var(--sr-modal-border-radius, var(--radius));
@@ -4636,7 +4625,6 @@ shoprocket-product-modal {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: var(--tw-shadow);
   animation: sr-modal-slideUp 0.3s ease-out;
   z-index: 1;
 }
@@ -4779,8 +4767,8 @@ shoprocket-product-modal.closing .sr-modal-content {
 }
 
 .sr-category-card:hover {
+  @apply shadow-card;
   transform: translateY(-2px);
-  box-shadow: var(--tw-shadow);
 }
 
 .sr-category-image {
@@ -4961,12 +4949,11 @@ shoprocket-product-modal.closing .sr-modal-content {
 }
 
 .sr-account-input {
-  @apply w-full px-3 py-2.5 border text-sm rounded-md;
+  @apply w-full px-3 py-2.5 border text-sm rounded-md shadow-card;
   background: var(--card);
   color: var(--foreground);
   border-color: var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--tw-shadow);
 }
 
 .sr-account-input:focus {
