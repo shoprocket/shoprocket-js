@@ -1,6 +1,6 @@
 /**
  * Shoprocket Widget Styles
- * Using Tailwind v4 with sr: prefix to avoid conflicts
+ * Using Tailwind v4 CSS-native configuration (no JS config needed)
  */
 
 /* Define CSS layers for proper cascade control */
@@ -77,7 +77,21 @@
  * 3. JavaScript: element.style.setProperty('--primary', '#ff0000')
  */
 :host {
-  /* Tailwind CSS reset variables - required for utilities to work in Shadow DOM */
+  /*
+   * Tailwind CSS internal variable reset — required for Shadow DOM isolation.
+   *
+   * CSS custom properties inherit through the shadow boundary by design.
+   * If the host page also uses Tailwind, its --tw-* variables (shadow, ring,
+   * transform, filters, etc.) leak into our widget and break utility output.
+   * Explicitly resetting them here ensures our utilities resolve correctly
+   * regardless of the host page's CSS.
+   *
+   * This list is manually maintained. The long-term fix is to use Tailwind v4's
+   * `prefix(sr)` feature (`@import "tailwindcss" prefix(sr)`) which namespaces
+   * all internal variables to --sr-*, making them immune to host-page Tailwind.
+   * That also prefixes class names (flex → sr:flex), so it requires a dedicated
+   * migration across all components and this stylesheet.
+   */
   /* Transform */
   --tw-translate-x: 0;
   --tw-translate-y: 0;
