@@ -19,7 +19,7 @@ export function useProduct(productId: string) {
         setError(null);
         
         const response = await sdk.products.get(productId);
-        setProduct(response.data || response);
+        setProduct(response);
       } catch (err) {
         setError(err as Error);
         console.error('Failed to fetch product:', err);

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useCart } from '../hooks/useCart';
 
 interface CartProps {
@@ -29,7 +28,7 @@ export function Cart({ className = '' }: CartProps) {
         </div>
       ))}
       <div>
-        <strong>Total: ${((cart.totals?.total || 0) / 100).toFixed(2)}</strong>
+        <strong>Total: {cart.totals?.total?.formatted}</strong>
       </div>
     </div>
   );

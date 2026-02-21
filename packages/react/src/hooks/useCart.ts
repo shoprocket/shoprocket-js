@@ -16,7 +16,7 @@ export function useCart() {
     try {
       setLoading(true);
       const response = await sdk.cart.get();
-      setCart(response.cart || response);
+      setCart(response);
     } catch (err) {
       setError(err as Error);
       console.error('Failed to fetch cart:', err);
@@ -42,7 +42,7 @@ export function useCart() {
     
     try {
       setUpdating(true);
-      await sdk.cart.addItem(productId, quantity, variantId);
+      await sdk.cart.addItem({ productId, quantity, variantId });
       await fetchCart(); // Refresh cart
       
       // Dispatch custom event for other components

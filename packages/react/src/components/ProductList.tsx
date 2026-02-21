@@ -1,10 +1,10 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { useProducts } from '../hooks/useProducts';
 
 interface ProductListProps {
   perPage?: number;
   className?: string;
-  renderProduct?: (product: any) => React.ReactNode;
+  renderProduct?: (product: any) => ReactNode;
   onProductClick?: (product: any) => void;
 }
 
@@ -47,7 +47,7 @@ export function ProductList({
               />
             )}
             <h3>{product.name}</h3>
-            <p>${((product.price?.amount || product.price) / 100).toFixed(2)}</p>
+            <p>{product.price?.formatted}</p>
           </div>
         )
       )}

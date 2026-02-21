@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { ShoprocketCore, ShoprocketConfig } from '@shoprocket/core';
 
 interface ShoprocketContextValue {
@@ -43,11 +43,8 @@ export function ShoprocketProvider({
           ...config
         });
 
-        // Create session
-        const session = await shoprocketSdk.session.create();
-        shoprocketSdk.setSessionToken(
-          session.session?.session_token || session.session_token
-        );
+        // Create session (token returned for reference, SDK handles tracking)
+        await shoprocketSdk.session.create();
 
         setSdk(shoprocketSdk);
         setInitialized(true);

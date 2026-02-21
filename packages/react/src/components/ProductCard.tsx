@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface ProductCardProps {
   product: any;
   onAddToCart?: (product: any) => void;
