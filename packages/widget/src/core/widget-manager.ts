@@ -590,7 +590,7 @@ export class WidgetManager {
     const theme = mappedOptions['theme'];
     delete mappedOptions['theme'];
 
-    const configuredColorScheme = mappedOptions['colorScheme'] || 'auto';
+    const configuredColorScheme = mappedOptions['colorScheme'] || 'light';
     delete mappedOptions['colorScheme'];
 
     // Extract features/hide before setting properties (they're used as attributes, not properties)
