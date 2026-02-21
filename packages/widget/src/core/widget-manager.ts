@@ -681,13 +681,14 @@ export class WidgetManager {
 
     // Mount the component
     // Special handling for cart: mount directly to body in one operation (avoids double connectedCallback)
-    if (widgetType === 'cart') {
+    // Unless contained mode is set — then mount in-place like other widgets
+    if (widgetType === 'cart' && !options.contained) {
       // Remove the mount point placeholder
       element.remove();
       // Mount cart directly to body (single DOM operation = single connectedCallback)
       document.body.appendChild(component);
     } else {
-      // Normal widgets: replace mount point in place
+      // Normal widgets (and contained cart): replace mount point in place
       element.replaceWith(component);
     }
 

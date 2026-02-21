@@ -248,6 +248,9 @@ export interface Cart {
     fulfillmentStatus: string;
     paymentGateway: string;
     completedAt: string | null;
+    customerNotes?: string | null;
+    termsAccepted?: boolean;
+    marketingOptIn?: boolean;
   };
 }
 

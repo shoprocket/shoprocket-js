@@ -533,7 +533,7 @@ h1, h2, h3, h4 {
 
   /* Product Actions Container */
   .sr-product-actions {
-    @apply pt-3 space-y-3;
+    @apply pt-3 space-y-3 mt-auto;
   }
 
   /* Product Detail Actions */
@@ -793,6 +793,33 @@ h1, h2, h3, h4 {
     @apply -translate-x-full;
   }
 
+  /* =====================================================
+   * Contained Mode — positions cart relative to parent container
+   * instead of the viewport. Used in dashboard preview panes.
+   * Parent container MUST have: position: relative; overflow: hidden;
+   * ===================================================== */
+  :host([contained]) .sr-cart-overlay {
+    position: absolute;
+  }
+
+  :host([contained]) .sr-cart-toggle-container {
+    position: absolute;
+  }
+
+  :host([contained]) .sr-cart-panel {
+    position: absolute;
+  }
+
+  :host([contained]) .sr-cart-panel-bubble {
+    @apply w-full h-full;
+    @apply md:w-[440px] md:max-w-[calc(100%-40px)] md:h-[625px] md:max-h-[calc(100%-40px)];
+  }
+
+  :host([contained]) .sr-cart-panel-drawer {
+    @apply w-full h-full;
+    @apply md:w-[400px] md:max-w-[calc(100%-40px)] md:h-full;
+  }
+
   /* Cart Header */
   .sr-cart-header {
     @apply px-4 py-4 flex items-center gap-1;
@@ -906,7 +933,7 @@ h1, h2, h3, h4 {
 
   /* Cart Checkout Button - extends sr-btn sr-btn-primary */
   .sr-cart-checkout-button {
-    @apply border-none py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99];
+    @apply border-none py-3 px-4 w-full cursor-pointer text-sm font-medium transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99] shadow-card;
     background: var(--primary);
     color: var(--primary-foreground);
     border-radius: var(--radius);
@@ -924,7 +951,7 @@ h1, h2, h3, h4 {
   }
 
   .sr-coupon-input {
-    @apply flex-1 px-3 py-2 border text-sm;
+    @apply flex-1 px-3 py-2 border text-sm shadow-card;
     background: var(--card);
     color: var(--foreground);
     border-color: var(--border);
@@ -946,7 +973,7 @@ h1, h2, h3, h4 {
   }
 
   .sr-coupon-apply {
-    @apply px-3 py-2 border-none text-sm font-medium cursor-pointer whitespace-nowrap;
+    @apply px-3 py-2 border-none text-sm font-medium cursor-pointer whitespace-nowrap shadow-card;
     background: var(--primary);
     color: var(--primary-foreground);
     border-radius: var(--radius);
@@ -1108,7 +1135,8 @@ h1, h2, h3, h4 {
   }
 
   .sr-cart-quantity-button {
-    @apply w-7 h-7 rounded border-none flex items-center justify-center cursor-pointer transition-all duration-200;
+    @apply w-7 h-7 border-none flex items-center justify-center cursor-pointer transition-all duration-200 shadow-card;
+    border-radius: var(--radius);
     background: var(--primary);
     color: var(--primary-foreground);
     user-select: none;
@@ -1303,10 +1331,11 @@ h1, h2, h3, h4 {
   }
 
   .sr-review-notes-input {
-    @apply w-full text-xs rounded border px-3 py-2 resize-none mt-1.5;
-    background: var(--input);
+    @apply w-full text-xs border px-3 py-2 resize-none mt-1.5 shadow-card;
+    background: var(--card);
     color: var(--card-foreground);
     border-color: var(--border);
+    border-radius: var(--radius);
   }
 
   .sr-review-notes-input:focus {
@@ -3042,7 +3071,7 @@ button .sr-spinner,
   @apply fixed inset-0 z-50;
   @apply flex items-center justify-center;
   @apply p-4;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
 }
 
@@ -3648,9 +3677,10 @@ button .sr-spinner,
 }
 
 .sr-payment-method-card {
-  @apply w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-all duration-150;
+  @apply w-full text-left border-2 p-3 cursor-pointer transition-all duration-150 shadow-card;
   background: var(--card);
   border-color: var(--border);
+  border-radius: var(--radius);
   color: var(--foreground);
 }
 
@@ -3711,9 +3741,10 @@ button .sr-spinner,
 
 /* Review: flat detail rows */
 .sr-review-details {
-  @apply rounded border overflow-hidden;
+  @apply border overflow-hidden shadow-card;
   background: var(--card);
   border-color: var(--border, #e5e7eb);
+  border-radius: var(--radius);
 }
 
 .sr-review-row {
@@ -3761,9 +3792,10 @@ button .sr-spinner,
 
 /* Review Cards */
 .sr-review-card {
-  @apply rounded border;
+  @apply border shadow-card;
   background: var(--card);
   border-color: var(--border, #e5e7eb);
+  border-radius: var(--radius);
 }
 
 .sr-review-card-header {
@@ -4843,7 +4875,7 @@ shoprocket-product-modal.closing .sr-modal-content {
 /* Account Overlay (drawer mode) */
 .sr-account-overlay {
   @apply fixed inset-0 z-[9998] transition-opacity;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
 }
 
 .sr-account-overlay.open {

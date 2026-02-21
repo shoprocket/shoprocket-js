@@ -93,6 +93,9 @@ export class CartWidget extends ShoprocketElement {
   @property({ type: Boolean })
   floating = false;
 
+  @property({ type: Boolean, reflect: true })
+  contained = false;
+
   /**
    * Get the effective widget style - forces 'drawer' for middle positions
    */
@@ -1053,6 +1056,9 @@ export class CartWidget extends ShoprocketElement {
     // Step 3: Load fresh cart data from API
     const cart = await this.loadCart();
 
+    // Restore checkout preferences (notes, terms, marketing) from the order data
+    this.restoreCheckoutPreferencesFromOrder(cart);
+
     // Step 3: Handle payment cancelled separately from payment failure
     if (isPaymentCancelled) {
       // USER CANCELLED: They clicked "Cancel and Return to Merchant" on gateway page
@@ -1063,9 +1069,6 @@ export class CartWidget extends ShoprocketElement {
       this.isCheckingOut = true;
       this.checkoutStep = 'review';
       this.orderDetails = cart;
-
-      // Restore checkout preferences (resetToInitialState wiped them)
-      this.marketingOptIn = this.checkoutSettings?.precheckMarketingOptIn ?? false;
 
       // Load checkout module, checkout data, and payment methods so review step renders fully
       // Gateway matching is handled centrally by loadPaymentMethods()
@@ -1167,6 +1170,15 @@ export class CartWidget extends ShoprocketElement {
   private storeOrderId(orderId: string): void {
     // Store in session storage as backup
     sessionStorage.setItem('shoprocket_order_id', orderId);
+  }
+
+  /** Restore checkout preferences from the order data returned by the API */
+  private restoreCheckoutPreferencesFromOrder(cart: any): void {
+    if (cart?.order) {
+      if (cart.order.customerNotes) this.orderNotes = cart.order.customerNotes;
+      if (cart.order.termsAccepted) this.termsAccepted = true;
+      if (cart.order.marketingOptIn !== undefined) this.marketingOptIn = cart.order.marketingOptIn;
+    }
   }
   
   private startPaymentPolling(): void {
