@@ -39,8 +39,15 @@ export type FeatureKey =
   | 'analytics'       // Analytics tracking
 
   // Catalog Features
-  | 'filters'         // Filter toolbar (search, sort, category)
-                      // Note: Pagination always shows automatically when needed (totalPages > 1)
+  | 'filters'         // Filter toolbar master toggle
+  | 'filters:search'  // Search input
+  | 'filters:sort'    // Sort dropdown
+  | 'filters:categories' // Category filter dropdown
+  | 'filters:price'   // Price range slider
+  | 'filters:stock'   // In-stock-only checkbox
+  | 'filters:per-page' // Per page selector
+  | 'filters:count'   // Product count display
+  | 'filters:pagination' // Pagination controls
   | 'product-detail'; // Enable product detail view (makes products clickable)
                       // Use detail:* prefix for features specific to detail view (e.g., detail:gallery)
 
@@ -92,6 +99,8 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
   'catalog': [
     // Catalog-level features
     'filters',
+    'filters:search', 'filters:sort', 'filters:categories', 'filters:price',
+    'filters:stock', 'filters:per-page', 'filters:count', 'filters:pagination',
     'product-detail',  // Enable clickable products and detail view
     // Product card features (controls what shows on each product in the grid)
     'media', 'title', 'price', 'add-to-cart',

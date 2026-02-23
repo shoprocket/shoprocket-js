@@ -257,7 +257,17 @@ export class WidgetManager {
       
       // Set cart token for all API requests
       this.sdk.setCartToken(CookieManager.getCartToken());
-      
+
+      // Set attribution headers for UTM + affiliate tracking
+      const attribution = CookieManager.getAttribution();
+      this.sdk.setAttribution({
+        utm_source: attribution.utm_source,
+        utm_medium: attribution.utm_medium,
+        utm_campaign: attribution.utm_campaign,
+        referrer: attribution.referrer,
+        affiliate_ref: attribution.affiliate_ref,
+      });
+
       // Initialize cart state manager with SDK
       cartState.init(this.sdk);
 
@@ -449,7 +459,7 @@ export class WidgetManager {
     }
 
     // Find all mounted widget components
-    const widgets = document.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-product-view, shoprocket-buy-button');
+    const widgets = document.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-product-view, shoprocket-buy-button, shoprocket-categories, shoprocket-product, shoprocket-account');
 
     // Replace each widget with its original data-shoprocket mount point
     widgets.forEach(widget => {

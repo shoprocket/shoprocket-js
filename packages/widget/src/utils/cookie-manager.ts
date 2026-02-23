@@ -15,6 +15,8 @@ export interface CartCookie {
   utm_term?: string;
   referrer?: string;
   landing_page?: string;
+  // Affiliate tracking (captured once via ?ref= param or data-ref attribute)
+  affiliate_ref?: string;
   // Device info (captured once)
   device_type?: 'desktop' | 'mobile' | 'tablet';
   browser?: string;
@@ -131,6 +133,7 @@ export class CookieManager {
       utm_term: data.utm_term,
       referrer: data.referrer,
       landing_page: data.landing_page,
+      affiliate_ref: data.affiliate_ref,
       device_type: data.device_type,
       browser: data.browser
     };
@@ -174,7 +177,7 @@ export class CookieManager {
    */
   private static captureAttribution(data: CartCookie): void {
     const params = new URLSearchParams(window.location.search);
-    
+
     // Only capture if not already set (first visit)
     if (!data.utm_source) {
       data.utm_source = params.get('utm_source') || undefined;
@@ -183,13 +186,31 @@ export class CookieManager {
       data.utm_content = params.get('utm_content') || undefined;
       data.utm_term = params.get('utm_term') || undefined;
     }
-    
+
     if (!data.referrer) {
       data.referrer = document.referrer || undefined;
     }
-    
+
     if (!data.landing_page) {
       data.landing_page = window.location.href;
+    }
+
+    // Capture affiliate referral code (first-touch, never overwrite)
+    if (!data.affiliate_ref) {
+      // Check URL param: ?ref=CODE
+      const refParam = params.get('ref');
+      if (refParam) {
+        data.affiliate_ref = refParam;
+      } else {
+        // Check data-ref attribute on the loader script tag
+        const scriptTag = document.querySelector('script[data-pk][data-ref]');
+        if (scriptTag) {
+          const dataRef = scriptTag.getAttribute('data-ref');
+          if (dataRef) {
+            data.affiliate_ref = dataRef;
+          }
+        }
+      }
     }
   }
   

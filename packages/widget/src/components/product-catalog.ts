@@ -702,9 +702,9 @@ export class ProductCatalog extends ShoprocketElement {
       }
     }
     
-    // Load categories for filter (if filters feature enabled)
+    // Load categories for filter (if filters feature enabled and categories sub-feature active)
     // Skip if using light DOM - parent widget manages categories
-    if (this.hasFeature('filters') && !this.useLightDom) {
+    if (this.hasFeature('filters') && this.getFilterFeatures().has('categories') && !this.useLightDom) {
       await this.loadCategories();
     }
 
@@ -799,14 +799,18 @@ export class ProductCatalog extends ShoprocketElement {
     }
 
     const pageProducts = this.getPageProducts();
+    const filterFeatures = this.getFilterFeatures();
+    const showFilters = this.hasFeature('filters') && filterFeatures.size > 0;
     // Only use sidebar layout if filters are enabled AND position is left AND not carousel
-    const layoutMode = this.hasFeature('filters') && this.filterPosition === 'left' && this.displayMode === 'grid' ? 'sidebar' : 'horizontal';
+    const layoutMode = showFilters && this.filterPosition === 'left' && this.displayMode === 'grid' ? 'sidebar' : 'horizontal';
+    // Pagination is gated by both the master 'filters' toggle and the 'pagination' sub-feature
+    const showPagination = showFilters && filterFeatures.has('pagination');
 
     return html`
       <div class="sr-catalog-list-view ${this.currentView === 'list' ? 'visible' : 'hidden'}"
            data-layout="${layoutMode}"
            data-display-mode="${this.displayMode}">
-        ${this.displayMode === 'grid' && this.hasFeature('filters') ? html`
+        ${this.displayMode === 'grid' && showFilters ? html`
           <shoprocket-catalog-filters
             .search="${this.searchQuery}"
             .sort="${this.sortBy}"
@@ -823,6 +827,7 @@ export class ProductCatalog extends ShoprocketElement {
             .perPage="${this.perPage}"
             .perPageOptions="${this.getPerPageOptions()}"
             .currency="${this.storeCurrency}"
+            .enabledFilters="${filterFeatures}"
             @filter-change="${this.handleFilterChange}"
           ></shoprocket-catalog-filters>
         ` : ''}
@@ -850,7 +855,7 @@ export class ProductCatalog extends ShoprocketElement {
               }
             )
           }
-          ${this.currentView === 'list' && this.displayMode === 'grid' && this.totalPages > 1 ? this.renderPagination() : ''}
+          ${this.currentView === 'list' && this.displayMode === 'grid' && this.totalPages > 1 && showPagination ? this.renderPagination() : ''}
         </div>
       </div>
       ${this.currentView === 'product' && this.detailMode === 'inline' ? html`
@@ -1083,6 +1088,26 @@ export class ProductCatalog extends ShoprocketElement {
     return allFeatures
       .filter(f => f.startsWith('detail:'))
       .map(f => f.replace('detail:', ''));
+  }
+
+  /**
+   * Extract filters:* sub-features and return as a Set of filter names.
+   * Falls back to all sub-features if no filters:* keys are specified
+   * (backward compat: 'filters' alone means show all filter elements).
+   */
+  private getFilterFeatures(): Set<string> {
+    const allFeatures = this.getFeatures();
+    const filterFeatures = allFeatures
+      .filter(f => f.startsWith('filters:'))
+      .map(f => f.replace('filters:', ''));
+
+    // Fallback: if 'filters' is enabled but no filters:* sub-features exist,
+    // default to all sub-features enabled (backward compat)
+    if (filterFeatures.length === 0 && this.hasFeature('filters')) {
+      return new Set(['search', 'sort', 'categories', 'price', 'stock', 'per-page', 'count', 'pagination']);
+    }
+
+    return new Set(filterFeatures);
   }
 
   private getCurrentProduct(): Product | undefined {
