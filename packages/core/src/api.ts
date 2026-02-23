@@ -2,6 +2,14 @@ import type { ApiResponse } from './types';
 
 export type { ApiResponse } from './types';
 
+export interface Attribution {
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  referrer?: string;
+  affiliate_ref?: string;
+}
+
 export interface ApiConfig {
   apiUrl: string;
   publishableKey: string;
@@ -12,6 +20,7 @@ export interface ApiConfig {
 export class ApiClient {
   private config: ApiConfig;
   private authToken?: string;
+  private attribution?: Attribution;
 
   constructor(config: ApiConfig) {
     this.config = {
@@ -32,6 +41,10 @@ export class ApiClient {
     return this.config.locale || 'en';
   }
 
+  setAttribution(attribution: Attribution) {
+    this.attribution = attribution;
+  }
+
   private getHeaders(): HeadersInit {
     const headers: HeadersInit = {
       'Accept': 'application/json',
@@ -48,6 +61,15 @@ export class ApiClient {
 
     if (this.config.locale) {
       headers['Accept-Language'] = this.config.locale;
+    }
+
+    // Attribution headers (read by Laravel on first cart interaction)
+    if (this.attribution) {
+      if (this.attribution.utm_source) headers['X-UTM-Source'] = this.attribution.utm_source;
+      if (this.attribution.utm_medium) headers['X-UTM-Medium'] = this.attribution.utm_medium;
+      if (this.attribution.utm_campaign) headers['X-UTM-Campaign'] = this.attribution.utm_campaign;
+      if (this.attribution.referrer) headers['X-Referrer'] = this.attribution.referrer;
+      if (this.attribution.affiliate_ref) headers['X-Affiliate-Ref'] = this.attribution.affiliate_ref;
     }
 
     return headers;
@@ -105,22 +127,30 @@ export class ApiClient {
   async get<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
     // For GET requests, use simple headers to avoid preflight
     const url = this.getUrl(endpoint);
-    
+
     try {
       const headers: HeadersInit = {
         'Accept': 'application/json'
       };
-      
+
       if (this.config.cartToken) {
         headers['X-Cart-Token'] = this.config.cartToken;
       }
-      
+
       if (this.authToken) {
         headers['Authorization'] = `Bearer ${this.authToken}`;
       }
-      
+
       if (this.config.locale) {
         headers['Accept-Language'] = this.config.locale;
+      }
+
+      if (this.attribution) {
+        if (this.attribution.utm_source) headers['X-UTM-Source'] = this.attribution.utm_source;
+        if (this.attribution.utm_medium) headers['X-UTM-Medium'] = this.attribution.utm_medium;
+        if (this.attribution.utm_campaign) headers['X-UTM-Campaign'] = this.attribution.utm_campaign;
+        if (this.attribution.referrer) headers['X-Referrer'] = this.attribution.referrer;
+        if (this.attribution.affiliate_ref) headers['X-Affiliate-Ref'] = this.attribution.affiliate_ref;
       }
       
       const response = await fetch(url, {

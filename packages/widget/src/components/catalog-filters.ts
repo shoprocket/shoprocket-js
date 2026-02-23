@@ -62,6 +62,9 @@ export class CatalogFilters extends ShoprocketElement {
   @property({ type: Boolean, attribute: 'price-data-loaded' })
   priceDataLoaded = false;
 
+  @property({ attribute: false })
+  enabledFilters: Set<string> = new Set(['search', 'sort', 'categories', 'price', 'stock', 'per-page', 'count', 'pagination']);
+
   @state()
   private localMinPrice?: number;
 
@@ -70,6 +73,10 @@ export class CatalogFilters extends ShoprocketElement {
 
   private priceDebounceTimer?: number;
   private isInternalPriceUpdate = false;
+
+  private hasFilter(name: string): boolean {
+    return this.enabledFilters.has(name);
+  }
 
   override willUpdate(changedProperties: Map<string, any>): void {
     // Reset local price state when minPrice or maxPrice props change from external source
@@ -255,6 +262,7 @@ export class CatalogFilters extends ShoprocketElement {
     return html`
       <div class="sr-catalog-filters ${isHorizontal ? 'sr-filters-horizontal' : 'sr-filters-sidebar'}">
         <!-- Search -->
+        ${this.hasFilter('search') ? html`
         <div class="sr-filter-group sr-filter-search">
           <div class="sr-field-group-with-icon">
             <input
@@ -283,8 +291,10 @@ export class CatalogFilters extends ShoprocketElement {
             ` : ''}
           </div>
         </div>
+        ` : ''}
 
         <!-- Sort -->
+        ${this.hasFilter('sort') ? html`
         <div class="sr-filter-group sr-filter-sort">
           <div class="sr-field-group">
             <select
@@ -304,9 +314,10 @@ export class CatalogFilters extends ShoprocketElement {
             <label class="sr-field-label" for="sort">Sort</label>
           </div>
         </div>
+        ` : ''}
 
         <!-- Category Filter (only show if we have multiple categories) -->
-        ${this.categories && this.categories.length > 1 ? html`
+        ${this.hasFilter('categories') && this.categories && this.categories.length > 1 ? html`
           <div class="sr-filter-group sr-filter-category">
             <div class="sr-field-group">
               <select
@@ -328,6 +339,7 @@ export class CatalogFilters extends ShoprocketElement {
         ` : ''}
 
         <!-- Per Page Selector -->
+        ${this.hasFilter('per-page') ? html`
         <div class="sr-filter-group sr-filter-per-page">
           <div class="sr-field-group">
             <select
@@ -345,13 +357,17 @@ export class CatalogFilters extends ShoprocketElement {
             <label class="sr-field-label" for="per-page">Per Page</label>
           </div>
         </div>
+        ` : ''}
 
         <!-- Price Range Slider -->
+        ${this.hasFilter('price') ? html`
         <div class="sr-filter-group sr-filter-price-range">
           ${this.renderPriceRangeSlider()}
         </div>
+        ` : ''}
 
         <!-- In Stock Only Checkbox -->
+        ${this.hasFilter('stock') ? html`
         <div class="sr-filter-group sr-filter-stock">
           <label class="sr-checkbox-label">
             <input
@@ -363,9 +379,10 @@ export class CatalogFilters extends ShoprocketElement {
             <span class="sr-checkbox-text">In stock</span>
           </label>
         </div>
+        ` : ''}
 
         <!-- Product Count -->
-        ${this.totalProducts > 0 ? html`
+        ${this.hasFilter('count') && this.totalProducts > 0 ? html`
           <div class="sr-filter-group sr-filter-product-count">
             <div class="sr-product-count">
               ${formatNumber(this.totalProducts)} ${this.totalProducts === 1 ? 'product' : 'products'}

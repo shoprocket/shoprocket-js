@@ -3,7 +3,7 @@
  * Lightweight API client for Shoprocket eCommerce platform
  */
 
-import { ApiClient } from './api';
+import { ApiClient, type Attribution } from './api';
 import { SessionService } from './services/session';
 import { ProductsService } from './services/products';
 import { CartService } from './services/cart';
@@ -116,6 +116,13 @@ export class ShoprocketCore {
    */
   getPublishableKey(): string {
     return this.api.getPublishableKey();
+  }
+
+  /**
+   * Set attribution data for UTM + affiliate tracking
+   */
+  setAttribution(attribution: Attribution): void {
+    this.api.setAttribution(attribution);
   }
 
   /**
