@@ -5,10 +5,16 @@ import type { Store } from '../types';
 export type { Store } from '../types';
 
 export class StoreService {
+  private cached?: Promise<Store>;
+
   constructor(private api: ApiClient) {}
 
   async get(): Promise<Store> {
-    const response = await this.api.get<any>('/');
-    return response.data || (response as any).store || response;
+    if (!this.cached) {
+      this.cached = this.api.get<any>('/')
+        .then(r => r.data || (r as any).store || r)
+        .catch(e => { this.cached = undefined; throw e; });
+    }
+    return this.cached;
   }
 }

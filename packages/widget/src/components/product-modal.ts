@@ -29,8 +29,115 @@ export class ProductModal extends ShoprocketElement {
     return this;
   }
 
+  /** Inject modal CSS into document head (idempotent) */
+  static injectCSS(): void {
+    const styleId = 'shoprocket-modal-css';
+    if (document.getElementById(styleId)) return;
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      shoprocket-product-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .sr-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--overlay, rgba(0, 0, 0, 0.5));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        overflow-y: auto;
+        padding: 1rem;
+        animation: sr-modal-fadeIn 0.2s ease-out;
+      }
+      .sr-modal-content {
+        position: relative;
+        background: var(--card, white);
+        border-radius: var(--radius, 8px);
+        max-width: min(90vw, 1200px);
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: sr-modal-slideUp 0.3s ease-out;
+        z-index: 1;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      }
+      .sr-modal-close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: var(--sr-modal-close-background, rgba(0, 0, 0, 0.1));
+        color: var(--sr-modal-close-color, var(--card-foreground, #333));
+        border-radius: var(--radius, 8px);
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+        transition: background 0.2s;
+      }
+      .sr-modal-close:hover {
+        background: var(--sr-modal-close-hover-background, rgba(0, 0, 0, 0.2));
+      }
+      shoprocket-product-modal.closing .sr-modal-overlay {
+        animation: sr-modal-fadeOut 0.2s ease-in;
+      }
+      shoprocket-product-modal.closing .sr-modal-content {
+        animation: sr-modal-slideDown 0.2s ease-in;
+      }
+      @keyframes sr-modal-fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes sr-modal-fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+      @keyframes sr-modal-slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes sr-modal-slideDown {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(20px); }
+      }
+      @media (max-width: 768px) {
+        .sr-modal-overlay { padding: 0; }
+        .sr-modal-content {
+          width: 100dvw;
+          height: 100dvh;
+          max-width: 100dvw;
+          max-height: 100dvh;
+          border-radius: 0;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
+
+    // Ensure modal CSS is injected
+    ProductModal.injectCSS();
 
     // Prevent body scroll when modal is open
     document.body.style.overflow = 'hidden';
@@ -115,9 +222,8 @@ export class ProductModal extends ShoprocketElement {
 
           <shoprocket-product-view
             .sdk=${this.sdk}
-            .product=${this.product}
-            data-product-id=${this.productId || ''}
-            data-product-slug=${this.productSlug || ''}
+            .productData=${this.product || undefined}
+            data-product=${this.productSlug || this.productId || ''}
           ></shoprocket-product-view>
         </div>
       </div>

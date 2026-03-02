@@ -5,6 +5,8 @@ import type { Product, ProductListParams } from '../types';
 export type { Product, ProductListParams } from '../types';
 
 export class ProductsService {
+  private inflight = new Map<string, Promise<Product>>();
+
   constructor(private api: ApiClient) {}
 
   async list(params?: ProductListParams): Promise<{
@@ -17,18 +19,14 @@ export class ProductsService {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
           if (key === 'category') {
-            // Handle filter[category] format - comma-separated values
             const categoryValue = Array.isArray(value) ? value.join(',') : value.toString();
             queryParams.append('filter[category]', categoryValue);
           } else if (key === 'products') {
-            // Handle filter[ids] format - comma-separated product slugs or IDs
             const productsValue = Array.isArray(value) ? value.join(',') : value.toString();
             queryParams.append('filter[ids]', productsValue);
           } else if (key === 'search') {
-            // Search uses filter[search] format
             queryParams.append('filter[search]', value.toString());
           } else if (key === 'sort') {
-            // Convert sort format: "name_asc" -> "name", "name_desc" -> "-name"
             const sortValue = value.toString();
             if (sortValue.endsWith('_desc')) {
               queryParams.append('sort', '-' + sortValue.replace('_desc', ''));
@@ -38,22 +36,16 @@ export class ProductsService {
               queryParams.append('sort', sortValue);
             }
           } else if (key === 'minPrice') {
-            // Price min uses filter[priceMin] format (convert to cents)
             queryParams.append('filter[priceMin]', (Number(value) * 100).toString());
           } else if (key === 'maxPrice') {
-            // Price max uses filter[priceMax] format (convert to cents)
             queryParams.append('filter[priceMax]', (Number(value) * 100).toString());
           } else if (key === 'inStock') {
-            // In stock uses filter[inStock] format
             queryParams.append('filter[inStock]', value ? 'true' : 'false');
           } else if (key === 'include') {
-            // Include related resources (e.g., 'categories', 'categories,variants')
             queryParams.append('include', value.toString());
           } else if (key === 'perPage') {
-            // Per page param
             queryParams.append('perPage', value.toString());
           } else {
-            // Standard params (page)
             queryParams.append(key, value.toString());
           }
         }
@@ -71,14 +63,28 @@ export class ProductsService {
 
   async get(productId: string, includes?: string[], options?: RequestInit): Promise<Product> {
     const queryParams = new URLSearchParams();
-    
+
     if (includes && includes.length > 0) {
       queryParams.append('include', includes.join(','));
     }
 
     const endpoint = `/products/${productId}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await this.api.get<any>(endpoint, options);
-    
-    return response.data || response;
+
+    // Deduplicate concurrent requests for the same endpoint
+    const existing = this.inflight.get(endpoint);
+    if (existing) return existing;
+
+    const promise = this.api.get<any>(endpoint, options)
+      .then(response => {
+        this.inflight.delete(endpoint);
+        return response.data || response;
+      })
+      .catch(err => {
+        this.inflight.delete(endpoint);
+        throw err;
+      });
+
+    this.inflight.set(endpoint, promise);
+    return promise;
   }
 }

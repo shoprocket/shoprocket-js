@@ -7,6 +7,7 @@ import { internalState } from './internal-state';
 import { cartState } from './cart-state';
 import { SPATracker } from '../utils/spa-tracker';
 import { DEFAULT_FEATURES, type FeatureKey } from '../types/features';
+import { HashRouter } from './hash-router';
 
 export interface WidgetConfig {
   publicKey?: string;
@@ -29,6 +30,8 @@ export class WidgetManager {
   private sdk: ShoprocketCore | null = null;
   private initialized = false;
   private mountedWidgets = new Map<Element, LitElement>();
+  private deepLinkModal: HTMLElement | null = null;
+  private themePromises = new Map<string, Promise<void>>();
 
   // Public API namespaces
   public cart = {
@@ -121,6 +124,15 @@ export class WidgetManager {
       window.dispatchEvent(new CustomEvent('shoprocket:product:close', {
         bubbles: true
       }));
+    },
+
+    /**
+     * Opens a product in a modal overlay (works even without a catalog on page)
+     * @param slugOrId - Product slug or ID
+     * @example Shoprocket.product.openModal('my-product')
+     */
+    openModal: (slugOrId: string) => {
+      this.openProductDeepLink(slugOrId);
     }
   };
 
@@ -334,6 +346,9 @@ export class WidgetManager {
 
       // Listen for order completion to regenerate cart token
       this.setupOrderCompletionListener();
+
+      // Check for product deep links in URL hash
+      await this.handleDeepLink();
     } catch (error) {
       // Initialization failed - reset the flag so it can be retried
       this.initialized = false;
@@ -739,34 +754,144 @@ export class WidgetManager {
    * @param cssUrl - URL to fetch the CSS from
    * @param themeName - Theme name/identifier for style tag ID
    */
-  private async injectThemeCSS(cssUrl: string, themeName: string): Promise<void> {
-    try {
-      // Create a unique ID for this theme style tag
-      const styleId = `shoprocket-theme-${themeName}`;
+  private injectThemeCSS(cssUrl: string, themeName: string): Promise<void> {
+    const styleId = `shoprocket-theme-${themeName}`;
 
-      // Skip if theme already injected (allows multiple embeds to share same theme)
-      const existingStyle = document.getElementById(styleId);
-      if (existingStyle) {
-        return;
+    // Skip if already in DOM
+    if (document.getElementById(styleId)) return Promise.resolve();
+
+    // Deduplicate concurrent requests for the same theme
+    const existing = this.themePromises.get(themeName);
+    if (existing) return existing;
+
+    const promise = (async () => {
+      try {
+        const response = await fetch(cssUrl);
+        if (!response.ok) {
+          console.warn(`Shoprocket: Failed to fetch theme CSS from ${cssUrl}:`, response.statusText);
+          return;
+        }
+
+        const css = await response.text();
+
+        // Double-check in case another path injected it while we were fetching
+        if (!document.getElementById(styleId)) {
+          const style = document.createElement('style');
+          style.id = styleId;
+          style.textContent = css;
+          document.head.appendChild(style);
+        }
+      } catch (error) {
+        console.error(`Shoprocket: Error loading theme CSS for theme "${themeName}":`, error);
       }
+    })();
 
-      // Fetch the CSS
-      const response = await fetch(cssUrl);
-      if (!response.ok) {
-        console.warn(`Shoprocket: Failed to fetch theme CSS from ${cssUrl}:`, response.statusText);
-        return;
+    this.themePromises.set(themeName, promise);
+    return promise;
+  }
+
+
+  /**
+   * Check if another component handles hash-based product routing.
+   * Returns true if a catalog exists or a buy button for this product is on the page.
+   */
+  private hasProductHashHandler(slug?: string): boolean {
+    if (document.querySelector('shoprocket-catalog[data-is-primary]')) return true;
+    if (slug) {
+      // Check both the data-product attribute and the resolved product slug
+      const buyButtons = document.querySelectorAll('shoprocket-buy-button');
+      for (const btn of buyButtons) {
+        const b = btn as any;
+        if (b.product === slug || b.productData?.slug === slug || b.productData?.id === slug) return true;
       }
-
-      const css = await response.text();
-
-      // Create and inject style tag
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = css;
-      document.head.appendChild(style);
-    } catch (error) {
-      console.error(`Shoprocket: Error loading theme CSS for theme "${themeName}":`, error);
     }
+    return false;
+  }
+
+  /**
+   * Handle deep links - opens product modal when URL hash contains a product slug
+   * and no other component is handling hash-based routing
+   */
+  private async handleDeepLink(): Promise<void> {
+    const hashRouter = HashRouter.getInstance();
+    const state = hashRouter.getCurrentState();
+
+    // If URL already has a product slug and nothing else handles it, open modal
+    if (state.view === 'product' && state.productSlug && !this.hasProductHashHandler(state.productSlug)) {
+      await this.openProductDeepLink(state.productSlug);
+    }
+
+    // Listen for future hash changes (e.g., JS-driven links on the page)
+    hashRouter.addEventListener('state-change', ((e: CustomEvent) => {
+      const newState = e.detail;
+
+      if (newState.view === 'product' && newState.productSlug && !newState.cartOpen && !this.hasProductHashHandler(newState.productSlug)) {
+        this.openProductDeepLink(newState.productSlug);
+      } else if (this.deepLinkModal && (newState.view !== 'product' || newState.cartOpen)) {
+        this.closeDeepLinkModal();
+      }
+    }) as EventListener);
+  }
+
+  /**
+   * Open a product deep link modal
+   */
+  private async openProductDeepLink(slug: string): Promise<void> {
+    // Close existing deep link modal if open
+    if (this.deepLinkModal) {
+      this.closeDeepLinkModal();
+    }
+
+    // Lazy-load and register ProductModal
+    if (!customElements.get('shoprocket-product-modal')) {
+      const { ProductModal } = await import('../components/product-modal');
+      customElements.define('shoprocket-product-modal', ProductModal);
+    }
+
+    // Inject default theme CSS if not already loaded
+    if (this.sdk) {
+      const themeUrl = this.sdk.themes.getThemeCssUrl('default');
+      await this.injectThemeCSS(themeUrl, 'default');
+    }
+
+    // ProductModal self-injects CSS in connectedCallback
+
+    // Create modal element
+    const modal = document.createElement('shoprocket-product-modal');
+    (modal as any).sdk = this.sdk;
+    (modal as any).productSlug = slug;
+
+    // Apply theme from existing embeds or defaults
+    const themedEmbed = document.querySelector('.shoprocket[data-theme]');
+    const theme = themedEmbed?.getAttribute('data-theme') || 'default';
+    const colorScheme = themedEmbed?.getAttribute('data-color-scheme') || 'light';
+
+    modal.className = 'shoprocket';
+    modal.setAttribute('data-theme', theme);
+    modal.setAttribute('data-color-scheme', colorScheme);
+
+    // Listen for modal close → clear hash
+    modal.addEventListener('modal:closed', () => {
+      this.deepLinkModal = null;
+      HashRouter.getInstance().navigateToList(false);
+    });
+
+    document.body.appendChild(modal);
+    this.deepLinkModal = modal;
+  }
+
+  /**
+   * Close the deep link product modal
+   */
+  private closeDeepLinkModal(): void {
+    if (!this.deepLinkModal) return;
+
+    if ('close' in this.deepLinkModal && typeof (this.deepLinkModal as any).close === 'function') {
+      (this.deepLinkModal as any).close();
+    } else {
+      this.deepLinkModal.remove();
+    }
+    this.deepLinkModal = null;
   }
 
   /**

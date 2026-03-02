@@ -1,6 +1,8 @@
 import { ApiClient } from '../api';
 
 export class ThemesService {
+  private cache = new Map<string, Promise<string>>();
+
   constructor(private api: ApiClient) {}
 
   /**
@@ -18,10 +20,17 @@ export class ThemesService {
    * @returns Theme CSS as string
    */
   async getThemeCss(themeName: string): Promise<string> {
-    const response = await fetch(this.getThemeCssUrl(themeName));
-    if (!response.ok) {
-      throw new Error(`Failed to fetch theme CSS: ${response.statusText}`);
-    }
-    return response.text();
+    const existing = this.cache.get(themeName);
+    if (existing) return existing;
+
+    const promise = fetch(this.getThemeCssUrl(themeName))
+      .then(r => {
+        if (!r.ok) throw new Error(`Failed to fetch theme CSS: ${r.statusText}`);
+        return r.text();
+      })
+      .catch(e => { this.cache.delete(themeName); throw e; });
+
+    this.cache.set(themeName, promise);
+    return promise;
   }
 }

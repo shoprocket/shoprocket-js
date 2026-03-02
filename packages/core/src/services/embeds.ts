@@ -5,6 +5,8 @@ import type { EmbedConfig } from '../types';
 export type { EmbedConfig } from '../types';
 
 export class EmbedsService {
+  private inflight = new Map<string, Promise<EmbedConfig>>();
+
   constructor(private api: ApiClient) {}
 
   /**
@@ -13,7 +15,14 @@ export class EmbedsService {
    * @returns Embed configuration including widget type, theme, and settings
    */
   async getConfig(embedId: string): Promise<EmbedConfig> {
-    const response = await this.api.get<any>(`/embeds/${embedId}/config`);
-    return response.data || response;
+    const existing = this.inflight.get(embedId);
+    if (existing) return existing;
+
+    const promise = this.api.get<any>(`/embeds/${embedId}/config`)
+      .then(r => { this.inflight.delete(embedId); return r.data || r; })
+      .catch(e => { this.inflight.delete(embedId); throw e; });
+
+    this.inflight.set(embedId, promise);
+    return promise;
   }
 }
