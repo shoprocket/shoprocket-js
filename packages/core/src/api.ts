@@ -124,37 +124,36 @@ export class ApiClient {
     }
   }
 
+  private needsCartHeaders(endpoint: string): boolean {
+    const e = endpoint.replace(/^\//, '');
+    return e.startsWith('cart') || e.startsWith('account') || e.startsWith('orders');
+  }
+
   async get<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
-    // For GET requests, use simple headers to avoid preflight
     const url = this.getUrl(endpoint);
 
     try {
+      // Only use CORS-safe headers for public read-only endpoints (no preflight).
+      // Cart/account/order endpoints need X-Cart-Token and Authorization.
       const headers: HeadersInit = {
         'Accept': 'application/json'
       };
-
-      if (this.config.cartToken) {
-        headers['X-Cart-Token'] = this.config.cartToken;
-      }
-
-      if (this.authToken) {
-        headers['Authorization'] = `Bearer ${this.authToken}`;
-      }
 
       if (this.config.locale) {
         headers['Accept-Language'] = this.config.locale;
       }
 
-      if (this.attribution) {
-        if (this.attribution.utm_source) headers['X-UTM-Source'] = this.attribution.utm_source;
-        if (this.attribution.utm_medium) headers['X-UTM-Medium'] = this.attribution.utm_medium;
-        if (this.attribution.utm_campaign) headers['X-UTM-Campaign'] = this.attribution.utm_campaign;
-        if (this.attribution.referrer) headers['X-Referrer'] = this.attribution.referrer;
-        if (this.attribution.affiliate_ref) headers['X-Affiliate-Ref'] = this.attribution.affiliate_ref;
+      if (this.needsCartHeaders(endpoint)) {
+        if (this.config.cartToken) {
+          headers['X-Cart-Token'] = this.config.cartToken;
+        }
+        if (this.authToken) {
+          headers['Authorization'] = `Bearer ${this.authToken}`;
+        }
       }
-      
+
       const response = await fetch(url, {
-        ...options, // Allow passing signal and other options
+        ...options,
         method: 'GET',
         headers: {
           ...headers,
