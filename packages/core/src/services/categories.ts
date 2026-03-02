@@ -5,6 +5,8 @@ import type { Category, CategoryListParams } from '../types';
 export type { Category, CategoryListParams } from '../types';
 
 export class CategoriesService {
+  private inflight = new Map<string, Promise<any>>();
+
   constructor(private api: ApiClient) {}
 
   async list(params?: CategoryListParams): Promise<{
@@ -44,8 +46,17 @@ export class CategoriesService {
       if (params.lang) queryParams.append('lang', params.lang);
     }
 
-    const response = await this.api.get(`/categories?${queryParams.toString()}`);
-    return response;
+    const endpoint = `/categories?${queryParams.toString()}`;
+
+    const existing = this.inflight.get(endpoint);
+    if (existing) return existing;
+
+    const promise = this.api.get(endpoint)
+      .then(response => { this.inflight.delete(endpoint); return response; })
+      .catch(err => { this.inflight.delete(endpoint); throw err; });
+
+    this.inflight.set(endpoint, promise);
+    return promise;
   }
 
   async get(
@@ -62,9 +73,16 @@ export class CategoriesService {
     }
 
     const query = queryParams.toString();
-    const url = query ? `/categories/${idOrSlug}?${query}` : `/categories/${idOrSlug}`;
+    const endpoint = query ? `/categories/${idOrSlug}?${query}` : `/categories/${idOrSlug}`;
 
-    const response = await this.api.get(url);
-    return response;
+    const existing = this.inflight.get(endpoint);
+    if (existing) return existing;
+
+    const promise = this.api.get(endpoint)
+      .then(response => { this.inflight.delete(endpoint); return response; })
+      .catch(err => { this.inflight.delete(endpoint); throw err; });
+
+    this.inflight.set(endpoint, promise);
+    return promise;
   }
 }

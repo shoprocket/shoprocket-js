@@ -194,10 +194,14 @@
 /* Embeddable widget spacing - adds breathing room between stacked embeds */
 /* Cart excluded as it's position: fixed */
 :host(shoprocket-catalog),
-:host(shoprocket-buy-button),
 :host(shoprocket-product-view) {
   display: block;
   margin-bottom: 20px;
+}
+
+:host(shoprocket-buy-button) {
+  display: inline-block;
+  max-width: 100%;
 }
 
 /* Heading font — applies to all semantic headings automatically */
@@ -1457,9 +1461,10 @@ h1, h2, h3, h4 {
   }
   
   .sr-nav-button {
-    @apply px-3 py-1 bg-transparent border rounded-md cursor-pointer text-sm font-medium transition-all shadow-card;
+    @apply px-3 py-1 bg-transparent border cursor-pointer text-sm font-medium transition-all shadow-card;
     border-color: var(--border);
     color: var(--card-foreground);
+    border-radius: var(--radius);
   }
   
   .sr-nav-button:hover:not(.disabled) {
@@ -4614,6 +4619,8 @@ button .sr-spinner,
 
 .sr-buy-button {
   width: auto;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* ==========================================
@@ -4642,7 +4649,7 @@ shoprocket-product-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 99999;
+  z-index: 9999;
   overflow-y: auto;
   padding: 1rem;
   animation: sr-modal-fadeIn 0.2s ease-out;

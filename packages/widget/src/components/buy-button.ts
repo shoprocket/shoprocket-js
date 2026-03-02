@@ -59,7 +59,8 @@ import { t } from '../utils/i18n';
  * - price: Display product price on button
  */
 export class BuyButton extends ShoprocketElement {
-  // Use Shadow DOM - this is a top-level widget component
+  // Track which buy button instance currently owns the modal (prevents duplicates from multiple buttons for same product)
+  static activeModalInstance: BuyButton | null = null;
 
   @property({ type: String, attribute: 'data-product' }) product?: string;
   @property({ type: String, attribute: 'data-variant' }) variant?: string;
@@ -71,13 +72,11 @@ export class BuyButton extends ShoprocketElement {
   @state() private adding = false;
   @state() private success = false;
   @state() private showingModal = false;
-  @state() private modalProduct?: Product;
-  @state() private keepOverlay = false;
 
   private successTimeout?: number;
   private hashRouter!: HashRouter;
   private hashChangeHandler = () => this.handleHashChange();
-  private isCartOpening = false;
+  private modalElement: HTMLElement | null = null;
 
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
@@ -141,6 +140,15 @@ export class BuyButton extends ShoprocketElement {
     // Remove hash change listener
     this.hashRouter.removeEventListener('state-change', this.hashChangeHandler);
 
+    // Close any open modal and release lock
+    if (this.modalElement) {
+      this.modalElement.remove();
+      this.modalElement = null;
+    }
+    if (BuyButton.activeModalInstance === this) {
+      BuyButton.activeModalInstance = null;
+    }
+
     // Remove cart event listeners
     window.removeEventListener(WIDGET_EVENTS.CART_LOADED, this.handleCartUpdate as EventListener);
     window.removeEventListener(WIDGET_EVENTS.CART_UPDATED, this.handleCartUpdate as EventListener);
@@ -156,26 +164,13 @@ export class BuyButton extends ShoprocketElement {
   private handleCartOpen = (): void => {
     // Close modal when cart opens to prevent overlapping
     if (this.showingModal) {
-      // Set flag to prevent hash change from closing modal immediately
-      this.isCartOpening = true;
-
       // Clear product from URL
       const state = this.hashRouter.getCurrentState();
       if (state.view === 'product') {
         this.hashRouter.navigateToList(false);
       }
 
-      // Hide modal content immediately but keep overlay briefly
-      this.showingModal = false;
-      this.modalProduct = undefined;
-      this.keepOverlay = true;
-
-      // Remove overlay after transition completes
-      setTimeout(() => {
-        this.keepOverlay = false;
-        document.body.style.overflow = '';
-        this.isCartOpening = false;
-      }, 220);
+      this.closeModalSilent();
     }
   }
 
@@ -328,53 +323,81 @@ export class BuyButton extends ShoprocketElement {
     const state = this.hashRouter.getCurrentState();
     const productSlug = this.productData.slug || this.productData.id;
 
-    // Check if URL is showing this button's product
-    const shouldShowModal = state.view === 'product' && state.productSlug === productSlug;
+    // Check if URL is showing this button's product (not when cart is open)
+    const shouldShowModal = state.view === 'product' && state.productSlug === productSlug && !state.cartOpen;
 
     if (shouldShowModal && !this.showingModal) {
+      // Don't open if another buy button's modal or any product modal is already showing
+      if (BuyButton.activeModalInstance && BuyButton.activeModalInstance !== this) return;
+      if (document.querySelector('shoprocket-product-modal')) return;
       // Open modal without updating URL (already updated)
       this.openProductModalSilent();
-    } else if (!shouldShowModal && this.showingModal && !this.isCartOpening) {
+    } else if (!shouldShowModal && this.showingModal) {
       // Close modal without navigating (already navigated away)
-      // Unless cart is opening - in that case handleCartOpen will close it with delay
       this.closeModalSilent();
     }
   }
 
-  private async openProductModal(): Promise<void> {
+  private openProductModal(): void {
     if (!this.productData) return;
+
+    // Claim lock before hash navigation fires events to other buttons
+    BuyButton.activeModalInstance = this;
 
     const productSlug = this.productData.slug || this.productData.id;
 
-    // Update URL to show this product
+    // Update URL - this fires hash change which calls handleHashChange -> openProductModalSilent
     this.hashRouter.navigateToProduct(productSlug, false);
-
-    // Open modal (hash change will trigger this, but do it immediately for better UX)
-    await this.openProductModalSilent();
   }
 
   private async openProductModalSilent(): Promise<void> {
-    if (!this.productData) return;
+    if (!this.productData || this.modalElement) return;
 
-    // Ensure product-view is registered
-    if (!customElements.get('shoprocket-product-view')) {
+    // Claim modal lock synchronously before any awaits
+    BuyButton.activeModalInstance = this;
+    this.showingModal = true;
+
+    // Lazy-load and register ProductModal
+    if (!customElements.get('shoprocket-product-modal')) {
       try {
-        const { ProductView } = await import('./product-view');
-        customElements.define('shoprocket-product-view', ProductView);
+        const { ProductModal } = await import('./product-modal');
+        customElements.define('shoprocket-product-modal', ProductModal);
       } catch (err) {
-        // Element may have been defined by another component in a race condition
         if (!(err instanceof DOMException && err.name === 'NotSupportedError')) {
           throw err;
         }
       }
     }
 
-    // Lock body scroll
-    document.body.style.overflow = 'hidden';
+    // Create modal in document body (Light DOM) - avoids shadow DOM z-index issues
+    const modal = document.createElement('shoprocket-product-modal');
+    (modal as any).sdk = this.sdk;
+    (modal as any).product = this.productData;
 
-    // Set state to show modal
-    this.showingModal = true;
-    this.modalProduct = this.productData;
+    // Apply theme from existing embeds
+    const themedEmbed = document.querySelector('.shoprocket[data-theme]');
+    const theme = themedEmbed?.getAttribute('data-theme') || 'default';
+    const colorScheme = themedEmbed?.getAttribute('data-color-scheme') || 'light';
+    modal.className = 'shoprocket';
+    modal.setAttribute('data-theme', theme);
+    modal.setAttribute('data-color-scheme', colorScheme);
+
+    // Listen for modal close
+    modal.addEventListener('modal:closed', () => {
+      this.modalElement = null;
+      this.showingModal = false;
+      if (BuyButton.activeModalInstance === this) {
+        BuyButton.activeModalInstance = null;
+      }
+      // Clear product slug from URL hash
+      const state = this.hashRouter.getCurrentState();
+      if (state.productSlug) {
+        this.hashRouter.navigateToList(false);
+      }
+    });
+
+    document.body.appendChild(modal);
+    this.modalElement = modal;
   }
 
   private closeModal(): void {
@@ -388,11 +411,19 @@ export class BuyButton extends ShoprocketElement {
   }
 
   private closeModalSilent(): void {
-    // Unlock body scroll
-    document.body.style.overflow = '';
+    if (this.modalElement) {
+      if ('close' in this.modalElement && typeof (this.modalElement as any).close === 'function') {
+        (this.modalElement as any).close();
+      } else {
+        this.modalElement.remove();
+      }
+      this.modalElement = null;
+    }
 
+    if (BuyButton.activeModalInstance === this) {
+      BuyButton.activeModalInstance = null;
+    }
     this.showingModal = false;
-    this.modalProduct = undefined;
   }
 
   private canAddToCart(): boolean {
@@ -489,28 +520,6 @@ export class BuyButton extends ShoprocketElement {
             needsOptions && !this.variant ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">${t('cart.add_to_cart', 'Add to Cart')}</span>`}
         </div>
       </button>
-
-      ${this.showingModal && this.modalProduct ? this.renderModal() : this.keepOverlay ? this.renderOverlayOnly() : ''}
-    `;
-  }
-
-  private renderOverlayOnly() {
-    return html`
-      <div class="sr-modal-overlay transitioning"></div>
-    `;
-  }
-
-  private renderModal() {
-    return html`
-      <div class="sr-modal-overlay" @click=${this.closeModal}>
-        <div class="sr-modal-content" @click=${(e: Event) => e.stopPropagation()}>
-          <button class="sr-modal-close" @click=${this.closeModal}>×</button>
-          <shoprocket-product-view
-            .sdk=${this.sdk}
-            .productData=${this.modalProduct}
-          ></shoprocket-product-view>
-        </div>
-      </div>
     `;
   }
 }
