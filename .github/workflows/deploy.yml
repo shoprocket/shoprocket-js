@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'packages/widget/**'
+      - 'packages/core/**'
       - '.github/workflows/deploy.yml'
 
 jobs:
