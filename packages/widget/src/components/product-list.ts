@@ -128,11 +128,26 @@ export class ProductListTemplates {
     ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
     
+    // Badge logic
+    const badges: TemplateResult[] = [];
+    if (!isSkeleton) {
+      if (product.price?.isOnSale && product.price.discountPercentage) {
+        badges.push(html`<span class="sr-badge sr-badge-sale">-${Math.round(product.price.discountPercentage)}%</span>`);
+      }
+      if (product.productType === 'digital') {
+        badges.push(html`<span class="sr-badge sr-badge-digital">${t('product.digital', 'Digital')}</span>`);
+      }
+      if (product.productType === 'bundle') {
+        badges.push(html`<span class="sr-badge sr-badge-bundle">${t('product.bundle', 'Bundle')}</span>`);
+      }
+    }
+
     return html`
       <article class="sr-product-card">
         ${hasMedia ? html`
           <div class="sr-product-image-container ${!isSkeleton ? 'sr-image-loading' : ''} ${isClickable ? 'sr-product-clickable' : ''}"
                @click="${!isSkeleton && isClickable ? () => handlers.handleProductClick(product) : null}">
+            ${badges.length ? html`<div class="sr-badge-container">${badges}</div>` : ''}
             ${!isSkeleton ? html`
             <!-- Always render img tag to ensure placeholder shows on error -->
             <img

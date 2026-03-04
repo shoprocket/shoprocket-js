@@ -464,6 +464,31 @@ h1, h2, h3, h4 {
     @apply cursor-pointer;
   }
 
+  /* Product Badges */
+  .sr-badge-container {
+    @apply absolute top-2 left-2 z-10 flex flex-col gap-1;
+  }
+
+  .sr-badge {
+    @apply text-xs font-semibold px-2 py-0.5 leading-tight;
+    border-radius: var(--radius);
+  }
+
+  .sr-badge-sale {
+    background: var(--destructive, #ef4444);
+    color: var(--destructive-foreground, #fff);
+  }
+
+  .sr-badge-digital {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .sr-badge-bundle {
+    background: var(--muted);
+    color: var(--muted-foreground);
+  }
+
   /* Product Image */
   .sr-product-image {
     @apply absolute inset-0 w-full h-full object-cover transition-all duration-500;
@@ -1036,6 +1061,11 @@ h1, h2, h3, h4 {
 
   .sr-coupon-error {
     @apply text-xs mt-1 mb-2;
+    color: var(--destructive, #ef4444);
+  }
+
+  .sr-minimum-order-notice {
+    @apply text-xs text-center py-2;
     color: var(--destructive, #ef4444);
   }
 

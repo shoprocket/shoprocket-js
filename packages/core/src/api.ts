@@ -83,45 +83,66 @@ export class ApiClient {
     return `${baseUrl}/${cleanEndpoint}`;
   }
 
+  /** Retry on 5xx / network errors. Returns true if the error is retryable. */
+  private static isRetryable(error: any): boolean {
+    if (error.name === 'AbortError') return false;
+    if (error.code === 'NETWORK_ERROR') return true;
+    return typeof error.status === 'number' && error.status >= 500;
+  }
+
+  private static delay(ms: number): Promise<void> {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  private static readonly MAX_RETRIES = 2;
+  private static readonly RETRY_DELAYS = [500, 1000];
+
   async request<T = any>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = this.getUrl(endpoint);
-    
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...this.getHeaders(),
-          ...options.headers,
-        },
-      });
+    let lastError: any;
 
-      const data = await response.json();
+    for (let attempt = 0; attempt <= ApiClient.MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            ...this.getHeaders(),
+            ...options.headers,
+          },
+        });
 
-      if (!response.ok) {
-        throw {
-          message: data.error?.message || data.error || 'API request failed',
-          code: data.error?.code,
-          details: data.error?.details,
-          status: response.status
-        };
+        const data = await response.json();
+
+        if (!response.ok) {
+          const err = {
+            message: data.error?.message || data.error || 'API request failed',
+            code: data.error?.code,
+            details: data.error?.details,
+            status: response.status
+          };
+          if (response.status >= 500 && attempt < ApiClient.MAX_RETRIES) {
+            lastError = err;
+            await ApiClient.delay(ApiClient.RETRY_DELAYS[attempt]);
+            continue;
+          }
+          throw err;
+        }
+
+        return data;
+      } catch (error: any) {
+        lastError = error;
+        if (!ApiClient.isRetryable(error) || attempt >= ApiClient.MAX_RETRIES) {
+          if (error.message) throw error;
+          throw { message: 'Network error', code: 'NETWORK_ERROR' };
+        }
+        await ApiClient.delay(ApiClient.RETRY_DELAYS[attempt]);
       }
-
-      return data;
-    } catch (error: any) {
-      // Re-throw structured errors
-      if (error.message) {
-        throw error;
-      }
-      
-      // Handle network errors
-      throw {
-        message: 'Network error',
-        code: 'NETWORK_ERROR'
-      };
     }
+
+    throw lastError;
   }
 
   private needsCartHeaders(endpoint: string): boolean {
@@ -132,61 +153,68 @@ export class ApiClient {
   async get<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = this.getUrl(endpoint);
 
-    try {
-      // Only use CORS-safe headers for public read-only endpoints (no preflight).
-      // Cart/account/order endpoints need X-Cart-Token and Authorization.
-      const headers: HeadersInit = {
-        'Accept': 'application/json'
-      };
+    // Only use CORS-safe headers for public read-only endpoints (no preflight).
+    // Cart/account/order endpoints need X-Cart-Token and Authorization.
+    const headers: HeadersInit = {
+      'Accept': 'application/json'
+    };
 
-      if (this.config.locale) {
-        headers['Accept-Language'] = this.config.locale;
-      }
-
-      if (this.needsCartHeaders(endpoint)) {
-        if (this.config.cartToken) {
-          headers['X-Cart-Token'] = this.config.cartToken;
-        }
-        if (this.authToken) {
-          headers['Authorization'] = `Bearer ${this.authToken}`;
-        }
-      }
-
-      const response = await fetch(url, {
-        ...options,
-        method: 'GET',
-        headers: {
-          ...headers,
-          ...(options?.headers || {})
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw {
-          message: data.error?.message || data.error || 'API request failed',
-          code: data.error?.code,
-          details: data.error?.details,
-          status: response.status
-        };
-      }
-
-      return data;
-    } catch (error: any) {
-      // Check if it's an abort error
-      if (error.name === 'AbortError') {
-        throw error; // Re-throw abort errors as-is
-      }
-      
-      if (error.message) {
-        throw error;
-      }
-      throw {
-        message: 'Network error',
-        code: 'NETWORK_ERROR'
-      };
+    if (this.config.locale) {
+      headers['Accept-Language'] = this.config.locale;
     }
+
+    if (this.needsCartHeaders(endpoint)) {
+      if (this.config.cartToken) {
+        headers['X-Cart-Token'] = this.config.cartToken;
+      }
+      if (this.authToken) {
+        headers['Authorization'] = `Bearer ${this.authToken}`;
+      }
+    }
+
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= ApiClient.MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          method: 'GET',
+          headers: {
+            ...headers,
+            ...(options?.headers || {})
+          }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          const err = {
+            message: data.error?.message || data.error || 'API request failed',
+            code: data.error?.code,
+            details: data.error?.details,
+            status: response.status
+          };
+          if (response.status >= 500 && attempt < ApiClient.MAX_RETRIES) {
+            lastError = err;
+            await ApiClient.delay(ApiClient.RETRY_DELAYS[attempt]);
+            continue;
+          }
+          throw err;
+        }
+
+        return data;
+      } catch (error: any) {
+        lastError = error;
+        if (error.name === 'AbortError') throw error;
+        if (!ApiClient.isRetryable(error) || attempt >= ApiClient.MAX_RETRIES) {
+          if (error.message) throw error;
+          throw { message: 'Network error', code: 'NETWORK_ERROR' };
+        }
+        await ApiClient.delay(ApiClient.RETRY_DELAYS[attempt]);
+      }
+    }
+
+    throw lastError;
   }
 
   async post<T = any>(endpoint: string, data?: any): Promise<T> {

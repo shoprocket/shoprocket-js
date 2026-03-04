@@ -2469,6 +2469,7 @@ export class CartWidget extends ShoprocketElement {
       couponError: this.couponError,
       couponLoading: this.couponLoading,
       showCouponField: this.checkoutSettings?.showCouponField ?? true,
+      minimumOrderValue: this.checkoutSettings?.minimumOrderValue,
       onCouponInput: (value: string) => { this.couponCode = value; this.couponError = null; },
       onApplyCoupon: () => this.applyCoupon(),
       onRemoveCoupon: () => this.removeCoupon(),
