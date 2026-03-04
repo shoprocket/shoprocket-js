@@ -23,6 +23,7 @@ export interface CartFooterContext {
   couponError: string | null;
   couponLoading: boolean;
   showCouponField: boolean;
+  minimumOrderValue?: number | null;
   onCouponInput: (value: string) => void;
   onApplyCoupon: () => Promise<void>;
   onRemoveCoupon: () => Promise<void>;
@@ -89,6 +90,9 @@ function renderCouponSection(context: CartFooterContext): TemplateResult {
 
 export function renderCartFooter(context: CartFooterContext): TemplateResult {
   const hasDiscount = context.cart?.totals?.discount && context.cart.totals.discount.amount > 0;
+  const cartTotal = context.cart?.totals?.subtotal?.amount ?? 0;
+  const minOrder = context.minimumOrderValue;
+  const belowMinimum = minOrder != null && minOrder > 0 && cartTotal < minOrder;
 
   return html`
     <div class="sr-cart-subtotal">
@@ -110,10 +114,15 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
         </span>
       </div>
     ` : ''}
+    ${belowMinimum ? html`
+      <p class="sr-minimum-order-notice">
+        ${t('cart.minimum_order', 'Minimum order amount is {{amount}}').replace('{{amount}}', context.formatPrice({ amount: minOrder, currency: context.cart?.currency || '', formatted: '' }))}
+      </p>
+    ` : ''}
     <button
       class="sr-cart-checkout-button"
       @click="${context.startCheckout}"
-      ?disabled="${!context.cart?.items?.length || context.chunkLoading}"
+      ?disabled="${!context.cart?.items?.length || context.chunkLoading || belowMinimum}"
     >
       ${context.chunkLoading ? loadingSpinner('sm') : t('checkout.proceed', 'Checkout')}
     </button>

@@ -56,26 +56,38 @@ export class CookieManager {
   }
   
   /**
-   * Get or generate cart token
+   * Get or generate cart token.
+   * Supports URL-based cart recovery: ?cart_token=cart_xxx restores an abandoned cart.
    */
   static getCartToken(): string {
     const data = this.getCookieData();
-    
+
+    // Check for cart recovery via URL param (e.g. abandoned cart email link)
+    const urlToken = this.getUrlParam('cart_token');
+    if (urlToken && urlToken !== data.cart_token) {
+      data.cart_token = urlToken;
+      data.updated_at = new Date().toISOString();
+      this.captureAttribution(data);
+      this.captureDeviceInfo(data);
+      this.saveCookie(data);
+      return data.cart_token;
+    }
+
     if (!data.cart_token) {
       // Generate new cart token
       data.cart_token = this.generateCartToken();
       data.created_at = new Date().toISOString();
       data.updated_at = new Date().toISOString();
-      
+
       // Capture attribution on first visit
       this.captureAttribution(data);
-      
+
       // Capture device info
       this.captureDeviceInfo(data);
-      
+
       this.saveCookie(data);
     }
-    
+
     return data.cart_token;
   }
   
@@ -172,6 +184,13 @@ export class CookieManager {
     return `cart_${fallbackUuid}`;
   }
   
+  /**
+   * Read a single URL search parameter
+   */
+  private static getUrlParam(name: string): string | null {
+    return new URLSearchParams(window.location.search).get(name);
+  }
+
   /**
    * Capture UTM parameters and referrer
    */

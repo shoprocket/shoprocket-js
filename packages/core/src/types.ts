@@ -13,6 +13,12 @@ export interface Money {
   formatted: string;
   inclusive?: boolean;
   note?: string;
+  // Sale fields (present on single-product response; list response TBD)
+  isOnSale?: boolean;
+  originalAmount?: number;
+  originalFormatted?: string;
+  discountPercentage?: number;
+  saleName?: string;
 }
 
 export interface Media {
@@ -291,6 +297,7 @@ export interface CheckoutSettings {
   confirmationMessage: string | null;
   redirectAfterCheckout: boolean;
   redirectUrl: string | null;
+  minimumOrderValue?: number | null; // In cents. Blocks checkout below this cart total.
 }
 
 export interface Store {
