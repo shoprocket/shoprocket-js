@@ -257,6 +257,7 @@ export class CartWidget extends ShoprocketElement {
   private checkingOrderStatus = false;
 
   private paymentPollingInterval?: ReturnType<typeof setInterval>;
+  private silentPollInterval?: ReturnType<typeof setTimeout>;
   
   @state()
   private shouldResetOnNextOpen = false;
@@ -488,6 +489,13 @@ export class CartWidget extends ShoprocketElement {
         // just show cart normally so customer can re-checkout.
         // Failure messages are only shown during active payment return flow (checkPaymentReturn).
       }
+
+      // Silent background poll: if we have a stored order ID but haven't confirmed payment yet,
+      // poll invisibly in case the user paid but the webhook hasn't arrived yet.
+      // Zero UI impact — no spinners, no cart opening. Success triggers the modal.
+      if (!this.showOrderSuccessMessage && !this.showOrderFailureMessage) {
+        this.startSilentPaymentPoll();
+      }
     }
     
     // Set initial cart state from hash
@@ -530,6 +538,10 @@ export class CartWidget extends ShoprocketElement {
     window.removeEventListener('close-cart', this.handleCloseCart as EventListener);
     window.removeEventListener('toggle-cart', this.handleToggleCart as EventListener);
     
+    // Clean up polling
+    this.stopSilentPaymentPoll();
+    this.stopPaymentPolling();
+
     // Clean up ALL tracked timeouts
     this.timeouts.forEach(timeout => clearTimeout(timeout));
     this.timeouts.clear();
@@ -1236,8 +1248,64 @@ export class CartWidget extends ShoprocketElement {
     }
   }
 
+  /**
+   * Silent background poll for payment confirmation.
+   * Runs invisibly after page load when sessionStorage has a pending order ID.
+   * No UI changes until payment is confirmed — then opens cart with success modal.
+   */
+  private startSilentPaymentPoll(): void {
+    const orderId = sessionStorage.getItem('shoprocket_order_id');
+    if (!orderId) return;
+
+    let attempts = 0;
+    let consecutiveErrors = 0;
+
+    const poll = async () => {
+      attempts++;
+      try {
+        const result = await this.sdk.cart.getOrderStatus(orderId);
+        consecutiveErrors = 0;
+        const status = result.paymentStatus || result.status;
+
+        if (status === 'paid' || status === 'processing' || status === 'completed') {
+          // Payment confirmed — open cart and show success
+          this.isOpen = true;
+          this.hashRouter.openCart();
+          await this.handlePaymentConfirmed(orderId);
+          return;
+        } else if (status === 'failed' || status === 'cancelled') {
+          // Payment definitively failed — clean up silently, let user retry on their own
+          sessionStorage.removeItem('shoprocket_order_id');
+          return;
+        }
+      } catch {
+        consecutiveErrors++;
+        if (consecutiveErrors >= 3) {
+          return;
+        }
+      }
+
+      // Poll for ~2 minutes: 5s intervals, 24 attempts = 120s
+      // Don't clear sessionStorage — next page load will check again via line 482 fallback
+      // and restart the poll if still pending. SessionStorage dies with the tab.
+      if (attempts >= 24) return;
+      this.silentPollInterval = setTimeout(poll, 5000) as any;
+    };
+
+    // Start after a short delay to not compete with initial page load
+    this.silentPollInterval = setTimeout(poll, 5000) as any;
+  }
+
+  private stopSilentPaymentPoll(): void {
+    if (this.silentPollInterval) {
+      clearTimeout(this.silentPollInterval);
+      this.silentPollInterval = undefined;
+    }
+  }
+
   private async handlePaymentConfirmed(orderId: string): Promise<void> {
     this.stopPaymentPolling();
+    this.stopSilentPaymentPoll();
     this.paymentPending = false;
 
     // Load full cart data for success screen
@@ -1359,6 +1427,9 @@ export class CartWidget extends ShoprocketElement {
 
   // Checkout Methods
   private async startCheckout(): Promise<void> {
+    // Stop any silent background poll — user is actively checking out
+    this.stopSilentPaymentPoll();
+
     // Show loading state while chunks load
     this.chunkLoading = true;
 
@@ -2889,8 +2960,8 @@ export class CartWidget extends ShoprocketElement {
     return this.cartModules.checkoutWizard.renderCheckoutFooter(this.buildCheckoutWizardContext());
   }
 
-  // Track the last requested quantity for each item
-  private lastRequestedQuantity: Map<string, number> = new Map();
+  // Monotonic sequence counter per item to detect stale API responses
+  private quantityUpdateSeq = new Map<string, number>();
   
   private async updateQuantity(itemId: string, quantity: number): Promise<void> {
     if (quantity < 1) return;
@@ -2919,9 +2990,10 @@ export class CartWidget extends ShoprocketElement {
       }
     }
     
-    // Track what quantity we're requesting
-    this.lastRequestedQuantity.set(itemId, quantity);
-    
+    // Increment sequence counter for this item
+    const seq = (this.quantityUpdateSeq.get(itemId) || 0) + 1;
+    this.quantityUpdateSeq.set(itemId, seq);
+
     // Optimistic update - immediately update quantity in UI (no totals recalc)
     item.quantity = quantity;
     this.cart.itemCount = this.cart.items?.reduce((count, i) => count + i.quantity, 0) || 0;
@@ -2944,14 +3016,16 @@ export class CartWidget extends ShoprocketElement {
     // Debounce the API call - server response updates totals authoritatively
     const timeoutId = setTimeout(() => {
       this.sdk.cart.updateItem(itemId, quantity).then(response => {
-        if (response) cartState.setCart(response);
+        // Only apply if no newer quantity change has happened for this item
+        if (response && this.quantityUpdateSeq.get(itemId) === seq) {
+          cartState.setCart(response);
+          this.quantityUpdateSeq.delete(itemId);
+        }
       }).catch(error => {
         console.error('Failed to update quantity:', error);
       });
 
-      // Clean up
       this.pendingUpdates.delete(itemId);
-      this.lastRequestedQuantity.delete(itemId);
     }, TIMEOUTS.DEBOUNCE);
 
     this.pendingUpdates.set(itemId, timeoutId);
