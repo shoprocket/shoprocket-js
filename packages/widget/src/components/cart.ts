@@ -2962,6 +2962,8 @@ export class CartWidget extends ShoprocketElement {
 
   // Monotonic sequence counter per item to detect stale API responses
   private quantityUpdateSeq = new Map<string, number>();
+  // Track the quantity before the first click in a rapid-click sequence (for analytics)
+  private quantityBeforeUpdate = new Map<string, number>();
   
   private async updateQuantity(itemId: string, quantity: number): Promise<void> {
     if (quantity < 1) return;
@@ -2969,9 +2971,11 @@ export class CartWidget extends ShoprocketElement {
     const item = this.cart?.items.find((i: any) => i.id === itemId);
     if (!item) return;
     
-    // Store original quantity for analytics
-    const originalQuantity = item.quantity;
-    
+    // Track the pre-sequence quantity (only on first click in a rapid-click sequence)
+    if (!this.quantityBeforeUpdate.has(itemId)) {
+      this.quantityBeforeUpdate.set(itemId, item.quantity);
+    }
+
     // Check if we're increasing quantity and need stock validation
     if (quantity > item.quantity) {
       // Check if item has inventory policy and stock info
@@ -2999,22 +3003,23 @@ export class CartWidget extends ShoprocketElement {
     this.cart.itemCount = this.cart.items?.reduce((count, i) => count + i.quantity, 0) || 0;
     this.requestUpdate();
 
-    // Track quantity change with dedicated event
-    this.track(EVENTS.CART_QUANTITY_UPDATED, {
-      ...item,
-      old_quantity: originalQuantity,
-      new_quantity: quantity,
-      delta: quantity - originalQuantity  // positive = increase, negative = decrease
-    });
-
     // Cancel any pending update for this item
     if (this.pendingUpdates.has(itemId)) {
       clearTimeout(this.pendingUpdates.get(itemId));
       this.pendingUpdates.delete(itemId);
     }
 
-    // Debounce the API call - server response updates totals authoritatively
+    // Debounce the API call and analytics - fires once after rapid clicks settle
     const timeoutId = setTimeout(() => {
+      const oldQuantity = this.quantityBeforeUpdate.get(itemId) || quantity;
+      this.quantityBeforeUpdate.delete(itemId);
+      this.track(EVENTS.CART_QUANTITY_UPDATED, {
+        ...item,
+        old_quantity: oldQuantity,
+        new_quantity: quantity,
+        delta: quantity - oldQuantity
+      });
+
       this.sdk.cart.updateItem(itemId, quantity).then(response => {
         // Only apply if no newer quantity change has happened for this item
         if (response && this.quantityUpdateSeq.get(itemId) === seq) {
