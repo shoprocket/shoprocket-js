@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Chat Widget</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+      color: #333;
+    }
+    h1 { margin-bottom: 0.5rem; }
+    .description { color: #666; margin-bottom: 2rem; }
+    .test-section {
+      background: white;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border: 1px solid #e5e5e5;
+    }
+    .test-section h2 { margin-top: 0; font-size: 1.1rem; color: #111; }
+    .test-section p { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+    button {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #e5e7eb; color: #374151; }
+    .btn-secondary:hover { background: #d1d5db; }
+    code {
+      background: #f1f5f9;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.85rem;
+    }
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .color-swatch {
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-align: center;
+      border: 1px solid rgba(0,0,0,0.1);
+      cursor: pointer;
+    }
+    .event-log {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 1rem;
+      border-radius: 6px;
+      height: 140px;
+      overflow-y: auto;
+      margin-top: 1rem;
+    }
+    .event-log .log-entry { padding: 2px 0; }
+    .event-log .log-entry span { color: #9cdcfe; }
+  </style>
+</head>
+<body>
+
+  <h1>Chat Widget Test</h1>
+  <p class="description">Test the <code>shoprocket-chat</code> floating live-chat widget.</p>
+
+  <!-- Test 1: Programmatic control -->
+  <div class="test-section">
+    <h2>1. Programmatic Control</h2>
+    <p>Use the <code>Shoprocket.chat</code> API or dispatch window events directly.</p>
+    <button class="btn-primary" onclick="Shoprocket.chat.open()">chat.open()</button>
+    <button class="btn-secondary" onclick="Shoprocket.chat.close()">chat.close()</button>
+    <button class="btn-secondary" onclick="Shoprocket.chat.toggle()">chat.toggle()</button>
+  </div>
+
+  <!-- Test 2: Position variants -->
+  <div class="test-section">
+    <h2>2. Position Variants</h2>
+    <p>The widget is currently rendered bottom-left (default). Swap position by clicking below — this re-mounts with a different <code>data-position</code> value.</p>
+    <button class="btn-secondary" onclick="setPosition('bottom-left')">bottom-left (default)</button>
+    <button class="btn-secondary" onclick="setPosition('bottom-right')">bottom-right</button>
+  </div>
+
+  <!-- Test 3: Layout style -->
+  <div class="test-section">
+    <h2>3. Layout Style</h2>
+    <p>Switch between <code>bubble</code> (floating popup above launcher) and <code>drawer</code> (slides in from the side of the screen).</p>
+    <button class="btn-secondary" onclick="setStyle('bubble')">bubble (default)</button>
+    <button class="btn-secondary" onclick="setStyle('drawer')">drawer</button>
+  </div>
+
+  <!-- Test 4: Custom welcome message -->
+  <div class="test-section">
+    <h2>4. Custom Welcome Message</h2>
+    <p>Re-mounts the widget with a custom <code>data-welcome</code> value.</p>
+    <button class="btn-secondary" onclick="setWelcome('Hey! 👋 Ask us anything.')">Custom greeting</button>
+    <button class="btn-secondary" onclick="setWelcome('Hi! How can we help you today? 👋')">Reset to default</button>
+  </div>
+
+  <!-- Test 5: Theme -->
+  <div class="test-section">
+    <h2>5. Theme</h2>
+    <p>Re-mounts the widget with a different <code>data-theme</code> value.</p>
+    <select id="theme-select" onchange="setTheme(this.value)" style="padding:0.5rem 0.75rem;border-radius:6px;border:1px solid #d1d5db;font-size:0.9rem;cursor:pointer;background:white;">
+      <option value="amber-minimal">Amber Minimal</option>
+      <option value="amethyst-haze">Amethyst Haze</option>
+      <option value="bold-tech">Bold Tech</option>
+      <option value="bubblegum">Bubblegum</option>
+      <option value="caffeine">Caffeine</option>
+      <option value="candyland">Candyland</option>
+      <option value="catppuccin">Catppuccin</option>
+      <option value="claude">Claude</option>
+      <option value="claymorphism">Claymorphism</option>
+      <option value="clean-slate">Clean Slate</option>
+      <option value="cosmic-night">Cosmic Night</option>
+      <option value="cyberpunk">Cyberpunk</option>
+      <option value="darkmatter">Darkmatter</option>
+      <option value="default" selected>Default</option>
+      <option value="doom-64">Doom 64</option>
+      <option value="elegant-luxury">Elegant Luxury</option>
+      <option value="graphite">Graphite</option>
+      <option value="kodama-grove">Kodama Grove</option>
+      <option value="midnight-bloom">Midnight Bloom</option>
+      <option value="mocha-mousse">Mocha Mousse</option>
+      <option value="modern-minimal">Modern Minimal</option>
+      <option value="mono">Mono</option>
+      <option value="nature">Nature</option>
+      <option value="neo-brutalism">Neo Brutalism</option>
+      <option value="northern-lights">Northern Lights</option>
+      <option value="notebook">Notebook</option>
+      <option value="ocean-breeze">Ocean Breeze</option>
+      <option value="pastel-dreams">Pastel Dreams</option>
+      <option value="perpetuity">Perpetuity</option>
+      <option value="quantum-rose">Quantum Rose</option>
+      <option value="retro-arcade">Retro Arcade</option>
+      <option value="sage-garden">Sage Garden</option>
+      <option value="soft-pop">Soft Pop</option>
+      <option value="solar-dusk">Solar Dusk</option>
+      <option value="starry-night">Starry Night</option>
+      <option value="sunset-horizon">Sunset Horizon</option>
+      <option value="supabase">Supabase</option>
+      <option value="t3-chat">T3 Chat</option>
+      <option value="tangerine">Tangerine</option>
+      <option value="twitter">Twitter</option>
+      <option value="vercel">Vercel</option>
+      <option value="vintage-paper">Vintage Paper</option>
+      <option value="violet-bloom">Violet Bloom</option>
+    </select>
+    <label style="margin-left:1rem;font-size:0.9rem;">
+      <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode(this.checked)" style="margin-right:0.4rem;">
+      Dark mode
+    </label>
+  </div>
+
+  <!-- Test 6: Event log -->
+  <div class="test-section">
+    <h2>6. Global Event Log</h2>
+    <p>Events dispatched by the widget appear below:</p>
+    <div class="event-log" id="event-log">
+      <div class="log-entry" style="color:#666">Waiting for events…</div>
+    </div>
+  </div>
+
+  <div id="chat-mount">
+    <div data-shoprocket="chat" data-theme="default" data-color-scheme="light"></div>
+  </div>
+
+  <!-- Load widget -->
+  <script src="/loader.js" data-pk="pk_hAWEyUyNBfhvO62wCxMRY"></script>
+
+  <script>
+    // ── Position swap ──────────────────────────────────────────────────────────
+    function setPosition(pos) { remount({ ...getCurrentAttrs(), pos }); }
+
+    // ── Layout style swap ──────────────────────────────────────────────────────
+    function setStyle(style) { remount({ ...getCurrentAttrs(), style }); }
+
+    // ── Welcome message swap ───────────────────────────────────────────────────
+    function setWelcome(msg) {
+      const attrs = getCurrentAttrs();
+      const mount = document.getElementById('chat-mount');
+      mount.innerHTML = `<div data-shoprocket="chat" data-position="${attrs.pos}" data-style="${attrs.style}" data-theme="${attrs.theme}" data-color-scheme="${attrs.colorScheme}" data-welcome="${msg}"></div>`;
+      if (window.Shoprocket) window.Shoprocket.reload();
+    }
+
+    // ── Theme swap ─────────────────────────────────────────────────────────────
+    function getCurrentAttrs() {
+      const el = document.getElementById('chat-mount').querySelector('[data-shoprocket]');
+      return {
+        pos: el?.getAttribute('data-position') || 'bottom-left',
+        style: el?.getAttribute('data-style') || 'bubble',
+        theme: el?.getAttribute('data-theme') || 'default',
+        colorScheme: el?.getAttribute('data-color-scheme') || 'light',
+      };
+    }
+
+    function remount(attrs) {
+      const mount = document.getElementById('chat-mount');
+      mount.innerHTML = `<div data-shoprocket="chat" data-position="${attrs.pos}" data-style="${attrs.style}" data-theme="${attrs.theme}" data-color-scheme="${attrs.colorScheme}"></div>`;
+      if (window.Shoprocket) window.Shoprocket.reload();
+    }
+
+    function setTheme(theme) {
+      remount({ ...getCurrentAttrs(), theme });
+    }
+
+    function toggleDarkMode(dark) {
+      remount({ ...getCurrentAttrs(), colorScheme: dark ? 'dark' : 'light' });
+    }
+
+    // ── Event log ─────────────────────────────────────────────────────────────
+    const log = document.getElementById('event-log');
+    function addLog(name, detail) {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      entry.innerHTML = `[${time}] <span>${name}</span>${detail ? ' — ' + JSON.stringify(detail).slice(0, 80) : ''}`;
+      if (log.firstChild?.style?.color === '#666') log.innerHTML = '';
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    ['shoprocket:chat:open', 'shoprocket:chat:close', 'shoprocket:chat:message'].forEach(evt => {
+      window.addEventListener(evt, e => addLog(evt, e.detail));
+    });
+  </script>
+</body>
+</html>

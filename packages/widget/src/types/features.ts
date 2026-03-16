@@ -48,8 +48,13 @@ export type FeatureKey =
   | 'filters:per-page' // Per page selector
   | 'filters:count'   // Product count display
   | 'filters:pagination' // Pagination controls
-  | 'product-detail'; // Enable product detail view (makes products clickable)
+  | 'product-detail'  // Enable product detail view (makes products clickable)
                       // Use detail:* prefix for features specific to detail view (e.g., detail:gallery)
+
+  // Chat features
+  | 'launcher'         // Show the floating launcher button
+  | 'welcome-message'  // Show initial bot greeting on load
+  | 'branding';        // Show "Powered by Shoprocket" footer
 
 // Feature configuration
 export interface FeatureConfig {
@@ -114,6 +119,8 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
     'name',   // Product name on button
     'price'   // Product price on button
   ],
+  // Chat widget
+  'chat': ['launcher', 'welcome-message'],
   // Categories widget
   'categories': [
     // Product list features (use products: prefix for product cards in category)

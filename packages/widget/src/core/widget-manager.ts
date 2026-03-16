@@ -34,6 +34,30 @@ export class WidgetManager {
   private themePromises = new Map<string, Promise<void>>();
 
   // Public API namespaces
+
+  /**
+   * Chat namespace - control the live chat widget programmatically
+   */
+  public chat = {
+    /**
+     * Opens the chat panel
+     * @example Shoprocket.chat.open()
+     */
+    open: () => window.dispatchEvent(new CustomEvent('open-chat', { bubbles: true })),
+
+    /**
+     * Closes the chat panel
+     * @example Shoprocket.chat.close()
+     */
+    close: () => window.dispatchEvent(new CustomEvent('close-chat', { bubbles: true })),
+
+    /**
+     * Toggles the chat panel visibility
+     * @example Shoprocket.chat.toggle()
+     */
+    toggle: () => window.dispatchEvent(new CustomEvent('toggle-chat', { bubbles: true })),
+  };
+
   public cart = {
     /**
      * Opens the shopping cart
@@ -474,7 +498,7 @@ export class WidgetManager {
     }
 
     // Find all mounted widget components
-    const widgets = document.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-product-view, shoprocket-buy-button, shoprocket-categories, shoprocket-product, shoprocket-account');
+    const widgets = document.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-product-view, shoprocket-buy-button, shoprocket-categories, shoprocket-product, shoprocket-account, shoprocket-chat');
 
     // Replace each widget with its original data-shoprocket mount point
     widgets.forEach(widget => {
@@ -661,11 +685,9 @@ export class WidgetManager {
       const themeName = theme || 'default';
       component.setAttribute('data-theme', themeName);
 
-      // Auto-load theme CSS if not already loaded (for data-attribute embeds without embed config)
-      if (!theme) {
-        const themeUrl = this.sdk.themes.getThemeCssUrl('default');
-        await this.injectThemeCSS(themeUrl, 'default');
-      }
+      // Always load the resolved theme CSS (whether explicit or defaulted)
+      const themeUrl = this.sdk.themes.getThemeCssUrl(themeName);
+      await this.injectThemeCSS(themeUrl, themeName);
 
       // Set features attribute if provided (for feature control)
       // Priority: features (API config) > hide (data-attribute)

@@ -147,7 +147,7 @@ export class ApiClient {
 
   private needsCartHeaders(endpoint: string): boolean {
     const e = endpoint.replace(/^\//, '');
-    return e.startsWith('cart') || e.startsWith('account') || e.startsWith('orders');
+    return e.startsWith('cart') || e.startsWith('account') || e.startsWith('orders') || e.startsWith('conversations');
   }
 
   async get<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
