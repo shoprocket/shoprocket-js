@@ -55,8 +55,11 @@ export class ChatService {
     return { teamOnline, conversation };
   }
 
-  async getMessages(conversationId: string): Promise<GetMessagesResult> {
-    const response = await this.api.get<any>(`/conversations/${conversationId}/messages`);
+  async getMessages(conversationId: string, beforeId?: string): Promise<GetMessagesResult> {
+    const endpoint = beforeId
+      ? `/conversations/${conversationId}/messages?before=${encodeURIComponent(beforeId)}`
+      : `/conversations/${conversationId}/messages`;
+    const response = await this.api.get<any>(endpoint);
     const data = response.data ?? {};
     return {
       messages: data.messages ?? [],
@@ -82,5 +85,13 @@ export class ChatService {
   async sendMessage(conversationId: string, content: string): Promise<ApiChatMessage> {
     const response = await this.api.post<any>(`/conversations/${conversationId}/messages`, { message: content });
     return response.data?.message || response.data || response;
+  }
+
+  async sendTyping(conversationId: string): Promise<void> {
+    await this.api.post(`/conversations/${conversationId}/typing`);
+  }
+
+  async updateEmail(conversationId: string, email: string): Promise<void> {
+    await this.api.post(`/conversations/${conversationId}/email`, { email });
   }
 }

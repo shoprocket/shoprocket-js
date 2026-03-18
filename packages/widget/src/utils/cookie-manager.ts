@@ -6,8 +6,9 @@
 import { getCookie, setCookie, deleteCookie } from './cookie-utils';
 
 export interface CartCookie {
-  cart_token?: string;
-  // Attribution (captured once on first visit)
+  visitor_id?: string;  // permanent device identity — never rotates
+  cart_token?: string;  // per-session identity — rotates on purchase
+  // Attribution (per-session — resets when cart_token rotates)
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
@@ -15,7 +16,7 @@ export interface CartCookie {
   utm_term?: string;
   referrer?: string;
   landing_page?: string;
-  // Affiliate tracking (captured once via ?ref= param or data-ref attribute)
+  // Affiliate tracking (first-touch only — never resets)
   affiliate_ref?: string;
   // Device info (captured once)
   device_type?: 'desktop' | 'mobile' | 'tablet';
@@ -56,6 +57,19 @@ export class CookieManager {
   }
   
   /**
+   * Get or generate the permanent visitor ID.
+   * Generated once on first access, never rotates except on logout.
+   */
+  static getVisitorId(): string {
+    const data = this.getCookieData();
+    if (!data.visitor_id) {
+      data.visitor_id = this.generateId('vis');
+      this.saveCookie(data);
+    }
+    return data.visitor_id;
+  }
+
+  /**
    * Get or generate cart token.
    * Supports URL-based cart recovery: ?cart_token=cart_xxx restores an abandoned cart.
    */
@@ -75,7 +89,7 @@ export class CookieManager {
 
     if (!data.cart_token) {
       // Generate new cart token
-      data.cart_token = this.generateCartToken();
+      data.cart_token = this.generateId('cart');
       data.created_at = new Date().toISOString();
       data.updated_at = new Date().toISOString();
 
@@ -92,15 +106,22 @@ export class CookieManager {
   }
   
   /**
-   * Regenerate cart token (after order completion)
+   * Regenerate cart token (after order completion).
+   * Resets all session-scoped attribution so the next order gets fresh UTMs.
+   * Affiliate ref is intentionally kept (first-touch only).
    */
   static regenerateCartToken(): string {
     const data = this.getCookieData();
-    
-    // Keep attribution and auth, regenerate cart token
-    data.cart_token = this.generateCartToken();
+    data.cart_token = this.generateId('cart');
+    // Reset session-scoped attribution for clean per-order attribution
+    data.utm_source = undefined;
+    data.utm_medium = undefined;
+    data.utm_campaign = undefined;
+    data.utm_content = undefined;
+    data.utm_term = undefined;
+    data.referrer = undefined;
+    data.landing_page = undefined;
     data.updated_at = new Date().toISOString();
-    
     this.saveCookie(data);
     return data.cart_token;
   }
@@ -116,11 +137,13 @@ export class CookieManager {
   }
   
   /**
-   * Clear access token (after logout)
+   * Clear access token (after logout).
+   * Also regenerates visitor_id to prevent cross-user contamination on shared devices.
    */
   static clearAccessToken(): void {
     const data = this.getCookieData();
     delete data.access_token;
+    data.visitor_id = this.generateId('vis');
     data.updated_at = new Date().toISOString();
     this.saveCookie(data);
   }
@@ -159,29 +182,24 @@ export class CookieManager {
   }
   
   /**
-   * Generate a unique cart token
+   * Generate a prefixed unique ID (cart_*, vis_*, etc.)
    */
-  private static generateCartToken(): string {
-    // Use crypto.randomUUID if available (modern browsers, HTTPS only)
+  private static generateId(prefix: string): string {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return `cart_${crypto.randomUUID()}`;
+      return `${prefix}_${crypto.randomUUID()}`;
     }
-
-    // Fallback: Generate UUID v4 using crypto.getRandomValues (widely supported)
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
       const uuid = ([1e7] as any + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c: any) =>
         (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
       );
-      return `cart_${uuid}`;
+      return `${prefix}_${uuid}`;
     }
-
-    // Last resort: Math.random (not cryptographically secure, but works everywhere)
     const fallbackUuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
       const v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
-    return `cart_${fallbackUuid}`;
+    return `${prefix}_${fallbackUuid}`;
   }
   
   /**

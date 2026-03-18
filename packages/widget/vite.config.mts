@@ -19,6 +19,10 @@ export default defineConfig({
     // Preserve dev mode detection for localhost/test environments
     'import.meta.env.DEV': 'true',
     'import.meta.env.PROD': 'false',
+    'import.meta.env.VITE_REVERB_HOST': JSON.stringify('localhost'),
+    'import.meta.env.VITE_REVERB_PORT': JSON.stringify('8080'),
+    'import.meta.env.VITE_REVERB_SCHEME': JSON.stringify('http'),
+    'import.meta.env.VITE_REVERB_APP_KEY': JSON.stringify('tcukv2f8u7c2n9j35wd8'),
   },
   build: {
     emptyOutDir: false, // Don't clear dist folder (loader is already there)

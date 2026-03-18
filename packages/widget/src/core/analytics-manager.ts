@@ -134,10 +134,11 @@ export class AnalyticsManager {
       return;
     }
     
-    // Get cart token and attribution from cookie
+    // Get cart token, visitor ID and attribution from cookie
     const cartToken = CookieManager.getCartToken();
+    const visitorId = CookieManager.getVisitorId();
     const attribution = CookieManager.getAttribution();
-    
+
     // Get customer ID if authenticated
     const customerId = internalState.getCustomerId();
 
@@ -146,7 +147,8 @@ export class AnalyticsManager {
       data,
       store_id: storeId, // Required by backend
       store_mode: store?.storeMode || null, // Store mode (test/live)
-      cart_token: cartToken,
+      visitor_id: visitorId,  // Permanent device identity
+      cart_token: cartToken,  // Per-session identity (rotates after order)
       customer_id: customerId, // Only set when customer is authenticated
       url: location.href,
       page_title: document.title,
