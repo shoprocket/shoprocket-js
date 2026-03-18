@@ -16,6 +16,14 @@ import { ShoprocketElement } from '../core/base-component';
 import { CookieManager } from '../utils/cookie-manager';
 import type { ApiChatMessage } from '@shoprocket/core';
 
+// Use browser's built-in email validation (avoids regex maintenance)
+function isValidEmail(email: string): boolean {
+  const el = document.createElement('input');
+  el.type = 'email';
+  el.value = email;
+  return el.checkValidity();
+}
+
 // ── Reverb/Pusher WebSocket connection — supports multiple channel subscriptions ──
 class ReverbConnection {
   private ws: WebSocket | null = null;
@@ -847,6 +855,10 @@ const chatStyles = css`
     border-color: var(--primary);
   }
 
+  .sr-chat-email-input.invalid {
+    border-color: var(--destructive, #ef4444);
+  }
+
   .sr-chat-email-input::placeholder {
     color: var(--muted-foreground);
   }
@@ -957,6 +969,7 @@ export class ChatWidget extends ShoprocketElement {
   @state() private isLoading = false;
   @state() private isSending = false;
   @state() private rateLimited = false;
+  @state() private emailInvalid = false;
   @state() private showOriginalId: string | null = null;
   @state() private hasMoreHistory = false;
   @state() private isLoadingHistory = false;
@@ -1009,6 +1022,7 @@ export class ChatWidget extends ShoprocketElement {
   private async _submitEmail(): Promise<void> {
     const email = this.emailValue.trim();
     if (!email || !this.conversationId || this.emailNudgeSubmitting) return;
+    if (!isValidEmail(email)) { this.emailInvalid = true; return; }
     this.emailNudgeSubmitting = true;
     try {
       await this.sdk.chat.updateEmail(this.conversationId, email);
@@ -1360,6 +1374,12 @@ export class ChatWidget extends ShoprocketElement {
       if (!this.conversationId) {
         const locale = navigator.languages?.[0] ?? navigator.language ?? 'en';
         const email = this.emailValue.trim() || undefined;
+        if (email && !isValidEmail(email)) {
+          this.messages = this.messages.filter(m => m.id !== tempId);
+          this.inputValue = content;
+          this.emailInvalid = true;
+          return;
+        }
         const result = await this.sdk.chat.create(content, { locale, email });
         this.conversationId = result.conversationId;
         this.conversationStatus = 'open';
@@ -1601,11 +1621,11 @@ export class ChatWidget extends ShoprocketElement {
             ${!this.conversationId ? html`
               <div class="sr-chat-email-row">
                 <input
-                  class="sr-chat-email-input"
+                  class="sr-chat-email-input ${this.emailInvalid ? 'invalid' : ''}"
                   type="email"
                   placeholder="Your email (optional)"
                   .value="${this.emailValue}"
-                  @input="${(e: Event) => { this.emailValue = (e.target as HTMLInputElement).value; }}"
+                  @input="${(e: Event) => { this.emailValue = (e.target as HTMLInputElement).value; this.emailInvalid = false; }}"
                   autocomplete="email"
                   aria-label="Your email address"
                 />
@@ -1615,11 +1635,11 @@ export class ChatWidget extends ShoprocketElement {
                 ${this.emailNudgeExpanded ? html`
                   <div class="sr-chat-email-nudge-form">
                     <input
-                      class="sr-chat-email-input"
+                      class="sr-chat-email-input ${this.emailInvalid ? 'invalid' : ''}"
                       type="email"
                       placeholder="your@email.com"
                       .value="${this.emailValue}"
-                      @input="${(e: Event) => { this.emailValue = (e.target as HTMLInputElement).value; }}"
+                      @input="${(e: Event) => { this.emailValue = (e.target as HTMLInputElement).value; this.emailInvalid = false; }}"
                       @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter') this._submitEmail(); }}"
                       autocomplete="email"
                       aria-label="Your email address"
