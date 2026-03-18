@@ -28,7 +28,7 @@ jobs:
       - name: Build packages
         run: |
           npm run build -w @shoprocket/core
-          npm run build -w @shoprocket/widget
+          npm run build:dev-server -w @shoprocket/widget
           echo "✅ Build complete"
           ls -la packages/widget/dist/
 
