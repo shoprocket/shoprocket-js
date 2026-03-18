@@ -10,9 +10,103 @@
  */
 
 import { html, css, type TemplateResult } from 'lit';
+import { repeat } from 'lit/directives/repeat.js';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
+import { CookieManager } from '../utils/cookie-manager';
 import type { ApiChatMessage } from '@shoprocket/core';
+
+// ── Reverb/Pusher WebSocket connection — supports multiple channel subscriptions ──
+class ReverbConnection {
+  private ws: WebSocket | null = null;
+  private socketId: string | null = null;
+  private reconnectDelay = 1000;
+  private destroyed = false;
+  // channel → callback
+  private listeners = new Map<string, (event: string, data: any) => void>();
+
+  constructor(
+    private authUrl: string,
+    private authHeaders: Record<string, string>,
+  ) { this.connect(); }
+
+  /** Subscribe to a private channel. Safe to call before connection is established. */
+  subscribe(channel: string, callback: (event: string, data: any) => void): void {
+    this.listeners.set(channel, callback);
+    if (this.socketId) void this.doSubscribe(channel);
+    // else: will be subscribed once connection_established fires
+  }
+
+  /** Unsubscribe from a channel. */
+  unsubscribe(channel: string): void {
+    this.listeners.delete(channel);
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ event: 'pusher:unsubscribe', data: { channel } }));
+    }
+  }
+
+  /** Send a client event (typing indicator) on a specific channel. */
+  whisper(channel: string, data: object): void {
+    if (this.ws?.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ event: 'client-typing', channel, data: JSON.stringify(data) }));
+  }
+
+  destroy(): void {
+    this.destroyed = true;
+    this.ws?.close();
+    this.ws = null;
+  }
+
+  private connect(): void {
+    const key = import.meta.env.VITE_REVERB_APP_KEY;
+    const host = import.meta.env.VITE_REVERB_HOST;
+    const port = import.meta.env.VITE_REVERB_PORT;
+    const scheme = import.meta.env.VITE_REVERB_SCHEME === 'https' ? 'wss' : 'ws';
+    this.ws = new WebSocket(`${scheme}://${host}:${port}/app/${key}?protocol=7&client=js&version=8.0.0`);
+
+    this.ws.onmessage = async (e) => {
+      const msg = JSON.parse(e.data);
+      const d = (raw: any) => typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw ?? {});
+      if (msg.event === 'pusher:connection_established') {
+        this.socketId = d(msg.data).socket_id;
+        this.reconnectDelay = 1000;
+        for (const channel of this.listeners.keys()) await this.doSubscribe(channel);
+      } else if (msg.event === 'pusher:ping') {
+        this.ws?.send(JSON.stringify({ event: 'pusher:pong', data: {} }));
+      } else if (msg.event === 'pusher:error') {
+        const code = d(msg.data).code ?? 0;
+        if (code > 0 && code < 4100) this.destroyed = true;
+      } else if (!msg.event?.startsWith('pusher_internal:') && msg.channel) {
+        this.listeners.get(msg.channel)?.(msg.event as string, d(msg.data));
+      }
+    };
+
+    this.ws.onclose = () => {
+      this.socketId = null;
+      if (this.destroyed) return;
+      setTimeout(() => this.connect(), this.reconnectDelay);
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
+    };
+  }
+
+  private async doSubscribe(channel: string): Promise<void> {
+    if (!this.socketId) return;
+    try {
+      const res = await fetch(this.authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...this.authHeaders },
+        body: JSON.stringify({ socket_id: this.socketId, channel_name: channel }),
+      });
+      if (!res.ok) { console.error('[Shoprocket] WS auth failed', res.status); return; }
+      const { auth } = await res.json();
+      if (!auth) { console.error('[Shoprocket] WS auth missing token'); return; }
+      this.ws?.send(JSON.stringify({ event: 'pusher:subscribe', data: { channel, auth } }));
+    } catch (err) {
+      console.error('[Shoprocket] WS auth error', err);
+    }
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Internal message type — mapped from API
 interface ChatMessage {
@@ -314,15 +408,16 @@ const chatStyles = css`
 
   /* ── Messages ── */
   .sr-chat-messages {
-    flex: 1;
+    flex: 1 1 0;
+    min-height: 0;
     overflow-y: auto;
     padding: 16px;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     gap: 12px;
     background: var(--background);
-    scroll-behavior: smooth;
     overscroll-behavior: contain;
+    scroll-behavior: smooth;
   }
 
   /* Empty / loading state */
@@ -511,6 +606,80 @@ const chatStyles = css`
     30% { transform: translateY(-5px); opacity: 1; }
   }
 
+  /* ── Load more history ── */
+  .sr-chat-load-more {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 4px;
+  }
+
+  .sr-chat-load-more-btn {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .sr-chat-load-more-btn:hover {
+    color: var(--foreground);
+    border-color: var(--muted-foreground);
+  }
+
+  .sr-chat-load-more-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--muted-foreground);
+    border-radius: 50%;
+    animation: sr-chat-spin 0.6s linear infinite;
+  }
+
+  @keyframes sr-chat-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Messages body wrapper (positions the new-message badge) ── */
+  .sr-chat-body {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sr-chat-new-msg-btn {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary);
+    color: var(--primary-foreground, #fff);
+    border: none;
+    border-radius: 999px;
+    padding: 6px 14px 6px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    white-space: nowrap;
+    z-index: 10;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .sr-chat-new-msg-btn:hover {
+    transform: translateX(-50%) translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  }
+
   /* ── Rate limit notice ── */
   .sr-chat-rate-limit {
     margin: 0 12px 8px;
@@ -550,7 +719,7 @@ const chatStyles = css`
     padding: 12px 14px 6px;
     background: transparent;
     border: none;
-    font-size: 14px;
+    font-size: 16px; /* Prevent iOS zoom */
     font-family: inherit;
     color: var(--foreground);
     resize: none;
@@ -559,6 +728,10 @@ const chatStyles = css`
     max-height: 120px;
     overflow-y: auto;
     box-sizing: border-box;
+  }
+
+  @media (min-width: 640px) {
+    .sr-chat-input { font-size: 14px; }
   }
 
   .sr-chat-input::placeholder {
@@ -629,15 +802,10 @@ const chatStyles = css`
     }
   }
 
-  /* ── Seen indicator ── */
-  .sr-chat-seen {
-    font-size: 10px;
-    color: var(--muted-foreground);
-    padding: 0 2px;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
+  /* ── Read receipts (ticks) ── */
+  .sr-chat-tick { display: inline-flex; align-items: center; flex-shrink: 0; }
+  .sr-chat-tick.sent { color: var(--muted-foreground); opacity: 0.5; }
+  .sr-chat-tick.read { color: #3b82f6; }
 
   /* ── Failed message ── */
   .sr-chat-message.failed .sr-chat-bubble {
@@ -683,6 +851,75 @@ const chatStyles = css`
     color: var(--muted-foreground);
   }
 
+  /* ── Email nudge (post-conversation) ── */
+  .sr-chat-email-nudge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 0 8px;
+  }
+
+  .sr-chat-email-nudge-link {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--primary);
+    cursor: pointer;
+    text-align: start;
+    line-height: 1.4;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .sr-chat-email-nudge-form {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    align-items: center;
+  }
+
+  .sr-chat-email-nudge-form .sr-chat-email-input {
+    flex: 1;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+
+  .sr-chat-email-nudge-save {
+    flex-shrink: 0;
+    padding: 7px 12px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border: none;
+    border-radius: 10px;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .sr-chat-email-nudge-save:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .sr-chat-email-nudge-dismiss {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    font-size: 16px;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
   /* ── Closed conversation notice ── */
   .sr-chat-closed-notice {
     margin: 0 12px 8px;
@@ -721,14 +958,21 @@ export class ChatWidget extends ShoprocketElement {
   @state() private isSending = false;
   @state() private rateLimited = false;
   @state() private showOriginalId: string | null = null;
+  @state() private hasMoreHistory = false;
+  @state() private isLoadingHistory = false;
+  @state() private _newMsgPending = false;
   @state() private conversationStatus: 'open' | 'pending' | 'closed' | null = null;
   @state() private muted = false;
   @state() private teamOnline = false;
+  @state() private showEmailNudge = false;
+  @state() private emailNudgeExpanded = false;
+  @state() private emailNudgeSubmitting = false;
 
   private conversationId: string | null = null;
   private _initPromise: Promise<void> | null = null;
-  private _pollTimer: ReturnType<typeof setInterval> | null = null;
-  private _badgePollTimer: ReturnType<typeof setInterval> | null = null;
+  private _reverb: ReverbConnection | null = null;
+  private _typingTimeout: ReturnType<typeof setTimeout> | null = null;
+  private _typingTimer: ReturnType<typeof setTimeout> | null = null;
   private _audioCtx: AudioContext | null = null;
 
   private readonly _handleOpen = () => this._open();
@@ -736,23 +980,62 @@ export class ChatWidget extends ShoprocketElement {
   private readonly _handleToggle = () => this._toggle();
   // Keep AudioContext unblocked — browsers suspend it without a recent user gesture
   private readonly _handleUserGesture = () => {
-    if (this._audioCtx?.state === 'suspended') this._audioCtx.resume().catch(() => {});
+    if (!this._audioCtx) {
+      try { this._audioCtx = new AudioContext(); } catch {}
+    } else if (this._audioCtx.state === 'suspended') {
+      this._audioCtx.resume().catch(() => {});
+    }
+    // Once unlocked, no need to keep listening
+    if (this._audioCtx?.state === 'running') {
+      document.removeEventListener('pointerdown', this._handleUserGesture);
+      document.removeEventListener('keydown', this._handleUserGesture);
+    }
   };
 
   private get _storageKey(): string {
     return `shoprocket_conv_${this.sdk?.getPublishableKey() ?? 'default'}`;
   }
 
+  private _emailNudgeKey(conversationId: string): string {
+    return `${this._storageKey}_email_${conversationId}`;
+  }
+
+  private _checkEmailNudge(): void {
+    if (!this.conversationId) return;
+    const status = localStorage.getItem(this._emailNudgeKey(this.conversationId));
+    this.showEmailNudge = !status;
+  }
+
+  private async _submitEmail(): Promise<void> {
+    const email = this.emailValue.trim();
+    if (!email || !this.conversationId || this.emailNudgeSubmitting) return;
+    this.emailNudgeSubmitting = true;
+    try {
+      await this.sdk.chat.updateEmail(this.conversationId, email);
+      localStorage.setItem(this._emailNudgeKey(this.conversationId), '1');
+      this.showEmailNudge = false;
+      this.emailValue = '';
+    } catch {
+      // Silent — user can retry
+    } finally {
+      this.emailNudgeSubmitting = false;
+    }
+  }
+
+
   override connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener('open-chat', this._handleOpen);
     window.addEventListener('close-chat', this._handleClose);
     window.addEventListener('toggle-chat', this._handleToggle);
-    document.addEventListener('click', this._handleUserGesture);
+    document.addEventListener('pointerdown', this._handleUserGesture);
+    document.addEventListener('keydown', this._handleUserGesture);
     try { this.muted = localStorage.getItem('shoprocket_chat_muted') === '1'; } catch {}
-    this.updateComplete.then(() => {
-      this._initConversation();
-      this._startBadgePoll();
+    this.updateComplete.then(async () => {
+      // Wire permanent visitor identity into SDK headers before any API calls
+      if (this.sdk) this.sdk.setVisitorId(CookieManager.getVisitorId());
+      await this._initConversation();
+      this._connectWS();
     });
   }
 
@@ -761,9 +1044,9 @@ export class ChatWidget extends ShoprocketElement {
     window.removeEventListener('open-chat', this._handleOpen);
     window.removeEventListener('close-chat', this._handleClose);
     window.removeEventListener('toggle-chat', this._handleToggle);
-    document.removeEventListener('click', this._handleUserGesture);
-    this._stopPolling();
-    this._stopBadgePoll();
+    document.removeEventListener('pointerdown', this._handleUserGesture);
+    document.removeEventListener('keydown', this._handleUserGesture);
+    this._disconnectWS();
     this._audioCtx?.close().catch(() => {});
   }
 
@@ -783,6 +1066,7 @@ export class ChatWidget extends ShoprocketElement {
             this.conversationStatus = conversation.status;
             this.unreadCount = conversation.unread_count;
             localStorage.setItem(this._storageKey, conversation.id);
+            this._checkEmailNudge();
           } else {
             // No active conversation — clear stale stored ID
             this.conversationId = null;
@@ -799,25 +1083,25 @@ export class ChatWidget extends ShoprocketElement {
   private async _open(): Promise<void> {
     this.isOpen = true;
     this.unreadCount = 0;
-    this._stopBadgePoll();
     window.dispatchEvent(new CustomEvent('shoprocket:chat:open'));
 
+    // Reset so _initConversation re-fetches fresh state — catches conversations
+    // created on another device since this component mounted.
+    this._initPromise = null;
     await this._initConversation();
 
     if (this.conversationId) {
       this.isLoading = true;
       await this._loadMessages(true); // silent — don't re-play sound for messages already notified
       this.isLoading = false;
-      this._startPolling();
+      // WS is already connected from mount; ensure conversation channel is subscribed
+      this._subscribeConversation(this.conversationId);
     }
-
-    this._scrollToBottom();
+    // No scroll needed: column-reverse means scrollTop=0 is already the bottom.
   }
 
   private _close(): void {
     this.isOpen = false;
-    this._stopPolling();
-    this._startBadgePoll();
     window.dispatchEvent(new CustomEvent('shoprocket:chat:close'));
   }
 
@@ -836,6 +1120,7 @@ export class ChatWidget extends ShoprocketElement {
       const result = await this.sdk.chat.getMessages(this.conversationId);
       this.teamOnline = result.teamOnline;
       this.conversationStatus = result.status;
+      this.hasMoreHistory = result.hasMore;
       const mapped = result.messages.map(mapMessage);
 
       // Detect new seller messages for auto-scroll / sound
@@ -850,60 +1135,133 @@ export class ChatWidget extends ShoprocketElement {
       this.messages = [...mapped, ...optimistic];
 
       if (hasNewSeller) {
-        this._scrollToBottom();
-        if (!silent) this._playNotification();
+        if (this._isAtBottom()) {
+          this._scrollToBottom();
+        } else {
+          this._newMsgPending = true;
+        }
+        if (!silent && !this.isOpen) this._playNotification();
       }
     } catch {
       // Silent — next poll will retry
     }
   }
 
-  private _startPolling(): void {
-    this._stopPolling();
-    this._pollTimer = setInterval(() => {
-      if (this.conversationId) this._loadMessages();
-    }, 5000);
-  }
+  private async _loadMoreMessages(): Promise<void> {
+    if (!this.sdk || !this.conversationId || this.isLoadingHistory || !this.hasMoreHistory) return;
+    const oldestId = this.messages.find(m => !m.id.startsWith('temp-'))?.id;
+    if (!oldestId) return;
 
-  private _stopPolling(): void {
-    if (this._pollTimer !== null) {
-      clearInterval(this._pollTimer);
-      this._pollTimer = null;
+    this.isLoadingHistory = true;
+    try {
+      const result = await this.sdk.chat.getMessages(this.conversationId, oldestId);
+      this.hasMoreHistory = result.hasMore;
+      const older = result.messages.map(mapMessage);
+      if (older.length > 0) {
+        const existingIds = new Set(this.messages.map(m => m.id));
+        const newOlder = older.filter(m => !existingIds.has(m.id));
+        this.messages = [...newOlder, ...this.messages];
+        // No scroll restoration needed: column-reverse + overflow-anchor keeps
+        // the viewport stable when content is prepended at the top.
+      }
+    } catch {
+    } finally {
+      this.isLoadingHistory = false;
     }
   }
 
-  private _startBadgePoll(): void {
-    this._stopBadgePoll();
-    this._badgePollTimer = setInterval(async () => {
-      if (!this.sdk || this.isOpen) return;
-      try {
-        const result = await this.sdk.chat.getCurrent();
-        this.teamOnline = result.teamOnline;
-        const conv = result.conversation;
-        if (conv) {
-          if (conv.unread_count > this.unreadCount && !this.isOpen) this._playNotification();
-          this.unreadCount = conv.unread_count;
-          this.conversationStatus = conv.status;
-          if (!this.conversationId) {
-            this.conversationId = conv.id;
-            localStorage.setItem(this._storageKey, conv.id);
-          }
-        }
-      } catch {}
-    }, 8000);
+  private _connectWS(): void {
+    if (this._reverb) return;
+    const pk = this.sdk.getPublishableKey();
+    const authUrl = `${this.sdk.getApiUrl()}/public/${pk}/broadcasting/auth`;
+    const visitorId = CookieManager.getVisitorId();
+    this._reverb = new ReverbConnection(authUrl, { 'X-Visitor-Id': visitorId });
+    // Always subscribe to visitor channel for proactive messages from seller
+    this._reverb.subscribe(`private-visitor.${visitorId}`, (event, data) => {
+      if (event === 'inbox.message.created') this._onWSMessage(data);
+      if (event === 'inbox.conversation.created') this._onWSConversationCreated(data);
+    });
+    // Subscribe to conversation channel if one already exists
+    if (this.conversationId) this._subscribeConversation(this.conversationId);
   }
 
-  private _stopBadgePoll(): void {
-    if (this._badgePollTimer !== null) {
-      clearInterval(this._badgePollTimer);
-      this._badgePollTimer = null;
+  private _subscribeConversation(conversationId: string): void {
+    if (!this._reverb) return;
+    this._reverb.subscribe(`private-conversation.${conversationId}`, (event, data) => {
+      if (event === 'inbox.message.created') this._onWSMessage(data);
+      if (event === 'client-typing') this._onWSTyping(data);
+      if (event === 'inbox.conversation.translated') this._loadMessages(true);
+      if (event === 'inbox.messages.read') this._loadMessages(true);
+    });
+  }
+
+  private _onWSConversationCreated(data: any): void {
+    const convId = data?.conversation_id as string | undefined;
+    if (!convId || this.conversationId) return; // ignore if we already have a conversation
+    this.conversationId = convId;
+    this.conversationStatus = 'open';
+    localStorage.setItem(this._storageKey, convId);
+    this._subscribeConversation(convId);
+    this._loadMessages();
+    // Show unread badge if chat is closed
+    if (!this.isOpen) {
+      this.unreadCount++;
+      this._playNotification();
     }
+  }
+
+  private _disconnectWS(): void {
+    this._reverb?.destroy();
+    this._reverb = null;
+  }
+
+  private _onWSMessage(data: any): void {
+    const apiMsg = data?.message as ApiChatMessage | undefined;
+    if (!apiMsg?.id) {
+      // Payload missing full message shape — fall back to re-fetch
+      this._loadMessages();
+      return;
+    }
+
+    const msg = mapMessage(apiMsg);
+    // Deduplicate: WS may fire before our own HTTP response has replaced temp-xxx
+    if (this.messages.some(m => m.id === msg.id)) return;
+    this.messages = [...this.messages, msg];
+
+    // Clear typing indicator the moment a message lands
+    if (msg.from === 'seller' && this.isAgentTyping) {
+      this.isAgentTyping = false;
+      if (this._typingTimeout !== null) { clearTimeout(this._typingTimeout); this._typingTimeout = null; }
+    }
+
+    if (msg.from === 'seller') {
+      if (!this.isOpen) {
+        this.unreadCount++;
+        this._playNotification();
+      } else {
+        if (document.hidden) this._playNotification(); // tab not visible — play even though chat is "open"
+        if (this._isAtBottom()) this._scrollToBottom();
+        else this._newMsgPending = true;
+      }
+    }
+  }
+
+  private _onWSTyping(data: any): void {
+    // Only show the typing indicator when an agent (seller) is typing
+    if (data?.sender_type !== 'seller') return;
+    this.isAgentTyping = true;
+    if (this._isAtBottom()) this._scrollToBottom();
+    if (this._typingTimeout !== null) clearTimeout(this._typingTimeout);
+    this._typingTimeout = setTimeout(() => {
+      this.isAgentTyping = false;
+      this._typingTimeout = null;
+    }, 3000);
   }
 
   private _playNotification(): void {
     if (this.muted) return;
     try {
-      if (!this._audioCtx) this._audioCtx = new AudioContext();
+      if (!this._audioCtx || this._audioCtx.state === 'suspended') return;
       const ctx = this._audioCtx;
       const resume = ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
       resume.then(() => {
@@ -928,15 +1286,43 @@ export class ChatWidget extends ShoprocketElement {
     try { localStorage.setItem('shoprocket_chat_muted', this.muted ? '1' : '0'); } catch {}
   }
 
+  private _isAtBottom(): boolean {
+    const el = this.renderRoot?.querySelector('.sr-chat-messages') as HTMLElement | null;
+    if (!el) return true;
+    // column-reverse + .reverse(): DOM-first = newest = visual bottom.
+    // scrollTop=0 is the visual bottom; near-0 means "at bottom".
+    return el.scrollTop < 80;
+  }
+
   private _scrollToBottom(): void {
-    this.updateComplete.then(() => {
-      const el = this.renderRoot?.querySelector('.sr-chat-messages') as HTMLElement | null;
-      if (el) el.scrollTop = el.scrollHeight;
-    });
+    // column-reverse: visual bottom = scrollTop 0
+    const el = this.renderRoot?.querySelector('.sr-chat-messages') as HTMLElement | null;
+    if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  private _jumpToBottom(): void {
+    this._newMsgPending = false;
+    this._scrollToBottom();
+  }
+
+  private _onMessagesScroll(e: Event): void {
+    const el = e.target as HTMLElement;
+    // Clear the new-message badge once the user scrolls back to the bottom (scrollTop near 0)
+    if (this._newMsgPending && el.scrollTop < 80) {
+      this._newMsgPending = false;
+    }
+    // column-reverse: user is near the oldest messages when scrollTop is near max
+    if (el.scrollTop > el.scrollHeight - el.clientHeight - 80 && this.hasMoreHistory && !this.isLoadingHistory) {
+      this._loadMoreMessages();
+    }
   }
 
   private _onInput(e: Event): void {
     this.inputValue = (e.target as HTMLTextAreaElement).value;
+    // Debounced typing indicator (1s)
+    if (this._typingTimer !== null) return; // throttle: already sent recently
+    this._typingTimer = setTimeout(() => { this._typingTimer = null; }, 2000);
+    if (this.conversationId) this._reverb?.whisper(`private-conversation.${this.conversationId}`, { sender_type: 'customer' });
   }
 
   private _onKeydown(e: KeyboardEvent): void {
@@ -978,18 +1364,28 @@ export class ChatWidget extends ShoprocketElement {
         this.conversationId = result.conversationId;
         this.conversationStatus = 'open';
         localStorage.setItem(this._storageKey, result.conversationId);
+        // Show email nudge if user skipped the pre-chat email field
+        if (!email) this._checkEmailNudge();
         this.emailValue = '';
-        // Replace optimistic in-place with the real message — no flicker
+        // Replace optimistic with the real message, removing any WS-added copy
+        // of the same message that may have arrived before this response.
         if (result.message) {
-          this.messages = this.messages.map(m => m.id === tempId ? mapMessage(result.message) : m);
+          const real = mapMessage(result.message);
+          this.messages = this.messages
+            .filter(m => m.id !== real.id)
+            .map(m => m.id === tempId ? real : m);
         }
         await this._loadMessages();
-        this._startPolling();
+        // WS connection already exists; subscribe to new conversation channel
+        this._subscribeConversation(result.conversationId);
       } else {
         const sent = await this.sdk.chat.sendMessage(this.conversationId, content);
-        // Replace optimistic in-place with the real message — no flicker
+        // Replace optimistic with the real message, removing any WS-added copy.
         if (sent) {
-          this.messages = this.messages.map(m => m.id === tempId ? mapMessage(sent) : m);
+          const real = mapMessage(sent);
+          this.messages = this.messages
+            .filter(m => m.id !== real.id)
+            .map(m => m.id === tempId ? real : m);
         }
         await this._loadMessages();
       }
@@ -1017,7 +1413,13 @@ export class ChatWidget extends ShoprocketElement {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  private _renderMessage(msg: ChatMessage, showSeen: boolean): TemplateResult {
+  private _tick(isRead: boolean): TemplateResult {
+    return isRead
+      ? html`<svg class="sr-chat-tick read" width="18" height="9" viewBox="0 0 18 9" fill="none" aria-label="Seen"><polyline points="1,5 3.5,8 9,1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="6,5 8.5,8 14,1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+      : html`<svg class="sr-chat-tick sent" width="10" height="9" viewBox="0 0 10 9" fill="none" aria-label="Sent"><polyline points="1,5 3.5,8 9,1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+
+  private _renderMessage(msg: ChatMessage): TemplateResult {
     const showOriginal = this.showOriginalId === msg.id;
     const displayContent = showOriginal ? msg.originalContent : msg.content;
     const timeMeta = html`
@@ -1054,13 +1456,12 @@ export class ChatWidget extends ShoprocketElement {
         <div class="sr-chat-bubble">${displayContent}</div>
         ${msg.status === 'sending'
           ? html`<span class="sr-chat-time">Sending…</span>`
-          : timeMeta}
+          : html`${timeMeta}${this._tick(msg.isRead)}`}
         ${msg.status === 'failed' ? html`
           <button class="sr-chat-retry" @click="${() => this._retry(msg)}">
             Failed to send · Tap to retry
           </button>
         ` : ''}
-        ${showSeen ? html`<span class="sr-chat-seen">Seen</span>` : ''}
       </div>
     `;
   }
@@ -1087,23 +1488,22 @@ export class ChatWidget extends ShoprocketElement {
       `;
     }
 
-    // Find the last customer message with is_read=true for "Seen" indicator
-    let lastReadId: string | null = null;
-    for (let i = this.messages.length - 1; i >= 0; i--) {
-      if (this.messages[i].from === 'customer' && this.messages[i].isRead) {
-        lastReadId = this.messages[i].id;
-        break;
-      }
-    }
-
     return html`
-      <div class="sr-chat-messages" role="log" aria-live="polite" aria-label="Chat messages">
-        ${this.messages.map(msg => this._renderMessage(msg, msg.id === lastReadId))}
+      <div class="sr-chat-messages" role="log" aria-live="polite" aria-label="Chat messages"
+           @scroll="${this._onMessagesScroll}">
         ${this.isAgentTyping ? html`
           <div class="sr-chat-typing" aria-label="Agent is typing">
             <span class="sr-chat-typing-dot"></span>
             <span class="sr-chat-typing-dot"></span>
             <span class="sr-chat-typing-dot"></span>
+          </div>
+        ` : ''}
+        ${repeat([...this.messages].reverse(), m => m.id, m => this._renderMessage(m))}
+        ${this.hasMoreHistory ? html`
+          <div class="sr-chat-load-more">
+            ${this.isLoadingHistory
+              ? html`<span class="sr-chat-load-more-spinner"></span>`
+              : html`<button class="sr-chat-load-more-btn" @click="${this._loadMoreMessages}">Load earlier messages</button>`}
           </div>
         ` : ''}
       </div>
@@ -1176,7 +1576,15 @@ export class ChatWidget extends ShoprocketElement {
           </div>
         </div>
 
-        ${this._renderMessages()}
+        <div class="sr-chat-body">
+          ${this._renderMessages()}
+          ${this._newMsgPending ? html`
+            <button class="sr-chat-new-msg-btn" @click="${this._jumpToBottom}" aria-label="Jump to new message">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+              New message
+            </button>
+          ` : ''}
+        </div>
 
         ${this.rateLimited ? html`
           <div class="sr-chat-rate-limit" role="alert">
@@ -1202,6 +1610,34 @@ export class ChatWidget extends ShoprocketElement {
                   aria-label="Your email address"
                 />
               </div>
+            ` : this.showEmailNudge ? html`
+              <div class="sr-chat-email-nudge">
+                ${this.emailNudgeExpanded ? html`
+                  <div class="sr-chat-email-nudge-form">
+                    <input
+                      class="sr-chat-email-input"
+                      type="email"
+                      placeholder="your@email.com"
+                      .value="${this.emailValue}"
+                      @input="${(e: Event) => { this.emailValue = (e.target as HTMLInputElement).value; }}"
+                      @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter') this._submitEmail(); }}"
+                      autocomplete="email"
+                      aria-label="Your email address"
+                    />
+                    <button
+                      class="sr-chat-email-nudge-save"
+                      ?disabled="${!this.emailValue.trim() || this.emailNudgeSubmitting}"
+                      @click="${this._submitEmail}"
+                    >${this.emailNudgeSubmitting ? '…' : 'Save'}</button>
+                    <button class="sr-chat-email-nudge-dismiss" @click="${() => { this.emailNudgeExpanded = false; }}" aria-label="Cancel">×</button>
+                  </div>
+                ` : html`
+                  <button class="sr-chat-email-nudge-link" @click="${() => { this.emailNudgeExpanded = true; }}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                    Get notified by email if you miss our reply →
+                  </button>
+                `}
+              </div>
             ` : ''}
             <div class="sr-chat-composer">
               <textarea
@@ -1211,7 +1647,7 @@ export class ChatWidget extends ShoprocketElement {
                 .value="${this.inputValue}"
                 @input="${this._onInput}"
                 @keydown="${this._onKeydown}"
-                ?disabled="${this.isSending || this.rateLimited}"
+                ?disabled="${this.rateLimited}"
                 aria-label="Message input"
               ></textarea>
               <div class="sr-chat-composer-actions">

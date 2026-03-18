@@ -13,6 +13,10 @@ export default defineConfig({
     __DEV__: 'false',
     'import.meta.env.PROD': 'true',
     'import.meta.env.DEV': 'false',
+    'import.meta.env.VITE_REVERB_HOST': JSON.stringify('ws.shoprocket.io'),
+    'import.meta.env.VITE_REVERB_PORT': JSON.stringify('443'),
+    'import.meta.env.VITE_REVERB_SCHEME': JSON.stringify('https'),
+    'import.meta.env.VITE_REVERB_APP_KEY': JSON.stringify('shoprocket-key'),
   },
   build: {
     emptyOutDir: false,

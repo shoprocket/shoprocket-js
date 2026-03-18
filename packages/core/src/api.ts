@@ -15,6 +15,7 @@ export interface ApiConfig {
   publishableKey: string;
   locale?: string;
   cartToken?: string;
+  visitorId?: string;
 }
 
 export class ApiClient {
@@ -31,6 +32,14 @@ export class ApiClient {
 
   setCartToken(token: string) {
     this.config.cartToken = token;
+  }
+
+  setVisitorId(id: string) {
+    this.config.visitorId = id;
+  }
+
+  getVisitorId(): string | undefined {
+    return this.config.visitorId;
   }
 
   setLocale(locale: string) {
@@ -53,6 +62,10 @@ export class ApiClient {
 
     if (this.config.cartToken) {
       headers['X-Cart-Token'] = this.config.cartToken;
+    }
+
+    if (this.config.visitorId) {
+      headers['X-Visitor-Id'] = this.config.visitorId;
     }
 
     if (this.authToken) {
@@ -164,12 +177,9 @@ export class ApiClient {
     }
 
     if (this.needsCartHeaders(endpoint)) {
-      if (this.config.cartToken) {
-        headers['X-Cart-Token'] = this.config.cartToken;
-      }
-      if (this.authToken) {
-        headers['Authorization'] = `Bearer ${this.authToken}`;
-      }
+      if (this.config.cartToken) headers['X-Cart-Token'] = this.config.cartToken;
+      if (this.config.visitorId) headers['X-Visitor-Id'] = this.config.visitorId;
+      if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
     }
 
     let lastError: any;

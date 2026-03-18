@@ -3323,11 +3323,18 @@ button .sr-spinner,
 /* Modern Input and Select Styles - Base */
 .sr-field-input,
 .sr-field-select {
-  @apply w-full px-3 pt-5 pb-1.5 border text-sm sr-field-base;
+  @apply w-full px-3 pt-5 pb-1.5 border sr-field-base;
   border-radius: var(--radius);
   border-color: var(--border);
   min-height: 2.75rem;
-  /* iOS zoom prevention via touch-action is in :host reset */
+  font-size: 16px; /* Prevent iOS zoom */
+}
+
+@media (min-width: 640px) {
+  .sr-field-input,
+  .sr-field-select {
+    font-size: 0.875rem;
+  }
 }
 
 .sr-field-input::placeholder {

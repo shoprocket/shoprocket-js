@@ -86,6 +86,20 @@ export class ShoprocketCore {
   }
 
   /**
+   * Set visitor ID (permanent device identity — never rotates)
+   */
+  setVisitorId(id: string): void {
+    this.api.setVisitorId(id);
+  }
+
+  /**
+   * Get visitor ID
+   */
+  getVisitorId(): string | undefined {
+    return this.api.getVisitorId();
+  }
+
+  /**
    * Set locale
    */
   setLocale(locale: string): void {
