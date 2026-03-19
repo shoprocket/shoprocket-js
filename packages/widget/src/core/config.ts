@@ -1,5 +1,7 @@
 /**
- * Global configuration for the widget
+ * Global configuration for the widget.
+ * All values come from build-time env vars (VITE_*) — see .env.local,
+ * .env.dev-server, .env.production.
  */
 export interface GlobalConfig {
   apiUrl: string;
@@ -13,40 +15,20 @@ declare global {
   }
 }
 
-// Default config
-const getDefaultConfig = (): GlobalConfig => ({
-  apiUrl: 'https://api.shoprocket.io/api/v3',
-  cdnUrl: 'https://cdn.shoprocket.io'
-});
-
-// Use global storage to survive code splitting
 const getConfigStorage = (): GlobalConfig => {
   if (!window.__SHOPROCKET_CONFIG__) {
-    window.__SHOPROCKET_CONFIG__ = getDefaultConfig();
+    window.__SHOPROCKET_CONFIG__ = {
+      apiUrl: import.meta.env.VITE_API_URL,
+      cdnUrl: import.meta.env.VITE_CDN_URL,
+    };
   }
   return window.__SHOPROCKET_CONFIG__;
 };
 
-/**
- * Initialize config based on script source
- */
-export const initializeConfig = (scriptUrl: string): void => {
-  let apiUrl = 'https://api.shoprocket.io/api/v3';
-  let cdnUrl = 'https://cdn.shoprocket.io';
-
-  if (scriptUrl) {
-    const scriptHost = new URL(scriptUrl).hostname;
-
-    if (scriptHost === 'dev-cdn.shoprocket.io') {
-      apiUrl = 'https://dev.shoprocket.io/api/v3';
-      cdnUrl = 'https://dev-cdn.shoprocket.io';
-    } else if (scriptHost.includes('localhost') || scriptHost.includes('.test') || scriptHost.includes('.local')) {
-      apiUrl = 'https://shoprocketv3.test/api/v3';
-      cdnUrl = 'https://shoprocketv3.test';
-    }
-  }
-
-  window.__SHOPROCKET_CONFIG__ = { apiUrl, cdnUrl };
+export const initializeConfig = (_scriptUrl: string): void => {
+  // Config is baked in at build time — nothing to derive at runtime.
+  // The _scriptUrl param is kept for API compatibility.
+  getConfigStorage();
 };
 
 export const getConfig = (): GlobalConfig => getConfigStorage();

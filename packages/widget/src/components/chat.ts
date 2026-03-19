@@ -32,11 +32,31 @@ class ReverbConnection {
   private destroyed = false;
   // channel → callback
   private listeners = new Map<string, (event: string, data: any) => void>();
+  private onlineHandler: () => void;
+  private visibilityHandler: () => void;
 
   constructor(
     private authUrl: string,
     private authHeaders: Record<string, string>,
-  ) { this.connect(); }
+  ) {
+    this.connect();
+    // Reconnect immediately when network comes back (e.g. machine woke from sleep)
+    this.onlineHandler = () => {
+      console.log('[Reverb] online event fired, readyState:', this.ws?.readyState);
+      if (!this.destroyed && this.ws?.readyState !== WebSocket.OPEN) {
+        this.reconnectDelay = 1000;
+        this.ws?.close();
+        this.connect();
+      }
+    };
+    // Reconnect when tab becomes visible again after being hidden
+    this.visibilityHandler = () => {
+      console.log('[Reverb] visibilitychange, hidden:', document.hidden);
+      if (!document.hidden) this.onlineHandler();
+    };
+    window.addEventListener('online', this.onlineHandler);
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
 
   /** Subscribe to a private channel. Safe to call before connection is established. */
   subscribe(channel: string, callback: (event: string, data: any) => void): void {
@@ -63,54 +83,82 @@ class ReverbConnection {
     this.destroyed = true;
     this.ws?.close();
     this.ws = null;
+    window.removeEventListener('online', this.onlineHandler);
+    document.removeEventListener('visibilitychange', this.visibilityHandler);
   }
 
   private connect(): void {
-    const key = import.meta.env.VITE_REVERB_APP_KEY;
     const host = import.meta.env.VITE_REVERB_HOST;
     const port = import.meta.env.VITE_REVERB_PORT;
     const scheme = import.meta.env.VITE_REVERB_SCHEME === 'https' ? 'wss' : 'ws';
-    this.ws = new WebSocket(`${scheme}://${host}:${port}/app/${key}?protocol=7&client=js&version=8.0.0`);
+    const key = import.meta.env.VITE_REVERB_APP_KEY;
+    const url = `${scheme}://${host}:${port}/app/${key}?protocol=7&client=js&version=8.0.0`;
+    console.log('[Reverb] connecting to', url, '— reconnectDelay was', this.reconnectDelay);
+    this.ws = new WebSocket(url);
+
+    // If we don't get connection_established within 10s, the socket is likely
+    // hanging (e.g. routing change after VPN toggle) — close and retry
+    const ws = this.ws;
+    const connectTimeout = setTimeout(() => {
+      console.log('[Reverb] connect timeout (10s), readyState:', ws.readyState, '— forcing close');
+      if (ws.readyState !== WebSocket.OPEN) ws.close();
+    }, 10000);
 
     this.ws.onmessage = async (e) => {
       const msg = JSON.parse(e.data);
       const d = (raw: any) => typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw ?? {});
       if (msg.event === 'pusher:connection_established') {
+        clearTimeout(connectTimeout);
         this.socketId = d(msg.data).socket_id;
         this.reconnectDelay = 1000;
+        console.log('[Reverb] connected, socket_id:', this.socketId, '— subscribing', this.listeners.size, 'channel(s)');
         for (const channel of this.listeners.keys()) await this.doSubscribe(channel);
       } else if (msg.event === 'pusher:ping') {
         this.ws?.send(JSON.stringify({ event: 'pusher:pong', data: {} }));
       } else if (msg.event === 'pusher:error') {
         const code = d(msg.data).code ?? 0;
+        console.error('[Reverb] server error, code:', code);
         if (code > 0 && code < 4100) this.destroyed = true;
       } else if (!msg.event?.startsWith('pusher_internal:') && msg.channel) {
         this.listeners.get(msg.channel)?.(msg.event as string, d(msg.data));
       }
     };
 
-    this.ws.onclose = () => {
+    this.ws.onerror = (e) => {
+      console.log('[Reverb] ws error', e);
+    };
+
+    this.ws.onclose = (e) => {
+      clearTimeout(connectTimeout);
       this.socketId = null;
+      console.log('[Reverb] closed, code:', e.code, 'reason:', e.reason || '(none)', '— next retry in', this.reconnectDelay, 'ms');
       if (this.destroyed) return;
       setTimeout(() => this.connect(), this.reconnectDelay);
-      this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, 8000);
     };
   }
 
-  private async doSubscribe(channel: string): Promise<void> {
-    if (!this.socketId) return;
+  private async doSubscribe(channel: string, attempt = 0): Promise<void> {
+    if (!this.socketId || this.destroyed) return;
+    console.log('[Reverb] subscribing to', channel, attempt > 0 ? `(attempt ${attempt + 1})` : '');
     try {
       const res = await fetch(this.authUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...this.authHeaders },
         body: JSON.stringify({ socket_id: this.socketId, channel_name: channel }),
       });
-      if (!res.ok) { console.error('[Shoprocket] WS auth failed', res.status); return; }
+      if (!res.ok) { console.error('[Reverb] auth failed', res.status); return; }
       const { auth } = await res.json();
-      if (!auth) { console.error('[Shoprocket] WS auth missing token'); return; }
+      if (!auth) { console.error('[Reverb] auth missing token'); return; }
       this.ws?.send(JSON.stringify({ event: 'pusher:subscribe', data: { channel, auth } }));
+      console.log('[Reverb] subscribed to', channel);
     } catch (err) {
-      console.error('[Shoprocket] WS auth error', err);
+      console.error('[Reverb] auth fetch error (attempt', attempt + 1, '):', err);
+      // Network error (e.g. machine woke from sleep) — retry with backoff, max 3 attempts
+      if (attempt < 3 && !this.destroyed) {
+        console.log('[Reverb] retrying subscribe in', 2000 * (attempt + 1), 'ms');
+        setTimeout(() => void this.doSubscribe(channel, attempt + 1), 2000 * (attempt + 1));
+      }
     }
   }
 }

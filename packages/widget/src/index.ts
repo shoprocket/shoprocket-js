@@ -34,12 +34,7 @@ declare global {
 // Note: CLS prevention is handled by loader.js (sets inline min-height before bundle loads)
 // Components clear these inline styles when content is ready (see product-catalog.ts, etc.)
 
-// Capture script info - different methods for ES modules vs IIFE
-// ES modules: Use import.meta.url (most reliable)
-// IIFE: Use document.currentScript or fallback to bundle script tag
-const scriptUrl = (typeof import.meta !== 'undefined' && import.meta.url)
-  ? import.meta.url
-  : (document.currentScript as HTMLScriptElement)?.src || '';
+const scriptUrl = import.meta.url;
 
 // Create global instance
 const shoprocket = new WidgetManager();

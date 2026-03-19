@@ -17,7 +17,7 @@ const replacePlugin = () => {
 export default defineConfig({
   plugins: [replacePlugin()],
   define: {
-    __SHOPROCKET_API_URL__: JSON.stringify('https://api.shoprocket.io')
+    __SHOPROCKET_API_URL__: JSON.stringify('https://dev.shoprocket.io')
   },
   build: {
     lib: {
@@ -58,7 +58,7 @@ export default defineConfig({
         ascii_only: true,
       }
     },
-    target: 'es5', // Loader should work everywhere
+    target: 'es5',
     sourcemap: false
   }
 });
