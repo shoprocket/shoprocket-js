@@ -16,6 +16,9 @@ const replacePlugin = () => {
 
 export default defineConfig({
   plugins: [replacePlugin()],
+  define: {
+    __SHOPROCKET_API_URL__: JSON.stringify('https://shoprocketv3.test')
+  },
   build: {
     emptyOutDir: true, // Clean dist/ before build (first in sequence)
     lib: {

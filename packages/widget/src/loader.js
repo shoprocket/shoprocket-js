@@ -64,17 +64,7 @@
   // This runs before bundle loads, catching the first API request
   (function() {
     try {
-      var scriptHost = new URL(scriptUrl).hostname;
-      var apiUrl = 'https://api.shoprocket.io';
-
-      // Determine API URL based on script host (same logic as config.ts)
-      if (scriptHost === 'dev-cdn.shoprocket.io') {
-        apiUrl = 'https://dev.shoprocket.io';
-      } else if (scriptHost.includes('localhost') || scriptHost.includes('.test') || scriptHost.includes('.local')) {
-        apiUrl = 'https://shoprocketv3.test';
-      }
-
-      var apiOrigin = new URL(apiUrl).origin;
+      var apiOrigin = new URL(__SHOPROCKET_API_URL__).origin;
 
       // Check if preconnect already exists
       if (!document.querySelector('link[rel="preconnect"][href="' + apiOrigin + '"]')) {
@@ -96,56 +86,31 @@
     }
   })();
 
-  // Detect ES module support
-  function supportsModules() {
-    var script = document.createElement('script');
-    return 'noModule' in script;
-  }
-  
-  // Determine bundle URL based on browser capabilities
-  var useModules = supportsModules();
   var bundleUrl = scriptUrl.replace(/loader\.js/, 'main.shoprocket.js');
-  
-  // Create and inject the appropriate bundle script
+
+  // Create import map to ensure all chunks use same versioned URL
+  var versionParam = bundleUrl.indexOf('?') > -1 ? '&v=__SHOPROCKET_VERSION__' : '?v=__SHOPROCKET_VERSION__';
+  var versionedUrl = bundleUrl + versionParam;
+
+  // Must alias ALL possible import paths that chunks might use
+  var baseUrl = bundleUrl.replace(/\?.*$/, ''); // Remove query params
+  var imports = {
+    './main.shoprocket.js': versionedUrl,        // Relative import from same dir
+    '/main.shoprocket.js': versionedUrl,         // Absolute path import
+    'main.shoprocket.js': versionedUrl           // Bare specifier
+  };
+  imports[baseUrl] = versionedUrl;               // Full URL without version
+
+  var importMap = document.createElement('script');
+  importMap.type = 'importmap';
+  importMap.textContent = JSON.stringify({ imports: imports });
+  document.head.appendChild(importMap);
+
+  // Create and inject the ESM bundle script
   var bundleScript = document.createElement('script');
-  
-  if (useModules) {
-    // Modern browsers: Use ES modules for code splitting
-    bundleScript.type = 'module';
-    bundleScript.setAttribute('data-bundle-type', 'esm');
-  } else {
-    // Legacy browsers: Use IIFE bundle (fallback)
-    bundleUrl = scriptUrl.replace(/loader\.js/, 'bundle.shoprocket.js');
-    bundleScript.async = true;
-    bundleScript.setAttribute('data-bundle-type', 'iife');
-  }
-  
-  // For ES modules, use import map to ensure all chunks use same versioned URL
-  if (useModules) {
-    var versionParam = bundleUrl.indexOf('?') > -1 ? '&v=__SHOPROCKET_VERSION__' : '?v=__SHOPROCKET_VERSION__';
-    var versionedUrl = bundleUrl + versionParam;
-
-    // Create import map to alias main.shoprocket.js to versioned URL
-    // Must alias ALL possible import paths that chunks might use
-    var baseUrl = bundleUrl.replace(/\?.*$/, ''); // Remove query params
-    var imports = {
-      './main.shoprocket.js': versionedUrl,        // Relative import from same dir
-      '/main.shoprocket.js': versionedUrl,         // Absolute path import
-      'main.shoprocket.js': versionedUrl           // Bare specifier
-    };
-    imports[baseUrl] = versionedUrl;               // Full URL without version (ES5 compat)
-
-    var importMap = document.createElement('script');
-    importMap.type = 'importmap';
-    importMap.textContent = JSON.stringify({ imports: imports });
-    document.head.appendChild(importMap);
-
-    bundleScript.src = versionedUrl;
-  } else {
-    // IIFE doesn't need import map
-    var versionParam = bundleUrl.indexOf('?') > -1 ? '&v=__SHOPROCKET_VERSION__' : '?v=__SHOPROCKET_VERSION__';
-    bundleScript.src = bundleUrl + versionParam;
-  }
+  bundleScript.type = 'module';
+  bundleScript.setAttribute('data-bundle-type', 'esm');
+  bundleScript.src = versionedUrl;
 
   bundleScript.setAttribute('data-shoprocket-bundle', 'true');
   bundleScript.setAttribute('data-pk', publicKey); // Pass the public key
