@@ -16,6 +16,9 @@
     "version": "changeset version",
     "release": "npm run build && changeset publish"
   },
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "1.31.1"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
     "@types/node": "^20.11.0",
