@@ -9,7 +9,6 @@
     "dist"
   ],
   "scripts": {
-    "dev": "vite",
     "build": "npm run build:dev",
     "build:dev": "npm run clean && npm run build:loader && npm run build:esm",
     "build:prod": "NODE_ENV=production npm run clean && npm run build:loader:prod && NODE_ENV=production vite build --config vite.config.esm.dev-server.mts --mode production",
@@ -19,13 +18,9 @@
     "build:loader:prod": "NODE_ENV=production vite build --config vite.config.loader.prod.mts",
     "build:esm": "vite build --config vite.config.esm.mts --mode dev",
     "build:watch": "npm run clean && npm run build:loader && vite build --watch --config vite.config.esm.mts --mode dev",
-    "watch": "npm run build:watch",
-    "watch:esm": "vite build --watch --config vite.config.esm.mts --mode dev",
-    "preview": "vite preview",
     "test": "vitest",
     "lint": "eslint src",
     "clean": "rm -rf dist",
-    "clean:esm": "rm -rf dist-esm",
     "size": "npm run build && ls -lh dist/",
     "size:prod": "npm run build:dev-server && ls -lh dist/loader.js dist/main.shoprocket.js dist/*.shoprocket.js 2>/dev/null || ls -lh dist/"
   },

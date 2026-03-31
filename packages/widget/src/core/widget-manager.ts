@@ -294,14 +294,22 @@ export class WidgetManager {
       // Set cart token for all API requests
       this.sdk.setCartToken(CookieManager.getCartToken());
 
+      // Read source from loader script tag (data-source attribute, default 'embed')
+      const loaderScript = document.querySelector('script[data-pk]');
+      const source = loaderScript?.getAttribute('data-source') || 'embed';
+
       // Set attribution headers for UTM + affiliate tracking
       const attribution = CookieManager.getAttribution();
       this.sdk.setAttribution({
         utm_source: attribution.utm_source,
         utm_medium: attribution.utm_medium,
         utm_campaign: attribution.utm_campaign,
+        utm_content: attribution.utm_content,
+        utm_term: attribution.utm_term,
         referrer: attribution.referrer,
         affiliate_ref: attribution.affiliate_ref,
+        landing_page: attribution.landing_page,
+        source,
       });
 
       // Initialize cart state manager with SDK

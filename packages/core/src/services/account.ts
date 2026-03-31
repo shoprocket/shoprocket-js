@@ -5,7 +5,6 @@ export interface CustomerProfile {
   firstName: string;
   lastName: string;
   phone: string | null;
-  hasPassword: boolean;
   ordersCount: number;
   totalSpent: number;
   lastOrderAt: string | null;
@@ -92,14 +91,6 @@ export class AccountService {
   async getOrder(orderId: string): Promise<CustomerOrderDetail> {
     const response = await this.api.get<any>(`/account/orders/${orderId}`);
     return response.data || response;
-  }
-
-  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
-    await this.api.post<any>('/account/change-password', { currentPassword, newPassword });
-  }
-
-  async resetPassword(newPassword: string): Promise<void> {
-    await this.api.post<any>('/account/reset-password', { newPassword });
   }
 
   async logout(): Promise<void> {

@@ -38,8 +38,7 @@ export class AccountWidget extends ShoprocketElement {
 
   // Login state
   @state() private loginEmail = '';
-  @state() private loginMode: 'check' | 'password' | 'otp' | 'reset-password' = 'check';
-  @state() private forgotPasswordMode = false;
+  @state() private loginMode: 'check' | 'otp' = 'check';
   @state() private otpCode: string[] = ['', '', '', '', '', ''];
   @state() private authError = '';
   @state() private authLoading = false;
@@ -48,11 +47,6 @@ export class AccountWidget extends ShoprocketElement {
   @state() private saving = false;
   @state() private profileSuccess = '';
   @state() private profileError = '';
-
-  // Password state
-  @state() private changingPassword = false;
-  @state() private passwordError = '';
-  @state() private passwordSuccess = '';
 
   // Drawer state
   @state() private drawerOpen = false;
@@ -122,35 +116,11 @@ export class AccountWidget extends ShoprocketElement {
       const result = await this.sdk.cart.checkCheckoutData(this.loginEmail);
       if (!result.exists) {
         this.authError = t('account.no_account', 'No account found with this email.');
-      } else if (result.hasPassword) {
-        this.loginMode = 'password';
       } else {
         await this.handleSendOtp();
       }
     } catch {
       this.authError = t('account.check_failed', 'Unable to check email. Please try again.');
-    } finally {
-      this.authLoading = false;
-    }
-  }
-
-  private async handlePasswordLogin(password: string): Promise<void> {
-    this.authLoading = true;
-    this.authError = '';
-    try {
-      // @ts-ignore
-      const result = await this.sdk.cart.passwordLogin(this.loginEmail, password);
-      if (result.authenticated) {
-        await this.checkAuthAndLoad();
-      } else {
-        this.authError = result.message || t('account.invalid_password', 'Invalid password.');
-      }
-    } catch (error: any) {
-      if (error.status === 429) {
-        this.authError = t('error.rate_limit', 'Too many attempts. Please wait a moment.');
-      } else {
-        this.authError = error.message || t('account.login_failed', 'Login failed. Please try again.');
-      }
     } finally {
       this.authLoading = false;
     }
@@ -188,11 +158,7 @@ export class AccountWidget extends ShoprocketElement {
       // @ts-ignore
       const result = await this.sdk.cart.verifyAuth(this.loginEmail, code);
       if (result.authenticated) {
-        if (this.forgotPasswordMode) {
-          this.loginMode = 'reset-password';
-        } else {
-          await this.checkAuthAndLoad();
-        }
+        await this.checkAuthAndLoad();
       } else {
         this.authError = result.message || t('account.invalid_code', 'Invalid code. Please try again.');
       }
@@ -254,26 +220,6 @@ export class AccountWidget extends ShoprocketElement {
     this.loginMode = 'check';
     this.authError = '';
     this.otpCode = ['', '', '', '', '', ''];
-    this.forgotPasswordMode = false;
-  }
-
-  private async handleForgotPassword(): Promise<void> {
-    this.forgotPasswordMode = true;
-    await this.handleSendOtp();
-  }
-
-  private async handleResetPassword(newPassword: string): Promise<void> {
-    this.authLoading = true;
-    this.authError = '';
-    try {
-      await this.sdk.account.resetPassword(newPassword);
-      this.forgotPasswordMode = false;
-      await this.checkAuthAndLoad();
-    } catch (error: any) {
-      this.authError = error.message || t('account.reset_password_failed', 'Failed to reset password. Please try again.');
-    } finally {
-      this.authLoading = false;
-    }
   }
 
   // --- Dashboard handlers ---
@@ -310,21 +256,6 @@ export class AccountWidget extends ShoprocketElement {
       setTimeout(() => { this.profileError = ''; }, 5000);
     } finally {
       this.saving = false;
-    }
-  }
-
-  private async handleChangePassword(currentPassword: string, newPassword: string): Promise<void> {
-    this.changingPassword = true;
-    this.passwordError = '';
-    this.passwordSuccess = '';
-    try {
-      await this.sdk.account.changePassword(currentPassword, newPassword);
-      this.passwordSuccess = t('account.password_changed', 'Password updated successfully.');
-      setTimeout(() => { this.passwordSuccess = ''; }, 3000);
-    } catch (error: any) {
-      this.passwordError = error.message || t('account.password_change_failed', 'Failed to change password.');
-    } finally {
-      this.changingPassword = false;
     }
   }
 
@@ -417,14 +348,11 @@ export class AccountWidget extends ShoprocketElement {
       authLoading: this.authLoading,
       onEmailChange: (email) => { this.loginEmail = email; },
       onCheckEmail: () => this.handleCheckEmail(),
-      onPasswordLogin: (pw) => this.handlePasswordLogin(pw),
       onSendOtp: () => this.handleSendOtp(),
       onVerifyOtp: (code) => this.handleVerifyOtp(code),
       onOtpInput: (e, i) => this.handleOtpInput(e, i),
       onOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),
       onOtpPaste: (e) => this.handleOtpPaste(e),
-      onForgotPassword: () => this.handleForgotPassword(),
-      onResetPassword: (pw) => this.handleResetPassword(pw),
       onBack: () => this.handleLoginBack(),
     };
     return this.modules.login.renderAccountLogin(ctx);
@@ -486,13 +414,9 @@ export class AccountWidget extends ShoprocketElement {
     const ctx: AccountDetailsContext = {
       profile: this.profile,
       saving: this.saving,
-      changingPassword: this.changingPassword,
-      passwordError: this.passwordError,
-      passwordSuccess: this.passwordSuccess,
       profileSuccess: this.profileSuccess,
       profileError: this.profileError,
       onUpdateProfile: (data) => this.handleUpdateProfile(data),
-      onChangePassword: (cur, pw) => this.handleChangePassword(cur, pw),
       onLogout: () => this.handleLogout(),
     };
     return this.modules.details.renderAccountDetails(ctx);

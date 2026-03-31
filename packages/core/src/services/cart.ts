@@ -42,7 +42,8 @@ export class CartService {
   }
 
   async addItem(data: AddToCartParams): Promise<Cart> {
-    const response = await this.api.post<any>('/cart/items', data);
+    const attribution = this.api.getAttribution();
+    const response = await this.api.post<any>('/cart/items', { ...data, ...attribution });
     return response.cart || response.data || response;
   }
 
