@@ -7,6 +7,8 @@ on:
     paths:
       - 'packages/widget/**'
       - 'packages/core/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/deploy.yml'
 
 jobs:
