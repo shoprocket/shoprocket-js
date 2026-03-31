@@ -6,8 +6,12 @@ export interface Attribution {
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
   referrer?: string;
   affiliate_ref?: string;
+  landing_page?: string;
+  source?: string;
 }
 
 export interface ApiConfig {
@@ -54,6 +58,10 @@ export class ApiClient {
     this.attribution = attribution;
   }
 
+  getAttribution(): Attribution {
+    return this.attribution ?? {};
+  }
+
   private getHeaders(): HeadersInit {
     const headers: HeadersInit = {
       'Accept': 'application/json',
@@ -74,15 +82,6 @@ export class ApiClient {
 
     if (this.config.locale) {
       headers['Accept-Language'] = this.config.locale;
-    }
-
-    // Attribution headers (read by Laravel on first cart interaction)
-    if (this.attribution) {
-      if (this.attribution.utm_source) headers['X-UTM-Source'] = this.attribution.utm_source;
-      if (this.attribution.utm_medium) headers['X-UTM-Medium'] = this.attribution.utm_medium;
-      if (this.attribution.utm_campaign) headers['X-UTM-Campaign'] = this.attribution.utm_campaign;
-      if (this.attribution.referrer) headers['X-Referrer'] = this.attribution.referrer;
-      if (this.attribution.affiliate_ref) headers['X-Affiliate-Ref'] = this.attribution.affiliate_ref;
     }
 
     return headers;

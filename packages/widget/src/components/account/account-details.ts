@@ -6,7 +6,6 @@ export function renderAccountDetails(ctx: AccountDetailsContext): TemplateResult
   return html`
     <div class="sr-account-details">
       ${renderProfileSection(ctx)}
-      ${ctx.profile.hasPassword ? renderChangePasswordSection(ctx) : ''}
       ${renderLogoutSection(ctx)}
     </div>
   `;
@@ -67,50 +66,6 @@ function renderProfileSection(ctx: AccountDetailsContext): TemplateResult {
         ${ctx.profileSuccess ? html`<p class="sr-account-success">${ctx.profileSuccess}</p>` : ''}
         <button type="submit" class="sr-account-button-primary" ?disabled=${ctx.saving}>
           ${ctx.saving ? t('account.saving', 'Saving...') : t('account.save', 'Save Changes')}
-        </button>
-      </form>
-    </div>
-  `;
-}
-
-function renderChangePasswordSection(ctx: AccountDetailsContext): TemplateResult {
-  let currentPassword = '';
-  let newPassword = '';
-
-  return html`
-    <div class="sr-account-section">
-      <h4 class="sr-account-section-title">${t('account.change_password', 'Change Password')}</h4>
-      <form @submit=${(e: Event) => {
-        e.preventDefault();
-        ctx.onChangePassword(currentPassword, newPassword);
-      }} class="sr-account-form">
-        <div class="sr-account-form-group">
-          <label class="sr-account-label" for="sr-account-current-pw">${t('account.current_password', 'Current Password')}</label>
-          <input
-            id="sr-account-current-pw"
-            type="password"
-            class="sr-account-input"
-            @input=${(e: Event) => { currentPassword = (e.target as HTMLInputElement).value; }}
-            required
-            autocomplete="current-password"
-          />
-        </div>
-        <div class="sr-account-form-group">
-          <label class="sr-account-label" for="sr-account-new-pw">${t('account.new_password', 'New Password')}</label>
-          <input
-            id="sr-account-new-pw"
-            type="password"
-            class="sr-account-input"
-            @input=${(e: Event) => { newPassword = (e.target as HTMLInputElement).value; }}
-            required
-            minlength="8"
-            autocomplete="new-password"
-          />
-        </div>
-        ${ctx.passwordError ? html`<p class="sr-account-error">${ctx.passwordError}</p>` : ''}
-        ${ctx.passwordSuccess ? html`<p class="sr-account-success">${ctx.passwordSuccess}</p>` : ''}
-        <button type="submit" class="sr-account-button-secondary" ?disabled=${ctx.changingPassword}>
-          ${ctx.changingPassword ? t('account.updating', 'Updating...') : t('account.update_password', 'Update Password')}
         </button>
       </form>
     </div>
