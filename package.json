@@ -17,6 +17,7 @@
     "release": "npm run build && changeset publish"
   },
   "optionalDependencies": {
+    "lightningcss-darwin-arm64": "1.31.1",
     "lightningcss-linux-x64-gnu": "1.31.1"
   },
   "devDependencies": {
