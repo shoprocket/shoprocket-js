@@ -309,11 +309,16 @@ export class WidgetManager {
         referrer: attribution.referrer,
         affiliate_ref: attribution.affiliate_ref,
         landing_page: attribution.landing_page,
+        device_type: attribution.device_type,
+        browser: attribution.browser,
         source,
       });
 
       // Initialize cart state manager with SDK
       cartState.init(this.sdk);
+
+      // Wire visitor identity into SDK so all cart API calls include X-Visitor-Id header
+      this.sdk.setVisitorId(CookieManager.getVisitorId());
 
       // Initialize cart token (no server call needed)
       const cartToken = CookieManager.getCartToken();

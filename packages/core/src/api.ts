@@ -11,6 +11,8 @@ export interface Attribution {
   referrer?: string;
   affiliate_ref?: string;
   landing_page?: string;
+  device_type?: string;
+  browser?: string;
   source?: string;
 }
 
