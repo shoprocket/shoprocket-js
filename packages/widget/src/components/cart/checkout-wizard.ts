@@ -526,6 +526,7 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
                       placeholder=" "
                       autocomplete="current-password"
                       @input="${context.handlePasswordInput}"
+                      @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && context.customerPassword && !context.signingIn) context.handlePasswordLogin(); }}"
                     >
                     <label class="sr-field-label" for="password">${t('field.password', 'Password')}</label>
                   </div>

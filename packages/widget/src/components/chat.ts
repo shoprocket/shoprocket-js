@@ -1160,6 +1160,10 @@ export class ChatWidget extends ShoprocketElement {
       this._subscribeConversation(this.conversationId);
     }
     // No scroll needed: column-reverse means scrollTop=0 is already the bottom.
+
+    // Auto-focus the composer after open + render completes
+    await this.updateComplete;
+    this.renderRoot.querySelector<HTMLTextAreaElement>('.sr-chat-input')?.focus();
   }
 
   private _close(): void {
