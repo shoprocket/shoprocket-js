@@ -44,47 +44,64 @@ window.Shoprocket = shoprocket;
 
 /**
  * Shoprocket Widget Events
- * 
- * The widget emits various events that you can listen to for integration:
- * 
+ *
+ * The widget emits browser CustomEvents on `window` that integrations can
+ * subscribe to. Events signal what changed; for the current cart state call
+ * `Shoprocket.cart.get()` from inside the handler. Payloads below reflect the
+ * actual dispatch sites in this package. The code is the source of truth;
+ * verify before relying in production.
+ *
  * @example
- * // Listen for cart updates
+ * // Cart initial-load: full cart object available
+ * window.addEventListener('shoprocket:cart:loaded', (event) => {
+ *   const cart = event.detail.cart;
+ *   console.log('Items in cart:', cart.itemCount);
+ *   console.log('Currency:', cart.currency);
+ * });
+ *
+ * @example
+ * // Cart changes: only identifiers are in the payload. Pull current state from the SDK.
  * window.addEventListener('shoprocket:cart:updated', (event) => {
- *   console.log('Cart updated:', event.detail.cart);
- *   console.log('Total items:', event.detail.cart.total_items);
- *   console.log('Total price:', event.detail.cart.total);
+ *   console.log('Changed:', event.detail.productId, event.detail.variantId);
+ *   const cart = Shoprocket.cart.get();
+ *   updateBadge(cart.itemCount);
  * });
- * 
+ *
  * @example
- * // Listen for product added to cart
+ * // Product added: summary of the product is on event.detail.product
  * window.addEventListener('shoprocket:product:added', (event) => {
- *   console.log('Product added:', event.detail.product);
- *   // Show custom success message
- *   showNotification(`${event.detail.product.name} added to cart!`);
+ *   const { id, name, price, variantText } = event.detail.product;
+ *   showNotification(variantText ? `${name} (${variantText}) added` : `${name} added`);
  * });
- * 
+ *
  * @example
- * // Listen for cart errors
+ * // Cart operation failures
  * window.addEventListener('shoprocket:cart:error', (event) => {
- *   console.error('Cart error:', event.detail.error);
- *   // Handle error in your app
+ *   console.warn(event.detail.message, event.detail.type);
  * });
- * 
+ *
  * Available events:
- * - 'shoprocket:cart:updated' - Fired when cart contents change
- *   @param {Object} event.detail.cart - Updated cart object with items, totals
- * 
- * - 'shoprocket:cart:loaded' - Fired when cart is initially loaded
- *   @param {Object} event.detail.cart - Loaded cart object
- * 
- * - 'shoprocket:product:added' - Fired when a product is successfully added to cart
- *   @param {Object} event.detail.product - Product that was added
- *   @param {Object} event.detail.variant - Selected variant (if applicable)
- *   @param {number} event.detail.quantity - Quantity added
- * 
- * - 'shoprocket:cart:error' - Fired when cart operations fail
- *   @param {string} event.detail.error - Error message
- *   @param {string} event.detail.type - Error type (e.g., 'out_of_stock', 'network_error')
+ *
+ * - 'shoprocket:cart:loaded': fired once when the cart completes its initial fetch.
+ *   event.detail.cart is the full cart object (items[], itemCount, currency, totals).
+ *   Dispatched from: components/cart.ts.
+ *
+ * - 'shoprocket:cart:updated': fired when an item is added to the cart.
+ *   event.detail is { productId, variantId }. Does NOT include the full cart;
+ *   call Shoprocket.cart.get() inside the handler for current state.
+ *   Dispatched from: utils/formatters.ts (bubbles up from the triggering element).
+ *
+ * - 'shoprocket:product:added': fired alongside cart:updated after a successful add.
+ *   event.detail.product is { id, name, price, media, variantText }.
+ *   variantText is the human-readable variant label, or null if no variant.
+ *   Dispatched from: utils/formatters.ts and components/cart.ts.
+ *
+ * - 'shoprocket:cart:error': fired when a cart operation fails (stock, etc.).
+ *   event.detail.message is the user-facing error text (translated).
+ *   event.detail.type (optional) is a machine-readable tag, currently one of
+ *   'out_of_stock' | 'insufficient_stock'.
+ *   event.detail.availableQuantity / currentQuantity are set on stock errors.
+ *   Dispatched from: components/cart.ts.
  */
 
 /**
