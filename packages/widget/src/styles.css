@@ -193,10 +193,14 @@
 
 /* Embeddable widget spacing - adds breathing room between stacked embeds */
 /* Cart excluded as it's position: fixed */
+/* container-type lets descendants use @container queries against the embed
+   container's width — so layouts respond to where the widget sits, not the viewport */
 :host(shoprocket-catalog),
-:host(shoprocket-product-view) {
+:host(shoprocket-product-view),
+:host(shoprocket-categories) {
   display: block;
   margin-bottom: 20px;
+  container-type: inline-size;
 }
 
 :host(shoprocket-buy-button) {
@@ -247,13 +251,13 @@ h1, h2, h3, h4 {
   }
 
 
-  @media (min-width: 768px) {
+  @container (min-width: 768px) {
     .sr-product-grid {
       grid-template-columns: repeat(var(--cols-md, 3), minmax(0, 1fr));
     }
   }
 
-  @media (min-width: 1024px) {
+  @container (min-width: 1024px) {
     .sr-product-grid {
       grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
     }
@@ -1514,9 +1518,16 @@ h1, h2, h3, h4 {
     border-color: transparent currentColor transparent transparent;
   }
 
-  /* Product Detail Grid */
+  /* Product Detail Grid — splits into two columns based on embed container
+     width (catalog host or product-view host), not viewport */
   .sr-product-detail-grid {
-    @apply grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8;
+    @apply grid grid-cols-1 gap-4;
+  }
+
+  @container (min-width: 1024px) {
+    .sr-product-detail-grid {
+      @apply grid-cols-2 gap-8;
+    }
   }
 
   /* Single column when media is hidden */
@@ -1537,7 +1548,13 @@ h1, h2, h3, h4 {
   }
 
   .sr-product-detail-media-sticky {
-    @apply lg:sticky lg:top-4;
+    @apply w-full;
+  }
+
+  @container (min-width: 1024px) {
+    .sr-product-detail-media-sticky {
+      @apply sticky top-4;
+    }
   }
 
   /* Product Detail Images */
@@ -2641,18 +2658,19 @@ button .sr-spinner,
 
 .sr-filters-horizontal {
   @apply flex flex-wrap gap-3 items-center;
-  /* Only prevent wrapping on larger screens where everything actually fits */
-  @media (min-width: 1280px) {
+  /* Only prevent wrapping on wider containers where everything actually fits */
+  @container (min-width: 1280px) {
     @apply flex-nowrap;
   }
 }
 
 .sr-filters-sidebar {
-  /* Use horizontal layout on mobile/tablet (same as horizontal filters) */
+  /* Use horizontal layout on narrow containers (same as horizontal filters) —
+     auto-collapse so embedded sidebar configs don't crowd narrow embeds */
   @apply flex flex-wrap gap-3;
 
-  /* Switch to vertical sidebar layout on desktop only */
-  @media (min-width: 1024px) {
+  /* Switch to vertical sidebar layout when the embed container has room */
+  @container (min-width: 1024px) {
     @apply flex-col gap-4;
   }
 }
@@ -2660,12 +2678,12 @@ button .sr-spinner,
 /* Sidebar layout grid: filters left, products right */
 .sr-catalog-list-view[data-layout="sidebar"] {
   @apply grid gap-6;
-  grid-template-columns: 1fr; /* Mobile/tablet: stacked */
+  grid-template-columns: 1fr; /* Narrow container: stacked, header-style filters */
 }
 
-@media (min-width: 1024px) {
+@container (min-width: 1024px) {
   .sr-catalog-list-view[data-layout="sidebar"] {
-    grid-template-columns: 280px 1fr; /* Desktop: 280px sidebar + flex products */
+    grid-template-columns: 280px 1fr; /* Wide container: 280px sidebar + flex products */
   }
 
   /* Make filters sticky on scroll for better UX */
@@ -2679,8 +2697,8 @@ button .sr-spinner,
   }
 }
 
-/* Adjust filter widths for sidebar - only full width on desktop when vertical */
-@media (min-width: 1024px) {
+/* Adjust filter widths for sidebar - only full width when vertical */
+@container (min-width: 1024px) {
   .sr-filters-sidebar .sr-filter-group {
     @apply w-full;
   }
@@ -2692,9 +2710,9 @@ button .sr-spinner,
 }
 
 .sr-filter-search {
-  flex: 1 1 100%; /* Force full width on mobile/tablet, push other items to next row */
-  /* Fixed width on desktop */
-  @media (min-width: 1024px) {
+  flex: 1 1 100%; /* Force full width on narrow containers, push other items to next row */
+  /* Fixed width on wide containers */
+  @container (min-width: 1024px) {
     flex: 0 0 auto;
     @apply w-64;
   }
@@ -2709,9 +2727,9 @@ button .sr-spinner,
 .sr-filter-sort,
 .sr-filter-category,
 .sr-filter-per-page {
-  @apply flex-1; /* 50% each on mobile/tablet (flex-1 in flex-wrap) */
-  /* Auto width on desktop with minimum width */
-  @media (min-width: 1024px) {
+  @apply flex-1; /* 50% each on narrow containers (flex-1 in flex-wrap) */
+  /* Auto width on wide containers with minimum width */
+  @container (min-width: 1024px) {
     @apply flex-initial w-auto flex-shrink-0;
     min-width: 100px;
   }
@@ -2772,11 +2790,11 @@ button .sr-spinner,
 
 /* Price Range Slider */
 .sr-filter-price-range {
-  flex: 1 1 100%; /* Full width on mobile */
+  flex: 1 1 100%; /* Full width on narrow containers */
   min-width: 0;
 
-  /* Auto width on desktop like Sort/Category */
-  @media (min-width: 1024px) {
+  /* Auto width on wide containers like Sort/Category */
+  @container (min-width: 1024px) {
     flex: 0 1 auto;
     min-width: 240px;
     max-width: 280px;
@@ -2800,8 +2818,8 @@ button .sr-spinner,
   box-sizing: border-box; /* Ensure consistent sizing */
   /* NO box-shadow here - sr-field-group already has it */
 
-  /* Only apply min-width on desktop */
-  @media (min-width: 1024px) {
+  /* Only apply min-width on wide containers */
+  @container (min-width: 1024px) {
     min-width: 180px;
   }
 }
@@ -3027,14 +3045,16 @@ button .sr-spinner,
   /* Removed scroll-snap-stop: always to allow programmatic scrolling past multiple items */
 }
 
-/* Responsive carousel items */
-@media (max-width: 1023px) {
+/* Responsive carousel items — sized by embed container width so they stay
+   in sync with getSlidesToShow() (which tracks container width via
+   ResizeObserver in product-catalog.ts). */
+@container (max-width: 1023px) {
   .sr-carousel-item {
     flex: 0 0 calc((100% - (var(--cols-md, 3) - 1) * 1rem) / var(--cols-md, 3));
   }
 }
 
-@media (max-width: 767px) {
+@container (max-width: 767px) {
   .sr-carousel-item {
     flex: 0 0 calc((100% - (var(--cols-sm, 2) - 1) * 1rem) / var(--cols-sm, 2));
   }
@@ -3074,8 +3094,8 @@ button .sr-spinner,
   @apply right-0;
 }
 
-/* Hide arrows on small screens */
-@media (max-width: 640px) {
+/* Hide arrows on narrow containers where they'd overlap the first/last slide */
+@container (max-width: 640px) {
   .sr-carousel-arrow {
     @apply hidden;
   }
@@ -4902,14 +4922,15 @@ shoprocket-product-modal.closing .sr-modal-content {
   @apply text-center py-8;
 }
 
-/* Responsive - mobile-first with CSS variables */
-@media (min-width: 768px) {
+/* Responsive - container-first with CSS variables, so category tiles
+   reflow by embed container width rather than viewport */
+@container (min-width: 768px) {
   .sr-category-grid {
     grid-template-columns: repeat(var(--sr-category-cols-md, 3), 1fr);
   }
 }
 
-@media (min-width: 1024px) {
+@container (min-width: 1024px) {
   .sr-category-grid {
     grid-template-columns: repeat(var(--sr-category-cols, 3), 1fr);
   }

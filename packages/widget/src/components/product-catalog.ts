@@ -250,6 +250,14 @@ export class ProductCatalog extends ShoprocketElement {
 
   private carouselContainer?: HTMLElement;
   private carouselObserver?: IntersectionObserver;
+  private carouselResizeObserver?: ResizeObserver;
+  private carouselResizeObservedContainer?: HTMLElement;
+
+  // Tracks the carousel container's actual width so getSlidesToShow() responds
+  // to the embed size rather than window.innerWidth. Kept in sync by
+  // setupCarouselResizeObserver().
+  @state()
+  private carouselContainerWidth = 0;
 
   private handleHashStateChange = async (event: Event): Promise<void> => {
     const customEvent = event as CustomEvent<HashState>;
@@ -374,9 +382,15 @@ export class ProductCatalog extends ShoprocketElement {
       }
     }
 
-    // Setup carousel observer when in carousel mode
-    if (this.displayMode === 'carousel' && this.carouselContainer) {
-      requestAnimationFrame(() => this.setupCarouselObserver());
+    // Setup carousel observers when in carousel mode.
+    // ResizeObserver attaches as soon as the container exists (needed for correct
+    // initial slide count). IntersectionObserver for lazy-load stays gated on
+    // first scroll to preserve existing behavior.
+    if (this.displayMode === 'carousel') {
+      this.setupCarouselResizeObserver();
+      if (this.carouselContainer) {
+        requestAnimationFrame(() => this.setupCarouselObserver());
+      }
     }
 
     // Note: view_item tracking is handled by the product-detail component itself
@@ -675,6 +689,11 @@ export class ProductCatalog extends ShoprocketElement {
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
 
+    // If the element was disconnected and reconnected (e.g., moved in the DOM),
+    // disconnectedCallback tore down the carousel ResizeObserver — re-attach once
+    // Lit has rendered. No-op for first mount (handled by updated()).
+    this.updateComplete.then(() => this.setupCarouselResizeObserver());
+
     // Listen for successful product additions
     this.handleProductAdded = this.handleProductAdded.bind(this);
     window.addEventListener(WIDGET_EVENTS.PRODUCT_ADDED, this.handleProductAdded as EventListener);
@@ -788,6 +807,15 @@ export class ProductCatalog extends ShoprocketElement {
     if (this.isPrimary && ProductCatalog.primaryInstance === this) {
       ProductCatalog.primaryInstance = null;
     }
+
+    // Tear down carousel observers. Clear the observed-container ref so that
+    // if the element is reconnected, setupCarouselResizeObserver() re-attaches
+    // instead of early-returning on stale identity.
+    this.carouselObserver?.disconnect();
+    this.carouselObserver = undefined;
+    this.carouselResizeObserver?.disconnect();
+    this.carouselResizeObserver = undefined;
+    this.carouselResizeObservedContainer = undefined;
   }
 
   protected override render(): TemplateResult {
@@ -1689,7 +1717,11 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   private getSlidesToShow(): number {
-    const width = window.innerWidth;
+    // Uses the carousel container's width (tracked via ResizeObserver), so
+    // arrow/dot navigation stays consistent with the CSS @container rules
+    // that size .sr-carousel-item. Falls back to the smallest bucket before
+    // the observer has fired.
+    const width = this.carouselContainerWidth;
     if (width >= 1024) return this.columns || 4;
     if (width >= 768) return this.columnsMd || 3;
     return this.columnsSm || 2;
@@ -1707,6 +1739,32 @@ export class ProductCatalog extends ShoprocketElement {
     if (slideWidth > 0) {
       this.carouselScrollPosition = Math.round(container.scrollLeft / slideWidth);
     }
+  }
+
+  // Attach a ResizeObserver to the carousel container as soon as it's in the DOM,
+  // independent of scroll interaction. getSlidesToShow() reads the observed width
+  // so dot/arrow navigation matches the CSS-sized items on initial render.
+  private setupCarouselResizeObserver(): void {
+    const container = this.renderRoot.querySelector('.sr-carousel-container') as HTMLElement | null;
+    if (this.displayMode !== 'carousel' || !container) {
+      this.carouselResizeObserver?.disconnect();
+      this.carouselResizeObserver = undefined;
+      this.carouselResizeObservedContainer = undefined;
+      return;
+    }
+
+    // Already observing this exact node — no-op.
+    if (this.carouselResizeObservedContainer === container && this.carouselResizeObserver) return;
+
+    this.carouselResizeObserver?.disconnect();
+    this.carouselResizeObservedContainer = container;
+    this.carouselResizeObserver = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      if (width !== this.carouselContainerWidth) {
+        this.carouselContainerWidth = width;
+      }
+    });
+    this.carouselResizeObserver.observe(container);
   }
 
   private setupCarouselObserver(): void {
