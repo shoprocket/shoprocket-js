@@ -19,13 +19,16 @@ Add eCommerce to any website with our embed system:
 <div data-shoprocket="buy-button" data-product="{prod_id}"></div>
 
 <!-- Single Product Display -->
-<div data-shoprocket="product" data-id="{prod_id}" data-style="card"></div>
+<div data-shoprocket="product" data-id="{prod_id}"></div>
 
-<!-- Product Collection -->
-<div data-shoprocket="products" data-category="{category_id}"></div>
+<!-- Product Catalog (grid) -->
+<div data-shoprocket="catalog"></div>
+
+<!-- Catalog filtered by category -->
+<div data-shoprocket="catalog" data-filter-mode="categories" data-categories="{category_id}"></div>
 
 <!-- Multiple Categories (comma-separated) -->
-<div data-shoprocket="products" data-category="{category_id1},{category_id2}"></div>
+<div data-shoprocket="catalog" data-filter-mode="categories" data-categories="{category_id1},{category_id2}"></div>
 
 <!-- Shopping Cart - Multiple Styles & Positions -->
 <!-- Bubble style (mobile: sidebar, desktop: bubble) -->
@@ -35,7 +38,7 @@ Add eCommerce to any website with our embed system:
 <div data-shoprocket="cart" data-position="bottom-left" data-style="sidebar"></div>
 
 <!-- Include loader (each embed works standalone) -->
-<script src="https://cdn.shoprocket.io/v3/loader.js?pk={public_key}" async></script>
+<script src="https://cdn.shoprocket.io/v3/loader.js" data-pk="{public_key}" async></script>
 ```
 
 ### Available Cart Positions
