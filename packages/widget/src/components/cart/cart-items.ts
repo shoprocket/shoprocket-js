@@ -93,7 +93,7 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
                         <span class="sr-cart-bundle-item-qty">${sel.quantity}x</span>
                         <div class="sr-cart-bundle-item-info">
                           <span class="sr-cart-bundle-item-name">${sel.productName}</span>
-                          ${sel.variantName ? html`<span class="sr-cart-bundle-item-variant">${sel.variantName}</span>` : ''}
+                          ${sel.variantName && sel.variantName.replace(/[\s\/]/g, '').length > 0 ? html`<span class="sr-cart-bundle-item-variant">${sel.variantName}</span>` : ''}
                         </div>
                       </div>
                     `)}

@@ -117,6 +117,21 @@ export function renderOrderSuccess(
                       <div class="sr-item-variant">${item.variantName}</div>
                     ` : ''}
                     <div class="sr-item-qty">Qty: ${item.quantity}</div>
+                    ${item.bundleSelections?.length ? html`
+                      <div class="sr-cart-bundle-items" style="margin-top: 6px;">
+                        ${item.bundleSelections.map((sel: any) => {
+                          const hasVariant = sel.variantName && sel.variantName.replace(/[\s\/]/g, '').length > 0;
+                          return html`
+                          <div class="sr-cart-bundle-item">
+                            <span class="sr-cart-bundle-item-qty">${sel.quantity}x</span>
+                            <div class="sr-cart-bundle-item-info">
+                              <span class="sr-cart-bundle-item-name">${sel.productName}</span>
+                              ${hasVariant ? html`<span class="sr-cart-bundle-item-variant">${sel.variantName}</span>` : ''}
+                            </div>
+                          </div>
+                        `})}
+                      </div>
+                    ` : ''}
                   </div>
                   <div class="sr-item-price">
                     ${context.formatPrice(item.subtotal || { amount: item.price * item.quantity, currency: orderData.currency, formatted: '' })}
