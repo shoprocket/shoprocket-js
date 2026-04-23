@@ -381,6 +381,9 @@ export class WidgetManager {
       // Auto-render floating cart button unless disabled
       this.autoRenderCart();
 
+      // Auto-render chat widget when enabled in Settings → Chat
+      this.autoRenderChat();
+
       // Listen for order completion to regenerate cart token
       this.setupOrderCompletionListener();
 
@@ -438,44 +441,87 @@ export class WidgetManager {
 
 
   /**
-   * Auto-render floating cart button
+   * Auto-render floating cart button. Reads position/style from Settings → Cart
+   * (surfaced on store.widgets.cart by the public store endpoint).
    */
   private autoRenderCart(): void {
-    // Check if cart is already mounted manually (either as custom element or data attribute)
+    // Respect explicit placements and opt-outs
     const existingCart = document.querySelector('shoprocket-cart, [data-shoprocket="cart"]');
-    if (existingCart) {
-      // Cart already exists, don't auto-render
-      return;
-    }
+    if (existingCart) return;
 
-    // Check for opt-out via data attribute on script tag
     const scriptTag = document.querySelector('script[src*="shoprocket"][data-no-cart]');
-    if (scriptTag) {
-      // User explicitly disabled auto-cart
-      return;
-    }
+    if (scriptTag) return;
 
-    // Detect theme and color scheme from existing embeds to apply consistent styling
-    // Query any Shoprocket widget with a theme (all widgets get .shoprocket class)
+    // Store-level cart config from Settings → Cart (falls back to sensible defaults).
+    const store = internalState.getStore() as any;
+    const cartConfig = store?.widgets?.cart ?? {};
+    const position = cartConfig.position ?? 'bottom-right';
+    const style = cartConfig.style ?? 'bubble';
+
+    // Inherit theme + color scheme from any already-placed Shoprocket embed on the page.
     const themedEmbed = document.querySelector('.shoprocket[data-theme]');
     const theme = themedEmbed?.getAttribute('data-theme');
     const mode = themedEmbed?.getAttribute('data-color-scheme');
 
-    // Create floating cart button
     const floatingCart = document.createElement('div');
     floatingCart.setAttribute('data-shoprocket', 'cart');
     floatingCart.setAttribute('data-floating', 'true');
+    floatingCart.setAttribute('data-position', position);
+    floatingCart.setAttribute('data-style', style);
     document.body.appendChild(floatingCart);
 
-    // Mount the cart widget with theme and color scheme from existing embeds
-    const options: Record<string, string> = { floating: 'true' };
-    if (theme) {
-      options.theme = theme;
-    }
-    if (mode) {
-      options.colorScheme = mode;
-    }
+    const options: Record<string, string> = {
+      floating: 'true',
+      position,
+      widgetStyle: style,
+    };
+    if (theme) options['theme'] = theme;
+    if (mode) options['colorScheme'] = mode;
+
     this.mount(floatingCart, 'cart', options);
+  }
+
+  /**
+   * Auto-render chat widget when the store has chat enabled in Settings → Chat.
+   * Opts out when data-no-chat is set on the loader script, or when an explicit
+   * chat element already exists on the page.
+   */
+  private autoRenderChat(): void {
+    const store = internalState.getStore() as any;
+    const chatConfig = store?.widgets?.chat;
+
+    if (!chatConfig?.enabled) return;
+
+    const existingChat = document.querySelector('shoprocket-chat, [data-shoprocket="chat"]');
+    if (existingChat) return;
+
+    const scriptTag = document.querySelector('script[src*="shoprocket"][data-no-chat]');
+    if (scriptTag) return;
+
+    const position = chatConfig.position ?? 'bottom-left';
+    const style = chatConfig.style ?? 'bubble';
+    const welcome = chatConfig.welcomeMessage ?? null;
+
+    const themedEmbed = document.querySelector('.shoprocket[data-theme]');
+    const theme = themedEmbed?.getAttribute('data-theme');
+    const mode = themedEmbed?.getAttribute('data-color-scheme');
+
+    const floatingChat = document.createElement('div');
+    floatingChat.setAttribute('data-shoprocket', 'chat');
+    floatingChat.setAttribute('data-position', position);
+    floatingChat.setAttribute('data-widget-style', style);
+    if (welcome) floatingChat.setAttribute('data-welcome', welcome);
+    document.body.appendChild(floatingChat);
+
+    const options: Record<string, string> = {
+      position,
+      widgetStyle: style,
+    };
+    if (welcome) options['welcome'] = welcome;
+    if (theme) options['theme'] = theme;
+    if (mode) options['colorScheme'] = mode;
+
+    this.mount(floatingChat, 'chat', options);
   }
 
   /**
