@@ -178,6 +178,15 @@ export class CartService {
     return response;
   }
 
+  /**
+   * Capture an approved PayPal order (JS SDK onApprove callback).
+   * The order was already created by checkout(); this finalises it.
+   */
+  async paypalCapture(paypalOrderId: string): Promise<{ data: { order_id: string; order_number: string; payment_status: string } }> {
+    const response = await this.api.post<any>('/cart/paypal/capture', { paypalOrderId });
+    return response;
+  }
+
   // Order API methods - for post-checkout order access
   async getOrder(orderId: string): Promise<any> {
     const response = await this.api.get<any>(`/orders/${orderId}`);

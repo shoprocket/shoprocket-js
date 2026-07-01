@@ -228,15 +228,22 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
 
     ${context.checkoutStep === 'review' ? renderTermsSection(context) : ''}
 
-    ${context.checkoutStep === 'review' ? html`
-      <button
-        class="sr-cart-checkout-button"
-        @click="${context.handleCheckoutComplete}"
-        ?disabled="${context.checkoutLoading || !canProceed}"
-      >
-        ${context.checkoutLoading ? loadingSpinner('sm') : t('checkout.place_order', 'Place Order')}
-      </button>
-    ` : html`
+    ${context.checkoutStep === 'review' ? (
+      // PayPal renders its own in-context buttons (and the expandable card form)
+      // inside the scrollable review body, not this fixed footer — otherwise the
+      // card form overflows the drawer with no way to scroll.
+      (context.selectedPaymentMethod?.gateway === 'paypal' && context.selectedPaymentMethod?.paypal && canProceed)
+        ? ''
+        : html`
+          <button
+            class="sr-cart-checkout-button"
+            @click="${context.handleCheckoutComplete}"
+            ?disabled="${context.checkoutLoading || !canProceed}"
+          >
+            ${context.checkoutLoading ? loadingSpinner('sm') : t('checkout.place_order', 'Place Order')}
+          </button>
+        `
+    ) : html`
       <button
         class="sr-cart-checkout-button sr-checkout-next-button"
         @click="${context.handleStepNext}"
@@ -872,6 +879,16 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
 
         ${renderOrderExtras(context)}
       </div>
+
+      ${(context.selectedPaymentMethod?.gateway === 'paypal'
+        && context.selectedPaymentMethod?.paypal
+        && !((context.checkoutSettings?.termsMode ?? 'hidden') === 'required_checkbox' && !context.termsAccepted))
+        ? html`
+          <div class="sr-paypal-section">
+            <div class="sr-paypal-button-container" id="sr-paypal-button-container"></div>
+          </div>
+        `
+        : ''}
     </div>
   `;
 }

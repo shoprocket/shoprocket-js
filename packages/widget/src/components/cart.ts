@@ -10,6 +10,7 @@ import './tooltip';
 import { cartState } from '../core/cart-state';
 import { internalState } from '../core/internal-state';
 import { CookieManager } from '../utils/cookie-manager';
+import { loadPayPalSdk } from '../utils/paypal-sdk';
 import { validateForm, hasErrors } from '../core/validation';
 import { t } from '../utils/i18n';
 
@@ -2225,6 +2226,108 @@ export class CartWidget extends ShoprocketElement {
     this.shippingErrors = {};
     this.billingErrors = {};
     this.nextCheckoutStep();
+  }
+
+  /**
+   * Guards PayPal button mounting so we render the SDK buttons exactly once per
+   * time the review step shows PayPal. Plain field (not reactive state) so it
+   * doesn't trigger re-renders.
+   */
+  private paypalButtonsMounted = false;
+
+  protected updated(changed: Map<string, unknown>): void {
+    super.updated?.(changed);
+    void this.syncPayPalButtons();
+  }
+
+  /**
+   * Mount or tear down the PayPal buttons based on the current checkout state.
+   */
+  private async syncPayPalButtons(): Promise<void> {
+    const method = this.selectedPaymentMethod;
+    const shouldShow = this.checkoutStep === 'review'
+      && method?.gateway === 'paypal'
+      && !!method?.paypal;
+
+    if (!shouldShow) {
+      this.paypalButtonsMounted = false;
+      return;
+    }
+
+    if (this.paypalButtonsMounted) {
+      return;
+    }
+
+    const container = this.renderRoot?.querySelector('#sr-paypal-button-container') as HTMLElement | null;
+    if (!container) {
+      return;
+    }
+
+    // Set before awaiting so a re-render mid-load can't double-mount.
+    this.paypalButtonsMounted = true;
+    try {
+      await this.mountPayPalButtons(container, method.paypal);
+    } catch (error) {
+      this.paypalButtonsMounted = false;
+      console.error('Failed to mount PayPal buttons:', error);
+    }
+  }
+
+  private async mountPayPalButtons(container: HTMLElement, config: any): Promise<void> {
+    const paypal = await loadPayPalSdk({
+      clientId: config.client_id,
+      merchantId: config.merchant_id,
+      bnCode: config.bn_code,
+      currency: this.cart?.totals?.total?.currency || (this.cart as any)?.currency || 'USD',
+    });
+
+    if (!paypal?.Buttons) {
+      throw new Error('PayPal SDK did not expose Buttons');
+    }
+
+    container.innerHTML = '';
+
+    await paypal.Buttons({
+      // createOrder creates the order server-side via the existing checkout
+      // endpoint, which returns the PayPal order id (payment_intent_id).
+      createOrder: async () => {
+        const currentUrl = window.location?.href?.split('?')[0]?.split('#')[0] || '';
+        const response: any = await this.sdk.cart.checkout({
+          gateway: 'paypal',
+          locale: 'en',
+          returnUrl: `${currentUrl}#!/payment-return`,
+          cancelUrl: `${currentUrl}#!/payment-cancelled`,
+          agreeToTerms: this.termsAccepted || undefined,
+          marketingOptIn: this.marketingOptIn || undefined,
+          notes: this.orderNotes || undefined,
+        });
+
+        const meta = response && 'meta' in response ? response.meta : null;
+        const paypalOrderId = meta?.payment_intent_id;
+        if (!paypalOrderId) {
+          throw new Error('Could not create PayPal order');
+        }
+        return paypalOrderId;
+      },
+
+      // onApprove captures the approved order and shows the success screen.
+      onApprove: async (data: any) => {
+        const capture: any = await this.sdk.cart.paypalCapture(data.orderID);
+        const orderId = capture?.data?.order_id;
+        await this.handlePaymentConfirmed(orderId);
+      },
+
+      onCancel: () => {
+        // Buyer closed the PayPal popup; leave them on the review step.
+      },
+
+      onError: (error: any) => {
+        console.error('PayPal checkout error:', error);
+        this.showOrderFailureMessage = true;
+        this.isPaymentFailure = true;
+        this.orderFailureReason = t('error.payment_failed', 'Payment could not be completed. Please try again.');
+      },
+    }).render(container);
   }
 
   private async handleCheckoutComplete(): Promise<void> {

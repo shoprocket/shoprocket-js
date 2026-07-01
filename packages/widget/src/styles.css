@@ -3855,6 +3855,15 @@ button .sr-spinner,
   @apply space-y-2;
 }
 
+/* PayPal in-context buttons + card form, rendered below the review cards */
+.sr-paypal-section {
+  @apply px-1 pt-3 pb-1;
+}
+
+.sr-paypal-button-container:empty {
+  @apply hidden;
+}
+
 /* Review Cards */
 .sr-review-card {
   @apply border shadow-card;
