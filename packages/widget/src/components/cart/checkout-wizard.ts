@@ -655,7 +655,7 @@ function renderShippingOptions(context: CheckoutWizardContext): TemplateResult |
                 <span class="sr-shipping-option-name">${option.name}</span>
                 ${option.estimatedDays ? html`
                   <span class="sr-shipping-option-meta">
-                    ${t('checkout.estimated_delivery', 'Est.')} ${option.estimatedDays} ${t('checkout.days', 'days')}
+                    ${t('checkout.estimated_delivery', 'Est.')} ${option.estimatedDays} ${option.estimatedDays === '1' ? t('checkout.day', 'day') : t('checkout.days', 'days')}
                   </span>
                 ` : ''}
               </div>
