@@ -7,7 +7,7 @@ import { loadingSpinner, loadingOverlay } from '../loading-spinner';
 import type { CheckoutStep, CustomerCheckResult } from './cart-types';
 import type { CustomerData, CustomerFormErrors } from '../customer-form';
 import type { AddressData, AddressFormErrors } from '../address-form';
-import type { Cart, CheckoutSettings, TaxBreakdownItem } from '@shoprocket/core';
+import type { Cart, CheckoutSettings, TaxBreakdownItem, ShippingOption } from '@shoprocket/core';
 import { t } from '../../utils/i18n';
 
 /** Renders an info icon with tooltip showing per-jurisdiction tax breakdown (only when multiple items) */
@@ -48,6 +48,10 @@ export interface CheckoutWizardContext {
   // Address steps
   shippingAddress: Partial<AddressData>;
   shippingErrors: AddressFormErrors;
+  shippingOptions: ShippingOption[];
+  selectedShippingRateId: string | null;
+  shippingOptionsLoading: boolean;
+  handleShippingOptionSelect: (rateId: string) => void;
   billingAddress: Partial<AddressData>;
   billingErrors: AddressFormErrors;
   sameAsBilling: boolean;
@@ -608,6 +612,61 @@ function renderShippingContent(context: CheckoutWizardContext): TemplateResult {
       @address-change="${context.handleShippingAddressChange}"
       @same-as-billing-change="${context.handleSameAsBillingChange}"
     ></shoprocket-address-form>
+    ${renderShippingOptions(context)}
+  `;
+}
+
+/** Selectable list of shipping rates for the entered destination. */
+function renderShippingOptions(context: CheckoutWizardContext): TemplateResult | string {
+  const a = context.shippingAddress;
+  const addressComplete = !!(a.line1 && a.city && a.postalCode && a.country);
+
+  // Nothing to show until there's a destination to rate against.
+  if (!addressComplete) return '';
+
+  if (context.shippingOptionsLoading && context.shippingOptions.length === 0) {
+    return html`<div class="sr-shipping-options-loading">${loadingSpinner('md')}</div>`;
+  }
+
+  if (context.shippingOptions.length === 0) {
+    return html`
+      <div class="sr-shipping-options-empty">
+        ${t('checkout.no_shipping_options', 'No shipping options available for this address.')}
+      </div>
+    `;
+  }
+
+  return html`
+    <div class="sr-shipping-options">
+      <div class="sr-shipping-options-label">${t('checkout.shipping_method', 'Shipping method')}</div>
+      ${context.shippingOptions.map(option => {
+        const isSelected = context.selectedShippingRateId === option.id;
+        return html`
+          <button
+            type="button"
+            class="sr-shipping-option-card ${isSelected ? 'sr-selected' : ''}"
+            @click="${() => context.handleShippingOptionSelect(option.id)}"
+          >
+            <div class="sr-shipping-option-card-inner">
+              <div class="sr-radio-circle ${isSelected ? 'sr-radio-selected' : ''}">
+                ${isSelected ? html`<div class="sr-radio-dot"></div>` : ''}
+              </div>
+              <div class="sr-shipping-option-info">
+                <span class="sr-shipping-option-name">${option.name}</span>
+                ${option.estimatedDays ? html`
+                  <span class="sr-shipping-option-meta">
+                    ${t('checkout.estimated_delivery', 'Est.')} ${option.estimatedDays} ${t('checkout.days', 'days')}
+                  </span>
+                ` : ''}
+              </div>
+              <span class="sr-shipping-option-price">
+                ${option.isFree ? t('checkout.free', 'Free') : option.costFormatted}
+              </span>
+            </div>
+          </button>
+        `;
+      })}
+    </div>
   `;
 }
 

@@ -1,8 +1,8 @@
 import { ApiClient } from '../api';
-import type { Cart, CartItem, AddToCartParams, UpdateCartItemParams } from '../types';
+import type { Cart, CartItem, AddToCartParams, UpdateCartItemParams, ShippingOption } from '../types';
 
 // Re-export types for backward compatibility
-export type { Cart, CartItem, AddToCartParams, UpdateCartItemParams } from '../types';
+export type { Cart, CartItem, AddToCartParams, UpdateCartItemParams, ShippingOption } from '../types';
 
 // Address and checkout types (widget-specific, but needed for cart service)
 export interface Address {
@@ -132,6 +132,40 @@ export class CartService {
       success: result.auth_sent,
       message: result.message
     };
+  }
+
+  /**
+   * Fetch shipping options for the current cart and destination. Returns
+   * options sorted cheapest-first. Normalizes API casing into ShippingOption.
+   */
+  async getShippingOptions(params: { country: string; state?: string; postal?: string }): Promise<ShippingOption[]> {
+    const query = new URLSearchParams();
+    query.set('country', params.country);
+    if (params.state) query.set('state', params.state);
+    if (params.postal) query.set('postal', params.postal);
+
+    const response = await this.api.get<any>(`/cart/shipping-options?${query.toString()}`);
+    const raw = response.data?.shipping_options ?? response.shipping_options
+      ?? response.data?.shippingOptions ?? response.shippingOptions ?? [];
+
+    return (raw as any[]).map((o) => ({
+      id: String(o.id),
+      name: o.name,
+      description: o.description ?? null,
+      cost: o.cost ?? 0,
+      costFormatted: o.cost_formatted ?? o.costFormatted ?? '',
+      estimatedDays: o.estimated_days ?? o.estimatedDays ?? null,
+      isFree: o.is_free ?? o.isFree ?? false,
+    }));
+  }
+
+  /**
+   * Select a shipping option for the cart. Returns the response containing
+   * recalculated totals (tax is recomputed since shipping may be taxable).
+   */
+  async selectShippingOption(rateId: string): Promise<any> {
+    const response = await this.api.post<any>('/cart/shipping-option', { rate_id: rateId });
+    return response.data || response;
   }
 
   async applyDiscount(code: string): Promise<{ message: string; cart: Cart }> {

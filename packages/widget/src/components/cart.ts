@@ -2,7 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
-import type { Cart, ApiResponse, Money, CheckoutSettings } from '@shoprocket/core';
+import type { Cart, ApiResponse, Money, CheckoutSettings, ShippingOption } from '@shoprocket/core';
 import { loadingOverlay } from './loading-spinner';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
@@ -184,6 +184,15 @@ export class CartWidget extends ShoprocketElement {
 
   @state()
   private shippingAddress: Partial<AddressData> = {};
+
+  @state()
+  private shippingOptions: ShippingOption[] = [];
+
+  @state()
+  private selectedShippingRateId: string | null = null;
+
+  @state()
+  private shippingOptionsLoading = false;
 
   @state()
   private billingAddress: Partial<AddressData> = {};
@@ -416,6 +425,9 @@ export class CartWidget extends ShoprocketElement {
       this.cart = state.cart;
       this.customerData = state.customer as CustomerData;
       this.shippingAddress = state.shippingAddress as AddressData;
+      this.shippingOptions = state.shippingOptions;
+      this.selectedShippingRateId = state.selectedShippingRateId;
+      this.shippingOptionsLoading = state.shippingOptionsLoading;
       this.billingAddress = state.billingAddress as AddressData;
       this.sameAsBilling = state.sameAsBilling;
 
@@ -966,6 +978,9 @@ export class CartWidget extends ShoprocketElement {
     try {
       await cartState.loadCheckoutData();
       this.checkoutDataLoaded = true;
+      // A returning customer's saved address loads without an address-change
+      // event, so proactively rate it (no-op if already loaded for this address).
+      cartState.ensureShippingOptions();
     } catch (err) {
       console.error('Failed to load checkout data:', err);
       // It's ok if checkout data load fails - might be a new cart
@@ -2992,6 +3007,9 @@ export class CartWidget extends ShoprocketElement {
       resendingOtp: this.resendingOtp,
       shippingAddress: this.shippingAddress,
       shippingErrors: this.shippingErrors,
+      shippingOptions: this.shippingOptions,
+      selectedShippingRateId: this.selectedShippingRateId,
+      shippingOptionsLoading: this.shippingOptionsLoading,
       billingAddress: this.billingAddress,
       billingErrors: this.billingErrors,
       sameAsBilling: this.sameAsBilling,
@@ -3024,6 +3042,10 @@ export class CartWidget extends ShoprocketElement {
       handleOtpPaste: (e) => this.handleOtpPaste(e),
       handleResendOtp: () => this.handleResendOtp(),
       handleShippingAddressChange: (e) => this.handleShippingAddressChange(e),
+      handleShippingOptionSelect: (rateId: string) => {
+        cartState.selectShippingOption(rateId);
+        this.track(EVENTS.CHECKOUT_SHIPPING_METHOD_SELECTED, { step: 'shipping', rate_id: rateId });
+      },
       handleSameAsBillingChange: (e: CustomEvent) => {
         const checked = e.detail.checked;
         cartState.setSameAsBilling(checked);
@@ -3037,7 +3059,10 @@ export class CartWidget extends ShoprocketElement {
       toggleReviewItems: () => { this.reviewItemsExpanded = !this.reviewItemsExpanded; },
       handleStepNext: () => this.handleStepNext(),
       handleCheckoutComplete: () => this.handleCheckoutComplete(),
-      setCheckoutStep: (step) => { this.checkoutStep = step; },
+      setCheckoutStep: (step) => {
+        this.checkoutStep = step;
+        if (step === 'shipping') cartState.ensureShippingOptions();
+      },
       exitCheckout: () => this.exitCheckout(),
       formatPrice: (amount) => this.formatPrice(amount),
       getMediaUrl: (media, transforms) => this.getMediaUrl(media, transforms),

@@ -50,6 +50,7 @@ export const EVENTS = {
   CHECKOUT_ACCOUNT_CREATED: 'checkout_account_created',
   // Address events
   CHECKOUT_SHIPPING_ENTERED: 'checkout_shipping_entered',
+  CHECKOUT_SHIPPING_METHOD_SELECTED: 'checkout_shipping_method_selected',
   CHECKOUT_BILLING_ENTERED: 'checkout_billing_entered',
   CHECKOUT_SAME_BILLING_TOGGLED: 'checkout_same_billing_toggled',
   // Payment events

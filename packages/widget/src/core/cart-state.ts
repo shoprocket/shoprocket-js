@@ -3,7 +3,7 @@
  * Single source of truth for all cart-related data
  */
 
-import type { Cart } from '@shoprocket/core';
+import type { Cart, ShippingOption } from '@shoprocket/core';
 import { internalState } from './internal-state';
 
 export interface Address {
@@ -35,6 +35,10 @@ export interface CartState {
   sameAsBilling: boolean;
   loading: boolean;
   error: string | null;
+  // Shipping rate selection (fetched once the destination address is valid)
+  shippingOptions: ShippingOption[];
+  selectedShippingRateId: string | null;
+  shippingOptionsLoading: boolean;
   // Alias for semantic clarity
   customer?: Partial<CheckoutData>;
 }
@@ -51,6 +55,9 @@ class CartStateManager {
     sameAsBilling: true,
     loading: false,
     error: null,
+    shippingOptions: [],
+    selectedShippingRateId: null,
+    shippingOptionsLoading: false,
     customer: {} // Alias for checkoutData
   };
 
@@ -58,6 +65,7 @@ class CartStateManager {
   private updateTimer?: number;
   private sdk: any = null;
   private pendingFields = new Set<string>(); // Track fields being updated
+  private lastShippingOptionsKey: string | null = null; // Destination signature of the last rate fetch
 
   constructor() {
     // Sync with existing internalState for backward compatibility
@@ -356,10 +364,115 @@ class CartStateManager {
       if (updatedCart) {
         this.setCart(updatedCart);
       }
-      
+
+      // Now that the destination is saved, refresh the pickable shipping options.
+      await this.fetchShippingOptions();
+
     } catch (error) {
       console.error('Failed to sync cart to API:', error);
       this.setError('Failed to update cart');
+    }
+  }
+
+  /**
+   * Ensure shipping options are loaded for the current address. Safe to call on
+   * checkout open / entering the shipping step: the destination-keyed guard makes
+   * it a no-op if the options for this address are already loaded. This covers
+   * returning customers whose saved address loads without an address-change event.
+   */
+  async ensureShippingOptions(): Promise<void> {
+    await this.fetchShippingOptions();
+  }
+
+  /**
+   * Fetch shipping options for the current destination. Options are cheapest-first;
+   * the cheapest is what the backend auto-applies, so we default the selection to it.
+   */
+  private async fetchShippingOptions(): Promise<void> {
+    if (!this.sdk) return;
+
+    const address = this.state.shippingAddress;
+
+    // Digital-only carts and incomplete addresses have nothing to rate.
+    if (this.state.cart?.requiresShipping === false || !this.isAddressValid(address)) {
+      if (this.state.shippingOptions.length || this.state.selectedShippingRateId) {
+        this.state.shippingOptions = [];
+        this.state.selectedShippingRateId = null;
+        this.notifyListeners();
+      }
+      this.lastShippingOptionsKey = null;
+      return;
+    }
+
+    // Only re-rate when the destination (or cart contents) actually changed —
+    // not on every checkout-data sync (e.g. typing email/name).
+    const itemCount = this.state.cart?.items?.reduce((n, i: any) => n + (i.quantity ?? 0), 0) ?? 0;
+    const key = `${address.country}|${address.state ?? ''}|${address.postalCode}|${itemCount}`;
+    if (key === this.lastShippingOptionsKey && this.state.shippingOptions.length > 0) {
+      return;
+    }
+    this.lastShippingOptionsKey = key;
+
+    try {
+      this.state.shippingOptionsLoading = true;
+      this.notifyListeners();
+
+      const options: ShippingOption[] = await this.sdk.cart.getShippingOptions({
+        country: address.country!,
+        state: address.state,
+        postal: address.postalCode!,
+      });
+
+      this.state.shippingOptions = options;
+
+      // Keep the customer's choice if it's still offered; otherwise default to
+      // the cheapest (which the backend has already applied to the totals).
+      const stillValid = options.some(o => o.id === this.state.selectedShippingRateId);
+      if (!stillValid) {
+        this.state.selectedShippingRateId = options[0]?.id ?? null;
+      }
+
+      // The backend auto-applies the cheapest rate on every address save. If the
+      // customer had chosen a different (still-available) rate, re-assert it so
+      // the cart totals stay in sync with the UI selection.
+      const chosen = this.state.selectedShippingRateId;
+      if (chosen && options.length > 0 && options[0].id !== chosen) {
+        await this.sdk.cart.selectShippingOption(chosen);
+        const recalculated = await this.sdk.cart.get();
+        if (recalculated) {
+          this.setCart(recalculated);
+        }
+      }
+    } catch (error) {
+      this.state.shippingOptions = [];
+      this.state.selectedShippingRateId = null;
+    } finally {
+      this.state.shippingOptionsLoading = false;
+      this.notifyListeners();
+    }
+  }
+
+  /**
+   * Select a shipping rate: persist it, then pull the recalculated cart totals.
+   */
+  async selectShippingOption(rateId: string): Promise<void> {
+    if (!this.sdk || this.state.selectedShippingRateId === rateId) return;
+
+    const previous = this.state.selectedShippingRateId;
+    this.state.selectedShippingRateId = rateId;
+    this.notifyListeners();
+
+    try {
+      await this.sdk.cart.selectShippingOption(rateId);
+      const updatedCart = await this.sdk.cart.get();
+      if (updatedCart) {
+        this.setCart(updatedCart);
+      }
+    } catch (error) {
+      // Roll back the selection so the UI reflects reality.
+      this.state.selectedShippingRateId = previous;
+      this.setError('Failed to select shipping option');
+      this.notifyListeners();
     }
   }
 
@@ -437,9 +550,13 @@ class CartStateManager {
       sameAsBilling: true,
       loading: false,
       error: null,
+      shippingOptions: [],
+      selectedShippingRateId: null,
+      shippingOptionsLoading: false,
       customer: {} // Legacy alias
     };
-    
+
+    this.lastShippingOptionsKey = null;
     internalState.clear();
     this.notifyListeners();
   }

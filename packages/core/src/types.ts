@@ -221,6 +221,17 @@ export interface CartTotals {
   total: Money;
 }
 
+/** A shipping rate the customer can pick at checkout (manual or live carrier). */
+export interface ShippingOption {
+  id: string;
+  name: string;
+  description?: string | null;
+  cost: number;            // Cents
+  costFormatted: string;
+  estimatedDays?: string | null;
+  isFree: boolean;
+}
+
 export interface TaxBreakdownItem {
   name: string;
   rate: number;
@@ -356,11 +367,19 @@ export interface Country {
   phoneCode?: string;
   currency?: string;
   requiresState?: boolean;
+  /** libaddressinput-derived label type: state | province | prefecture | do_si | oblast | emirate | department | county | parish | island | area */
+  stateNameType?: string | null;
+  /** PCRE regex for postal code validation (dr5hn-sourced; null if country has no postal system) */
+  postalRegex?: string | null;
+  /** Placeholder example postal code (derived from postal format template) */
+  postalExample?: string | null;
   flag?: string;
 }
 
 export interface State {
   code: string;
+  /** Full ISO 3166-2 code (e.g. "JP-13", "CA-QC") */
+  iso3166_2?: string | null;
   name: string;
 }
 
