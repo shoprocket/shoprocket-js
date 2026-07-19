@@ -2265,16 +2265,14 @@ export class CartWidget extends ShoprocketElement {
    */
   private async syncPayPalButtons(): Promise<void> {
     const method = this.selectedPaymentMethod;
-    // DORMANT until the API serves PayPal. The in-context button flow (createOrder -> onApprove ->
-    // capture) is built and was working against the v3 Laravel API; the CF API has no PayPal
-    // gateway, no partner onboarding and no SDK config on the roster yet, so `method.paypal` is
-    // never present and this returns early. Do not delete it - the PayPal vertical wires the
-    // server side to this, and D34 records that the API bends to these buttons rather than the
-    // buttons being replaced by a hosted redirect.
+    // Live as of the PayPal vertical: the roster carries an `sdk` block for gateways whose flow
+    // happens in-context, and PayPal's is the only one so far. The buttons live on the REVIEW step
+    // because that is where the shopper commits - and D34 records that the API was shaped to these
+    // buttons rather than PayPal being demoted to a hosted redirect.
     const shouldShow = this.checkoutStep === 'review'
       && method?.select?.kind === 'gateway'
       && method.select.gateway === 'paypal'
-      && !!method?.paypal;
+      && method?.sdk?.provider === 'paypal';
 
     if (!shouldShow) {
       this.paypalButtonsMounted = false;
@@ -2293,7 +2291,7 @@ export class CartWidget extends ShoprocketElement {
     // Set before awaiting so a re-render mid-load can't double-mount.
     this.paypalButtonsMounted = true;
     try {
-      await this.mountPayPalButtons(container, method.paypal);
+      await this.mountPayPalButtons(container, method.sdk);
     } catch (error) {
       this.paypalButtonsMounted = false;
       console.error('Failed to mount PayPal buttons:', error);
@@ -2302,9 +2300,9 @@ export class CartWidget extends ShoprocketElement {
 
   private async mountPayPalButtons(container: HTMLElement, config: any): Promise<void> {
     const paypal = await loadPayPalSdk({
-      clientId: config.client_id,
-      merchantId: config.merchant_id,
-      bnCode: config.bn_code,
+      clientId: config.clientId,
+      merchantId: config.merchantId,
+      bnCode: config.bnCode,
       currency: this.cart?.totals?.total?.currency || (this.cart as any)?.currency || 'USD',
     });
 
@@ -2314,34 +2312,46 @@ export class CartWidget extends ShoprocketElement {
 
     container.innerHTML = '';
 
+    // OUR order id, carried from createOrder to onApprove. The PayPal SDK hands `onApprove` only
+    // its own order id, and the capture route is addressed by ours - so it has to be remembered
+    // across the two callbacks rather than derived.
+    let placedOrderId: string | null = null;
+
     await paypal.Buttons({
-      // createOrder creates the order server-side via the existing checkout
-      // endpoint, which returns the PayPal order id (payment_intent_id).
+      // Two steps, not one. Checkout creates OUR order; startPayment opens the attempt against it
+      // and returns the PayPal order id the SDK needs. v3 collapsed these into one call and read
+      // the id out of `meta.payment_intent_id`, which no longer exists.
       createOrder: async () => {
         const currentUrl = window.location?.href?.split('?')[0]?.split('#')[0] || '';
-        const response: any = await this.sdk.cart.checkout({
-          gateway: 'paypal',
-          locale: 'en',
-          returnUrl: `${currentUrl}#!/payment-return`,
-          cancelUrl: `${currentUrl}#!/payment-cancelled`,
+        const accepted = await this.sdk.cart.checkout({
+          paymentMethod: { kind: 'gateway', gateway: 'paypal' },
           agreeToTerms: this.termsAccepted || undefined,
           marketingOptIn: this.marketingOptIn || undefined,
           notes: this.orderNotes || undefined,
         });
 
-        const meta = response && 'meta' in response ? response.meta : null;
-        const paypalOrderId = meta?.payment_intent_id;
-        if (!paypalOrderId) {
+        placedOrderId = accepted.orderId;
+
+        const started = await this.sdk.cart.startPayment(accepted.orderId, {
+          returnUrl: `${currentUrl}#!/payment-return`,
+          cancelUrl: `${currentUrl}#!/payment-cancelled`,
+        });
+
+        // The handoff is a union: PayPal must answer with an order id, and a `redirect` here would
+        // mean the server resolved a different gateway than the button the shopper pressed.
+        if (started.handoff?.kind !== 'paypal_order') {
           throw new Error('Could not create PayPal order');
         }
-        return paypalOrderId;
+        return started.handoff.paypalOrderId;
       },
 
       // onApprove captures the approved order and shows the success screen.
       onApprove: async (data: any) => {
-        const capture: any = await this.sdk.cart.paypalCapture(data.orderID);
-        const orderId = capture?.data?.order_id;
-        await this.handlePaymentConfirmed(orderId);
+        if (!placedOrderId) {
+          throw new Error('No order to capture');
+        }
+        await this.sdk.cart.paypalCapture(data.orderID, placedOrderId);
+        await this.handlePaymentConfirmed(placedOrderId);
       },
 
       onCancel: () => {

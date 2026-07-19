@@ -238,7 +238,9 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
       // PayPal renders its own in-context buttons (and the expandable card form)
       // inside the scrollable review body, not this fixed footer — otherwise the
       // card form overflows the drawer with no way to scroll.
-      (context.selectedPaymentMethod?.gateway === 'paypal' && context.selectedPaymentMethod?.paypal && canProceed)
+      (context.selectedPaymentMethod?.select?.gateway === 'paypal'
+        && context.selectedPaymentMethod?.sdk?.provider === 'paypal'
+        && canProceed)
         ? ''
         : html`
           <button
@@ -951,8 +953,8 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
         ${renderOrderExtras(context)}
       </div>
 
-      ${(context.selectedPaymentMethod?.gateway === 'paypal'
-        && context.selectedPaymentMethod?.paypal
+      ${(context.selectedPaymentMethod?.select?.gateway === 'paypal'
+        && context.selectedPaymentMethod?.sdk?.provider === 'paypal'
         && !((context.checkoutSettings?.termsMode ?? 'hidden') === 'required_checkbox' && !context.termsAccepted))
         ? html`
           <div class="sr-paypal-section">

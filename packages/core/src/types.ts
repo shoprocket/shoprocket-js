@@ -365,6 +365,28 @@ export type SelectedPaymentMethod =
   | { kind: 'gateway'; gateway: string }
   | { kind: 'manual'; manualMethodId: string };
 
+/**
+ * What a storefront needs to boot an IN-CONTEXT payment SDK for a method.
+ *
+ * Only gateways whose shopper flow happens on the merchant's own page carry this. Stripe does not -
+ * it hands back a hosted URL at `startPayment` and needs nothing up front. PayPal's buttons render
+ * before any order exists, so they have to be configured from the roster.
+ *
+ * A union rather than a bare `paypal` object: PayPal will not be the last gateway with in-context
+ * buttons, and the next one extends this instead of widening the method type again.
+ *
+ * There is no `sandbox` field - the method's own `testMode` already says that.
+ */
+export type PaymentMethodSdk = {
+  provider: 'paypal';
+  /** The PLATFORM's client id, for the SDK's `client-id` parameter. */
+  clientId: string;
+  /** The connected SELLER, as `data-merchant-id`. */
+  merchantId: string;
+  /** Partner attribution code, as `data-partner-attribution-id`. */
+  bnCode: string;
+};
+
 export interface StorefrontPaymentMethod {
   /** Pass back verbatim as `checkout({ paymentMethod })`. */
   select: SelectedPaymentMethod;
@@ -373,6 +395,8 @@ export interface StorefrontPaymentMethod {
   icon: PaymentMethodIcon;
   /** This gateway is on sandbox credentials. Per-method: live Stripe can sit beside sandbox PayPal. */
   testMode: boolean;
+  /** SDK config for in-context methods; absent for redirect and offline ones. */
+  sdk?: PaymentMethodSdk | null;
 }
 
 export interface StorefrontPaymentMethods {
@@ -464,6 +488,22 @@ export interface OrderPaymentState {
   id: string;
   orderNumber: string;
   status: string;
+  paymentStatus: string;
+  total: number;
+  currencyCode: string;
+}
+
+/**
+ * The outcome of capturing an approved PayPal order.
+ *
+ * `paymentStatus` is what OUR order now says, not what PayPal returned - the webhook stays the
+ * authority and this call simply observes the same truth a moment earlier. It can legitimately come
+ * back short of `paid` (PayPal holds captures for review), so a confirmation screen must read it
+ * rather than assume the call succeeding means the money arrived.
+ */
+export interface CapturePaymentResult {
+  orderId: string;
+  orderNumber: string;
   paymentStatus: string;
   total: number;
   currencyCode: string;

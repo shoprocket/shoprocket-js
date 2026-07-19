@@ -4,6 +4,7 @@ import type {
   Cart,
   CheckoutAccepted,
   CheckoutParams,
+  CapturePaymentResult,
   CheckoutRejected,
   OrderPaymentState,
   PatchCartParams,
@@ -26,9 +27,11 @@ export type {
   CheckoutParams,
   CheckoutRejected,
   CheckoutRejection,
+  CapturePaymentResult,
   OrderPaymentState,
   PatchCartParams,
   PaymentMethodIcon,
+  PaymentMethodSdk,
   SelectedPaymentMethod,
   ShippingOption,
   ShippingOptions,
@@ -170,5 +173,31 @@ export class CartService {
   async getOrderStatus(orderId: string): Promise<OrderPaymentState> {
     const response = await this.api.get<any>(`/orders/${orderId}/status`);
     return response.data ?? response;
+  }
+
+  /**
+   * Capture a PayPal order the shopper just approved. Call this from the SDK's `onApprove`.
+   *
+   * PayPal's buttons never leave the page, so there is no redirect to come back from and no
+   * `getOrderStatus` poll to reach for - the approval happens in a popup and this is what turns it
+   * into money. The PayPal order id is the SDK's; OUR order is already addressed by the URL, and
+   * the cart token still authorizes the caller.
+   *
+   * Not a second source of truth: the server applies this through the same guard the webhook uses,
+   * so whichever arrives second is a no-op rather than a double capture. A `paymentStatus` that
+   * comes back short of `paid` is real - PayPal can hold a capture for review - and the
+   * confirmation must reflect that rather than assuming success.
+   */
+  async paypalCapture(paypalOrderId: string, orderId: string): Promise<CapturePaymentResult> {
+    try {
+      const response = await this.api.post<any>(`/orders/${orderId}/capture`, { paypalOrderId });
+      return response.data ?? response;
+    } catch (error: any) {
+      // Same envelope as checkout's: a refusal is a domain answer, not a transport failure.
+      if (error?.status === 409 && error?.body?.rejection) {
+        throw new CheckoutRejectedError(error.body as CheckoutRejected);
+      }
+      throw error;
+    }
   }
 }
