@@ -29,67 +29,80 @@ export interface CartFooterContext {
   onRemoveCoupon: () => Promise<void>;
 }
 
-function getDiscountLabel(cart: Cart): string {
-  if (cart.discountType === 'percentage' && cart.discountValue) {
-    const pct = Number(cart.discountValue);
-    return `${pct % 1 === 0 ? Math.round(pct) : pct}% off`;
-  }
-  return '';
+/** Money in the shape formatPrice wants, from a plain minor-unit amount. */
+function money(context: CartFooterContext, amount: number) {
+  return { amount, currency: (context.cart as any)?.currency || context.cart?.currencyCode || '', formatted: '' };
 }
 
+/**
+ * The coupon field, and whatever is currently coming off the cart.
+ *
+ * Reads the server's answer rather than deriving one: `cart.discounts` is every discount applying
+ * right now (a typed code AND any automatic ones), and `cart.discountError` says why a typed code
+ * is not among them. A code that does not qualify yet is deliberately still held by the server, so
+ * the input keeps rendering it with the reason underneath rather than silently dropping it.
+ */
 function renderCouponSection(context: CartFooterContext): TemplateResult {
-  const appliedCode = context.cart?.discountCode;
-  const discount = context.cart?.totals?.discount;
-  const hasDiscount = discount && discount.amount > 0;
-
-  if (appliedCode && hasDiscount) {
-    const description = getDiscountLabel(context.cart!);
-    return html`
-      <div class="sr-coupon-applied">
-        <div class="sr-coupon-applied-info">
-          <span class="sr-coupon-badge">${appliedCode}</span>
-          ${description ? html`<span class="sr-coupon-desc">${description}</span>` : ''}
-          <button
-            class="sr-coupon-remove-btn"
-            @click="${context.onRemoveCoupon}"
-            aria-label="${t('cart.remove_discount', 'Remove discount')}"
-            title="${t('cart.remove_discount', 'Remove discount')}"
-          >
-            <svg class="sr-coupon-remove-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-            </svg>
-          </button>
-        </div>
-        <span class="sr-coupon-discount">-${context.formatPrice(discount)}</span>
-      </div>
-    `;
-  }
+  const applied = context.cart?.discounts ?? [];
+  const typedCode = context.cart?.discountCode ?? null;
+  const codeDiscount = applied.find((d) => !d.automatic) ?? null;
+  // The server's rejection wins over any locally-held one: it is the authority on why.
+  const error = context.cart?.discountError?.message ?? context.couponError;
 
   return html`
-    <div class="sr-coupon-form">
-      <input
-        type="text"
-        class="sr-coupon-input ${context.couponError ? 'sr-field-error' : ''}"
-        placeholder="${t('cart.coupon_placeholder', 'Discount code')}"
-        .value="${context.couponCode}"
-        @input="${(e: Event) => context.onCouponInput((e.target as HTMLInputElement).value)}"
-        @keydown="${(e: KeyboardEvent) => e.key === 'Enter' && context.couponCode && context.onApplyCoupon()}"
-        ?disabled="${context.couponLoading}"
-      />
-      <button
-        class="sr-coupon-apply"
-        @click="${context.onApplyCoupon}"
-        ?disabled="${!context.couponCode || context.couponLoading}"
-      >
-        ${context.couponLoading ? loadingSpinner('sm') : t('cart.apply', 'Apply')}
-      </button>
-    </div>
-    ${context.couponError ? html`<p class="sr-coupon-error">${context.couponError}</p>` : ''}
+    ${applied.length ? html`
+      <div class="sr-coupon-applied-list">
+        ${applied.map((d) => html`
+          <div class="sr-coupon-applied">
+            <div class="sr-coupon-applied-info">
+              <span class="sr-coupon-badge">${d.code ?? d.name}</span>
+              ${d.automatic
+                ? html`<span class="sr-coupon-desc">${t('cart.automatic_discount', 'Automatic')}</span>`
+                : html`
+                    <button
+                      class="sr-coupon-remove-btn"
+                      @click="${context.onRemoveCoupon}"
+                      aria-label="${t('cart.remove_discount', 'Remove discount')}"
+                      title="${t('cart.remove_discount', 'Remove discount')}"
+                    >
+                      <svg class="sr-coupon-remove-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    </button>
+                  `}
+            </div>
+            <span class="sr-coupon-discount">-${context.formatPrice(money(context, d.amount))}</span>
+          </div>
+        `)}
+      </div>
+    ` : ''}
+
+    ${codeDiscount ? '' : html`
+      <div class="sr-coupon-form">
+        <input
+          type="text"
+          class="sr-coupon-input ${error ? 'sr-field-error' : ''}"
+          placeholder="${t('cart.coupon_placeholder', 'Discount code')}"
+          .value="${context.couponCode || typedCode || ''}"
+          @input="${(e: Event) => context.onCouponInput((e.target as HTMLInputElement).value)}"
+          @keydown="${(e: KeyboardEvent) => e.key === 'Enter' && context.couponCode && context.onApplyCoupon()}"
+          ?disabled="${context.couponLoading}"
+        />
+        <button
+          class="sr-coupon-apply"
+          @click="${context.onApplyCoupon}"
+          ?disabled="${!context.couponCode || context.couponLoading}"
+        >
+          ${context.couponLoading ? loadingSpinner('sm') : t('cart.apply', 'Apply')}
+        </button>
+      </div>
+    `}
+    ${error ? html`<p class="sr-coupon-error">${error}</p>` : ''}
   `;
 }
 
 export function renderCartFooter(context: CartFooterContext): TemplateResult {
-  const hasDiscount = context.cart?.totals?.discount && context.cart.totals.discount.amount > 0;
+  const hasDiscount = (context.cart?.discounts?.length ?? 0) > 0;
   const cartTotal = context.cart?.totals?.subtotal?.amount ?? 0;
   const minOrder = context.minimumOrderValue;
   const belowMinimum = minOrder != null && minOrder > 0 && cartTotal < minOrder;

@@ -2661,14 +2661,31 @@ export class CartWidget extends ShoprocketElement {
     return this.cartModules.cartFooter.renderCartFooter(context);
   }
 
+  /**
+   * Apply a discount code.
+   *
+   * A code is just another progressively-collected cart field, so this is PATCH /cart like every
+   * other checkout input - there is no apply-discount endpoint. (This used to call
+   * `sdk.cart.applyDiscount`, which has never existed on the SDK, so the field threw on every
+   * submit and the whole coupon UI was inert.)
+   *
+   * A code that does not currently qualify is NOT an error: the server stores it and explains
+   * itself on `cart.discountError`, so the shopper can add the qualifying item and have the code
+   * still be there. Only a transport failure lands in the catch.
+   */
   private async applyCoupon(): Promise<void> {
     if (!this.couponCode.trim() || this.couponLoading) return;
     this.couponLoading = true;
     this.couponError = null;
     try {
-      const result = await this.sdk.cart.applyDiscount(this.couponCode.trim());
-      if (result.cart) cartState.setCart(result.cart);
-      this.couponCode = '';
+      const cart = await this.sdk.cart.patch({ discountCode: this.couponCode.trim() });
+      cartState.setCart(cart);
+      if (cart.discountError) {
+        this.couponError = cart.discountError.message;
+      } else {
+        // Clear the input only on success, so a rejected code stays visible to be corrected.
+        this.couponCode = '';
+      }
     } catch (err: any) {
       this.couponError = err?.message || t('cart.coupon_invalid', 'Invalid discount code');
     } finally {
@@ -2678,8 +2695,9 @@ export class CartWidget extends ShoprocketElement {
 
   private async removeCoupon(): Promise<void> {
     try {
-      const result = await this.sdk.cart.removeDiscount();
-      if (result.cart) cartState.setCart(result.cart);
+      const cart = await this.sdk.cart.patch({ discountCode: null });
+      cartState.setCart(cart);
+      this.couponError = null;
     } catch (err: any) {
       console.error('Failed to remove discount:', err);
     }

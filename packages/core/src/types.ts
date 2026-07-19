@@ -323,9 +323,36 @@ export interface Cart {
   shippingRateId: string | null;
   /** Display snapshot of the chosen rate, frozen at selection. */
   shippingMethodName: string | null;
+  /** The discounts currently coming off this cart - a typed code, or automatic ones. */
+  discounts: AppliedDiscount[];
+  /**
+   * The code the shopper typed, echoed back even when it does not currently apply. A code entered
+   * before the qualifying item is added survives until it does, so keep rendering it.
+   */
+  discountCode: string | null;
+  /** Why the typed code is not applying, or null. Render this rather than failing silently. */
+  discountError: DiscountError | null;
   totals: CartTotals;
   expiresAt: string;
   updatedAt: string;
+}
+
+/** A discount coming off the cart. `automatic` is a house discount the shopper did not ask for. */
+export interface AppliedDiscount {
+  id: string;
+  /** Null for automatic discounts, which have no code by definition. */
+  code: string | null;
+  /** The seller's label, shown next to the deduction. */
+  name: string;
+  /** What it takes off, in minor units. */
+  amount: number;
+  automatic: boolean;
+}
+
+/** Why a typed code is not applying. `reason` is stable for code; `message` is for humans. */
+export interface DiscountError {
+  reason: string;
+  message: string;
 }
 
 /** Progressive checkout collection: write whatever the shopper has filled in so far. */
@@ -336,6 +363,13 @@ export interface PatchCartParams {
   billingAddress?: CartAddressInput | null;
   /** From `getShippingOptions()`. Refused if it is not a rate the stored address resolves to. */
   shippingRateId?: string | null;
+  /**
+   * A discount code to apply, or null to remove it. Case-insensitive.
+   *
+   * A code that does not currently qualify is still STORED, and reported back on the cart as
+   * `discountError` - so read that rather than treating the response as a failure.
+   */
+  discountCode?: string | null;
 }
 
 export interface AddToCartParams {
