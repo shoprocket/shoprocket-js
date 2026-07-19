@@ -135,7 +135,11 @@ export class ApiClient {
             message: data.error?.message || data.error || 'API request failed',
             code: data.error?.code,
             details: data.error?.details,
-            status: response.status
+            status: response.status,
+            // Some refusals are structured domain responses rather than the error envelope - a
+            // 409 from checkout carries `rejection` + `priceChanges`. Keep the raw body so a
+            // caller can branch on it instead of only seeing a flattened message.
+            body: data
           };
           if (response.status >= 500 && attempt < ApiClient.MAX_RETRIES) {
             lastError = err;
@@ -203,7 +207,11 @@ export class ApiClient {
             message: data.error?.message || data.error || 'API request failed',
             code: data.error?.code,
             details: data.error?.details,
-            status: response.status
+            status: response.status,
+            // Some refusals are structured domain responses rather than the error envelope - a
+            // 409 from checkout carries `rejection` + `priceChanges`. Keep the raw body so a
+            // caller can branch on it instead of only seeing a flattened message.
+            body: data
           };
           if (response.status >= 500 && attempt < ApiClient.MAX_RETRIES) {
             lastError = err;
@@ -239,6 +247,14 @@ export class ApiClient {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async patch<T = any>(endpoint: string, data?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      // Sent even when empty: PATCH bodies are objects, and `{}` is a valid no-op the API parses.
+      body: JSON.stringify(data ?? {}),
     });
   }
 

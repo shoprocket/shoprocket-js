@@ -1,234 +1,152 @@
 import { ApiClient } from '../api';
-import type { Cart, CartItem, AddToCartParams, UpdateCartItemParams, ShippingOption } from '../types';
+import type {
+  AddToCartParams,
+  Cart,
+  CheckoutAccepted,
+  CheckoutParams,
+  CheckoutRejected,
+  OrderPaymentState,
+  PatchCartParams,
+  ShippingOptions,
+  StartPaymentParams,
+  StartPaymentResult,
+} from '../types';
 
-// Re-export types for backward compatibility
-export type { Cart, CartItem, AddToCartParams, UpdateCartItemParams, ShippingOption } from '../types';
+// Re-export types for consumers of the SDK
+export type {
+  AddToCartParams,
+  Cart,
+  CartAddress,
+  CartAddressInput,
+  CartItem,
+  CartPriceChange,
+  CartTotals,
+  CheckoutAccepted,
+  CheckoutParams,
+  CheckoutRejected,
+  CheckoutRejection,
+  OrderPaymentState,
+  PatchCartParams,
+  ShippingOption,
+  ShippingOptions,
+  StartPaymentParams,
+  StartPaymentResult,
+  UpdateCartItemParams,
+} from '../types';
 
-// Address and checkout types (widget-specific, but needed for cart service)
-export interface Address {
-  line1: string;
-  line2?: string;
-  city: string;
-  state?: string;
-  postalCode: string;
-  country: string;
+/**
+ * A checkout the server refused. Carries the structured reason so a caller can re-render the cart
+ * (drifted prices, a line that went out of stock) instead of showing a generic failure.
+ */
+export class CheckoutRejectedError extends Error {
+  readonly detail: CheckoutRejected;
+
+  constructor(detail: CheckoutRejected) {
+    super(detail.message);
+    this.name = 'CheckoutRejectedError';
+    this.detail = detail;
+  }
+
+  get rejection() {
+    return this.detail.rejection;
+  }
 }
 
-export interface CheckoutData {
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  company?: string;
-  shippingAddress?: Address;
-  billingAddress?: Address;
-  sameAsBilling?: boolean;
-}
-
-// Legacy alias for backward compatibility
-export type CustomerData = CheckoutData;
-
-export interface CheckCustomerResponse {
-  exists: boolean;
-  hasPassword: boolean;
-}
-
+/**
+ * The cart surface.
+ *
+ * Every mutation returns the FULL recalculated cart, so nothing here needs a follow-up GET to see
+ * the new totals. The v3 client did PUT-then-GET-then-re-rate on every keystroke; that was three
+ * to five sequential round trips for one typed character, and none of them were necessary.
+ *
+ * A cart is addressed by the client-minted `X-Cart-Token` the ApiClient carries, so an anonymous
+ * shopper transacts with no auth round-trip. Writing to a cart never requires authentication -
+ * reading anything back about the person behind an email is what does (see AuthService).
+ */
 export class CartService {
   constructor(private api: ApiClient) {}
 
+  private static unwrap(response: any): Cart {
+    return response.data ?? response;
+  }
+
   async get(): Promise<Cart> {
-    const response = await this.api.get<any>('/cart');
-    return response.cart || response.data || response;
+    return CartService.unwrap(await this.api.get<any>('/cart'));
   }
 
   async addItem(data: AddToCartParams): Promise<Cart> {
-    const attribution = this.api.getAttribution();
-    const response = await this.api.post<any>('/cart/items', { ...data, ...attribution });
-    return response.cart || response.data || response;
+    return CartService.unwrap(await this.api.post<any>('/cart/items', data));
   }
 
+  /** Set a line's quantity outright. Zero is a removal. */
   async updateItem(itemId: string, quantity: number): Promise<Cart> {
-    const response = await this.api.put<any>(`/cart/items/${itemId}`, { quantity });
-    return response.cart || response.data || response;
+    return CartService.unwrap(await this.api.patch<any>(`/cart/items/${itemId}`, { quantity }));
   }
 
   async removeItem(itemId: string): Promise<Cart> {
-    const response = await this.api.delete<any>(`/cart/items/${itemId}`);
-    return response.cart || response.data || response;
-  }
-
-  async clear(): Promise<Cart> {
-    const response = await this.api.delete<any>('/cart');
-    return response.cart || response.data || response;
-  }
-
-  async getCheckoutData(): Promise<CheckoutData> {
-    const response = await this.api.get<any>('/cart/checkout-data');
-    return response.data || response;
-  }
-  
-  // Legacy method for backward compatibility
-  async getCustomer(): Promise<CheckoutData> {
-    return this.getCheckoutData();
-  }
-
-  async updateCheckoutData(checkoutData: CheckoutData): Promise<CheckoutData> {
-    const response = await this.api.put<any>('/cart/checkout-data', checkoutData);
-    return response.data || response;
-  }
-  
-  // Legacy method for backward compatibility
-  async updateCustomer(customerData: CheckoutData): Promise<CheckoutData> {
-    return this.updateCheckoutData(customerData);
-  }
-
-  async checkCheckoutData(email: string): Promise<CheckCustomerResponse> {
-    const response = await this.api.post<any>('/cart/check-customer', {
-      email
-    });
-    return response.data || response;
-  }
-  
-  // Legacy method for backward compatibility
-  async checkCustomer(email: string): Promise<CheckCustomerResponse> {
-    return this.checkCheckoutData(email);
-  }
-
-  async sendAuth(email: string): Promise<{ auth_sent: boolean; auth_method?: string; message?: string }> {
-    const response = await this.api.post<any>('/cart/send-auth', {
-      email
-    });
-    return response.data || response;
-  }
-  
-  async verifyAuth(email: string, code: string): Promise<{ authenticated: boolean; message?: string }> {
-    const response = await this.api.post<any>('/cart/verify-auth', {
-      email,
-      code
-    });
-    return response.data || response;
-  }
-
-  async passwordLogin(email: string, password: string): Promise<{ authenticated: boolean; message?: string }> {
-    const response = await this.api.post<any>('/cart/login', {
-      email,
-      password
-    });
-    return response.data || response;
-  }
-
-  async createAccount(email: string, password: string): Promise<{ authenticated: boolean; message?: string }> {
-    const response = await this.api.post<any>('/cart/create-account', {
-      email,
-      password
-    });
-    return response.data || response;
-  }
-  
-  // Legacy method for backward compatibility
-  async sendLoginLink(email: string): Promise<{ success: boolean; message?: string }> {
-    const result = await this.sendAuth(email);
-    return {
-      success: result.auth_sent,
-      message: result.message
-    };
+    return CartService.unwrap(await this.api.delete<any>(`/cart/items/${itemId}`));
   }
 
   /**
-   * Fetch shipping options for the current cart and destination. Returns
-   * options sorted cheapest-first. Normalizes API casing into ShippingOption.
+   * Write progressive checkout data - email, either address, the chosen shipping rate - and get the
+   * recalculated cart back in the same round trip.
+   *
+   * Call it as each step is filled in rather than once at place-order. The email in particular has
+   * to be persisted as it is typed: an email that only arrives with the final order is by
+   * definition only ever captured from the people who did not abandon.
+   *
+   * An omitted field is left untouched; an explicit null clears it.
    */
-  async getShippingOptions(params: { country: string; state?: string; postal?: string }): Promise<ShippingOption[]> {
-    const query = new URLSearchParams();
-    query.set('country', params.country);
-    if (params.state) query.set('state', params.state);
-    if (params.postal) query.set('postal', params.postal);
-
-    const response = await this.api.get<any>(`/cart/shipping-options?${query.toString()}`);
-    const raw = response.data?.shipping_options ?? response.shipping_options
-      ?? response.data?.shippingOptions ?? response.shippingOptions ?? [];
-
-    return (raw as any[]).map((o) => ({
-      id: String(o.id),
-      name: o.name,
-      description: o.description ?? null,
-      cost: o.cost ?? 0,
-      costFormatted: o.cost_formatted ?? o.costFormatted ?? '',
-      estimatedDays: o.estimated_days ?? o.estimatedDays ?? null,
-      isFree: o.is_free ?? o.isFree ?? false,
-    }));
+  async patch(data: PatchCartParams): Promise<Cart> {
+    return CartService.unwrap(await this.api.patch<any>('/cart', data));
   }
 
   /**
-   * Select a shipping option for the cart. Returns the response containing
-   * recalculated totals (tax is recomputed since shipping may be taxable).
+   * The rates available for the address ALREADY STORED on the cart - there is nothing to pass.
+   * Deriving them server-side from persisted state is what makes the quoted price provably the
+   * price that will be charged when the rate is selected.
+   *
+   * Select one with `patch({ shippingRateId })`, which returns the recalculated totals.
    */
-  async selectShippingOption(rateId: string): Promise<any> {
-    const response = await this.api.post<any>('/cart/shipping-option', { rate_id: rateId });
-    return response.data || response;
-  }
-
-  async applyDiscount(code: string): Promise<{ message: string; cart: Cart }> {
-    const response = await this.api.post<any>('/cart/discount', { code });
-    return { message: response.message, cart: response.cart || response.data?.cart };
-  }
-
-  async removeDiscount(): Promise<{ message: string; cart: Cart }> {
-    const response = await this.api.delete<any>('/cart/discount');
-    return { message: response.message, cart: response.cart || response.data?.cart };
-  }
-
-  async getPaymentMethods(): Promise<{ paymentMethods: any[]; testMode: boolean }> {
-    const response = await this.api.get<any>('/payment-methods');
-    const data = response.data || response;
-    return {
-      paymentMethods: data.payment_methods || data.paymentMethods || [],
-      testMode: data.test_mode ?? data.testMode ?? false,
-    };
-  }
-
-  async checkout(options: {
-    gateway: string;
-    manualPaymentMethodId?: string;
-    locale?: string;
-    returnUrl?: string;
-    cancelUrl?: string;
-    agreeToTerms?: boolean;
-    marketingOptIn?: boolean;
-    notes?: string;
-  }): Promise<{ order: any }> {
-    const data = {
-      gateway: options.gateway,
-      locale: options.locale || 'en',
-      ...(options.manualPaymentMethodId && { manualPaymentMethodId: options.manualPaymentMethodId }),
-      ...(options.returnUrl && { returnUrl: options.returnUrl }),
-      ...(options.cancelUrl && { cancelUrl: options.cancelUrl }),
-      ...(options.agreeToTerms !== undefined && { agreeToTerms: options.agreeToTerms }),
-      ...(options.marketingOptIn !== undefined && { marketingOptIn: options.marketingOptIn }),
-      ...(options.notes && { notes: options.notes })
-    };
-
-    const response = await this.api.post<any>('/cart/checkout', data);
-    return response;
+  async getShippingOptions(): Promise<ShippingOptions> {
+    const response = await this.api.get<any>('/cart/shipping-options');
+    return response.data ?? response;
   }
 
   /**
-   * Capture an approved PayPal order (JS SDK onApprove callback).
-   * The order was already created by checkout(); this finalises it.
+   * Convert the cart into a pending order and reserve its stock. The order exists and holds stock
+   * BEFORE the shopper is handed to a gateway, so an abandoned payment leaves something
+   * recoverable rather than nothing at all. Take money with `startPayment()`.
+   *
+   * Throws `CheckoutRejectedError` when the server refuses (empty cart, price drift, stock).
    */
-  async paypalCapture(paypalOrderId: string): Promise<{ data: { order_id: string; order_number: string; payment_status: string } }> {
-    const response = await this.api.post<any>('/cart/paypal/capture', { paypalOrderId });
-    return response;
+  async checkout(data: CheckoutParams = {}): Promise<CheckoutAccepted> {
+    try {
+      const response = await this.api.post<any>('/cart/checkout', data);
+      return response.data ?? response;
+    } catch (error: any) {
+      if (error?.status === 409 && error?.body?.rejection) {
+        throw new CheckoutRejectedError(error.body as CheckoutRejected);
+      }
+      throw error;
+    }
   }
 
-  // Order API methods - for post-checkout order access
-  async getOrder(orderId: string): Promise<any> {
-    const response = await this.api.get<any>(`/orders/${orderId}`);
-    return response.data || response;
+  /** Open a hosted payment session for an order checkout created. Send the shopper to its URL. */
+  async startPayment(orderId: string, params: StartPaymentParams): Promise<StartPaymentResult> {
+    const response = await this.api.post<any>(`/orders/${orderId}/pay`, params);
+    return response.data ?? response;
   }
 
-  async getOrderStatus(orderId: string): Promise<{ status: string; paymentStatus?: string }> {
+  /**
+   * Poll an order after returning from a hosted payment page.
+   *
+   * The gateway redirect proves the shopper came back, not that they paid - the webhook is the only
+   * writer of payment status, and it lands before, after, or instead of the redirect. So the
+   * storefront has to ASK. Authorized by the cart token that produced the order.
+   */
+  async getOrderStatus(orderId: string): Promise<OrderPaymentState> {
     const response = await this.api.get<any>(`/orders/${orderId}/status`);
-    return response.data || response;
+    return response.data ?? response;
   }
 }

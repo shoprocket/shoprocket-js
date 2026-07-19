@@ -225,90 +225,212 @@ export interface CategoryListParams {
 // Cart Types
 // ============================================================================
 
+/**
+ * A cart line. Prices are integer CENTS, like everywhere else on this API, and the display fields
+ * are snapshots taken when the line was added - so a line still renders coherently after the
+ * product behind it is deleted.
+ *
+ * `unitPrice` is likewise the price at add time. It is never silently re-priced under the shopper;
+ * drift is revalidated once at checkout and reported back as `priceChanges`.
+ */
 export interface CartItem {
   id: string;
-  productId: string;
-  productName: string;
-  variantId?: string;
-  variantName?: string;
+  /** Null once the catalog product is gone. The line survives it. */
+  productId: string | null;
+  /** Always present: price and stock live on variants, so a simple product has exactly one. */
+  variantId: string;
+  name: string;
+  variantName: string | null;
+  sku: string | null;
+  /** Cents, snapshotted at add time. */
+  unitPrice: number;
   quantity: number;
-  price: Money;
-  media?: Media[];
-  inventoryCount?: number;
-  inventoryPolicy?: 'deny' | 'continue';
-  productType?: string;
-  bundleSelections?: CartBundleSelection[];
+  /** Cents (unitPrice × quantity). */
+  subtotal: number;
+  position: number;
+  /** One resolved URL, variant image first then the product's. Not a media array. */
+  imageUrl: string | null;
 }
 
+/** Cart totals, all integer cents. Recomputed server-side on every mutation, never sent up. */
 export interface CartTotals {
-  subtotal: Money;
-  tax: Money;
-  shipping: Money;
-  discount?: Money;
-  total: Money;
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
+  shippingTotal: number;
+  total: number;
 }
 
-/** A shipping rate the customer can pick at checkout (manual or live carrier). */
+/**
+ * Where a cart ships or bills to. Every field is nullable because this is collected
+ * PROGRESSIVELY - a half-typed address is a legitimate state the server stores, and refusing to
+ * store one is what would break abandonment capture. Completeness is checked at checkout.
+ */
+export interface CartAddress {
+  name: string | null;
+  company: string | null;
+  line1: string | null;
+  line2: string | null;
+  city: string | null;
+  region: string | null;
+  postalCode: string | null;
+  /** ISO-3166-1 alpha-2. Drives both shipping-zone matching and the tax jurisdiction. */
+  countryCode: string | null;
+  phone: string | null;
+}
+
+/** Address as input: an omitted field is left alone, an explicit null clears it. */
+export type CartAddressInput = Partial<Record<keyof CartAddress, string | null>>;
+
+/**
+ * A shipping rate offered for the cart's CURRENT stored address and contents. Derived server-side
+ * rather than quoted from an address passed up, so the price offered is the price charged. `cost`
+ * already has any free-above-threshold applied.
+ */
 export interface ShippingOption {
+  /** shipr_… - pass back as `shippingRateId` on `cart.patch()`. */
   id: string;
   name: string;
-  description?: string | null;
-  cost: number;            // Cents
-  costFormatted: string;
-  estimatedDays?: string | null;
-  isFree: boolean;
+  description: string | null;
+  /** Cents. */
+  cost: number;
+  estimatedDaysMin: number | null;
+  estimatedDaysMax: number | null;
 }
 
-export interface TaxBreakdownItem {
-  name: string;
-  rate: number;
-  amount: number;
-  formatted: string;
-  jurisdiction?: string;
+export interface ShippingOptions {
+  options: ShippingOption[];
+  /**
+   * True when the cart has no country stored yet, so no zone can match. Distinguishes "we don't
+   * know where you are" from "we don't ship there" - different messages to the shopper.
+   */
+  addressRequired: boolean;
 }
 
+/**
+ * A live basket. Deliberately NOT an order: checkout copies a cart into an order and never mutates
+ * one into the other, so there is no `type: 'order'` state to check for here. After a payment
+ * redirect, ask `cart.getOrderStatus()` instead.
+ */
 export interface Cart {
   id: string;
-  type?: 'cart' | 'order';
+  /** ISO-4217, snapshotted when the cart was opened. */
+  currencyCode: string;
+  email: string | null;
   items: CartItem[];
+  shippingAddress: CartAddress | null;
+  billingAddress: CartAddress | null;
+  shippingRateId: string | null;
+  /** Display snapshot of the chosen rate, frozen at selection. */
+  shippingMethodName: string | null;
   totals: CartTotals;
-  currency: string;
-  itemCount: number;
-  discountCode?: string;
-  discountType?: 'fixed' | 'percentage';
-  discountValue?: number;
-  visitorCountry?: string;
-  hasCheckoutData?: boolean;
-  hasBillingAddress?: boolean;
-  hasShippingAddress?: boolean;
-  requiresShipping?: boolean;
-  taxInclusive?: boolean;
-  taxBreakdown?: TaxBreakdownItem[];
-  isAuthenticated?: boolean;
-  // Order fields (only present when type === 'order')
-  order?: {
-    number: string;
-    paymentStatus: string;
-    fulfillmentStatus: string;
-    paymentGateway: string;
-    completedAt: string | null;
-    customerNotes?: string | null;
-    termsAccepted?: boolean;
-    marketingOptIn?: boolean;
-  };
+  expiresAt: string;
+  updatedAt: string;
+}
+
+/** Progressive checkout collection: write whatever the shopper has filled in so far. */
+export interface PatchCartParams {
+  email?: string | null;
+  customerName?: string | null;
+  shippingAddress?: CartAddressInput | null;
+  billingAddress?: CartAddressInput | null;
+  /** From `getShippingOptions()`. Refused if it is not a rate the stored address resolves to. */
+  shippingRateId?: string | null;
 }
 
 export interface AddToCartParams {
-  productId: string;
+  /** Either identifies the thing bought; `productId` alone takes that product's first variant. */
+  productId?: string;
   variantId?: string;
   quantity?: number;
-  sourceUrl?: string;
-  bundleSelections?: BundleSelection[];
 }
 
 export interface UpdateCartItemParams {
   itemId: string;
   quantity: number;
+}
+
+// ---- Checkout ----
+
+export interface CheckoutParams {
+  /** Usually already on the cart via progressive collection; supplying it here overrides. */
+  email?: string;
+  customerName?: string;
+  /**
+   * The total last shown to the shopper. When present the server refuses on mismatch, so nobody is
+   * ever charged a figure they were not shown.
+   */
+  expectedTotal?: number;
+  /** Retry with this set after showing the shopper the drifted prices. */
+  acceptPriceChanges?: boolean;
+}
+
+/** A line whose catalog price moved between add-to-cart and checkout. Surfaced, never absorbed. */
+export interface CartPriceChange {
+  itemId: string;
+  name: string;
+  previousUnitPrice: number;
+  currentUnitPrice: number;
+}
+
+export type CheckoutRejection =
+  | 'empty_cart'
+  | 'price_changed'
+  | 'insufficient_stock'
+  | 'already_converted'
+  | 'unavailable_item';
+
+/**
+ * A refused checkout. Thrown rather than returned so a caller cannot ignore it, and carries enough
+ * detail for the client to re-render the cart rather than show a generic failure.
+ */
+export interface CheckoutRejected {
+  rejection: CheckoutRejection;
+  message: string;
+  priceChanges?: CartPriceChange[];
+  stockIssues?: Array<{ itemId: string; name: string; requested: number; available: number }>;
+}
+
+/** The order checkout created. It exists and holds stock BEFORE the shopper is sent to a gateway. */
+export interface CheckoutAccepted {
+  orderId: string;
+  orderNumber: string;
+  total: number;
+  currencyCode: string;
+  paymentStatus: string;
+  /** When the stock reservation lapses if payment never completes. */
+  reservationExpiresAt: string;
+}
+
+export interface StartPaymentParams {
+  gateway?: string;
+  /** Absolute https URL. Where the gateway returns the shopper on success. */
+  returnUrl: string;
+  /** Defaults to `returnUrl`. */
+  cancelUrl?: string;
+}
+
+export interface StartPaymentResult {
+  paymentId: string;
+  status: string;
+  /** Send the shopper here. */
+  redirectUrl: string;
+  amount: number;
+  currencyCode: string;
+}
+
+/**
+ * What a storefront polls after coming back from a hosted payment page. The webhook remains the
+ * only writer of payment status - this only reports what was persisted, because the browser comes
+ * back before, after, or instead of the webhook does.
+ */
+export interface OrderPaymentState {
+  id: string;
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  total: number;
+  currencyCode: string;
 }
 
 // ============================================================================
