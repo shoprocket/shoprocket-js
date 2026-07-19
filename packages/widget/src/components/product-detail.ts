@@ -119,6 +119,18 @@ export class ProductDetail extends ShoprocketElement {
 
   private bundleConfiguratorLoaded: boolean = false;
 
+  /**
+   * Product id whose reviews we've already tried to load. Deliberately NOT @state: it guards the
+   * fetch, so making it reactive would re-render on every attempt and re-trigger the guard.
+   *
+   * Records the ATTEMPT, not the success. An outright failure (e.g. the API has no reviews route
+   * yet and 404s) leaves reviews/reviewStats empty and reviewsLoading back at false — identical to
+   * the never-loaded state — so a success-only flag re-fires forever. That is exactly what happened:
+   * a lazy-load called from render() spun ~162k requests at ~110% CPU, silently, because the catch
+   * swallowed the error and every other guard was reactive.
+   */
+  private reviewsAttemptedFor: string | null = null;
+
   private zoomTimeout?: number;
 
   /** True when bundleConfig is fully loaded and ready */
@@ -182,6 +194,13 @@ export class ProductDetail extends ShoprocketElement {
       // (may arrive after initial product load, since list data doesn't include it)
       if (this.product.productType === 'bundle' && this.product.bundleConfig && !this.bundleConfiguratorLoaded) {
         this.loadBundleConfigurator();
+      }
+
+      // Lazy-load reviews once per product. Triggered here rather than from render() because a
+      // fetch fired during render re-enters render on every state change it causes.
+      if (this.hasFeature('reviews') && this.reviewsAttemptedFor !== this.product.id) {
+        this.reviewsAttemptedFor = this.product.id;
+        this.loadReviews();
       }
     }
 
@@ -638,11 +657,6 @@ export class ProductDetail extends ShoprocketElement {
 
   private renderReviewsSection(): TemplateResult {
     if (!this.product) return html``;
-
-    // Lazy-load reviews on first render
-    if (!this.reviewStats && !this.reviewsLoading && this.reviews.length === 0) {
-      this.loadReviews();
-    }
 
     const hasReviews = this.reviewStats && this.reviewStats.reviewCount > 0;
 
