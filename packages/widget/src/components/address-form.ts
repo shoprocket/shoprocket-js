@@ -52,7 +52,6 @@ export interface State {
 let cachedAllCountries: Country[] = [];
 let cachedShippableCountries: Country[] = [];
 // States are locale-dependent now — key by "CC|locale" so fr/ja/en don't collide.
-const cachedStates = new Map<string, State[]>();
 
 /** Locate a country across both caches — preferred over duplicating the lookup. */
 function findCountry(countryCode: string): Country | undefined {
@@ -204,36 +203,23 @@ export class AddressForm extends BaseComponent {
       }
     }
 
-    // Use cached states immediately if available
-    if (this.address.country) {
-      if (cachedStates.has(this.address.country)) {
-        this.currentCountryCode = this.address.country;
-        this.states = cachedStates.get(this.address.country) || [];
-        this.stateFieldType = this.states.length > 0 ? 'select' : 'text';
-      } else {
-        // Set current country code so loadStates doesn't skip
-        this.currentCountryCode = '';
-      }
-    }
-
-    // Load data asynchronously after component is rendered
-    Promise.resolve().then(() => {
-      // Load countries if not cached
-      if (cache.length === 0) {
+    // Subdivisions now ride on the countries payload, so they are resolvable the moment countries
+    // are - and NOT before. Ordering is load-bearing: `loadStates` reads `this.countries`, and
+    // calling it first would find nothing, fall back to a text input, and then skip the retry
+    // because `currentCountryCode` was already set.
+    if (cache.length > 0) {
+      if (this.address.country) this.loadStates(this.address.country);
+    } else {
+      Promise.resolve().then(() => {
         this.loadCountries().then(() => {
-          // After loading countries, set requires_state flag
           if (this.address.country) {
             const selectedCountry = this.countries.find(c => c.code === this.address.country);
             this.currentCountryRequiresState = selectedCountry?.requiresState !== false;
+            this.loadStates(this.address.country);
           }
         });
-      }
-
-      // Load states if needed and not cached
-      if (this.address.country && !cachedStates.has(this.address.country)) {
-        this.loadStates(this.address.country);
-      }
-    });
+      });
+    }
 
     // Listen for input events to detect autofill
     this.addEventListener('input', this.handleAutofillDetection);
@@ -278,20 +264,20 @@ export class AddressForm extends BaseComponent {
       // State was autofilled as text, store it and load states for the country
       this.pendingStateValue = stateSelect.value;
       if (countrySelect.value && countrySelect.value !== this.currentCountryCode) {
-        this.loadStates(countrySelect.value).then(() => {
-          // After states load, if we have a matching state, update the field
-          if (this.pendingStateValue) {
-            const matchingState = this.states.find(s =>
-              s.code === this.pendingStateValue ||
-              s.name.toLowerCase() === this.pendingStateValue?.toLowerCase()
-            );
-            if (matchingState) {
-              this.address = { ...this.address, state: matchingState.code };
-              this.requestUpdate();
-              this.pendingStateValue = undefined;
-            }
+        this.loadStates(countrySelect.value);
+        // The list is available immediately now, so a password manager's free-text state can be
+        // matched to its code in the same tick rather than a round trip later.
+        if (this.pendingStateValue) {
+          const matchingState = this.states.find(s =>
+            s.code === this.pendingStateValue ||
+            s.name.toLowerCase() === this.pendingStateValue?.toLowerCase()
+          );
+          if (matchingState) {
+            this.address = { ...this.address, state: matchingState.code };
+            this.requestUpdate();
+            this.pendingStateValue = undefined;
           }
-        });
+        }
       }
     }
   }
@@ -364,7 +350,7 @@ export class AddressForm extends BaseComponent {
       if (details.countryCode && details.countryCode !== this.currentCountryCode) {
         const selectedCountry = this.countries.find(c => c.code === details.countryCode);
         this.currentCountryRequiresState = selectedCountry?.requiresState !== false;
-        await this.loadStates(details.countryCode);
+        this.loadStates(details.countryCode);
       }
 
       // Dispatch address-change with all fields populated
@@ -445,41 +431,32 @@ export class AddressForm extends BaseComponent {
     }
   }
 
-  private async loadStates(countryCode: string): Promise<void> {
+  /**
+   * Pick the subdivision list for a country out of the countries already loaded.
+   *
+   * No longer a fetch. v3 served `/countries/{code}/states` per country and per locale; the rebuilt
+   * API ships `subdivisions` inline on the countries response, so this is a lookup rather than a
+   * round trip on every country change - and the endpoint it used to call does not exist.
+   *
+   * The honest cost of that: names are English only, where v3 returned Québec for `fr` and 東京都
+   * for `ja`. Codes are what get submitted and stored either way, so this is a display regression,
+   * not a data one - but it IS a regression, and worth reversing when the API grows translations.
+   */
+  private loadStates(countryCode: string): void {
     // Skip if same country
     if (this.currentCountryCode === countryCode) return;
 
     this.currentCountryCode = countryCode;
 
-    // Reset states immediately to avoid stale data
-    this.states = [];
-    this.stateFieldType = 'text';
+    const country = this.countries.find(c => c.code === countryCode);
+    // `undefined` (countries not loaded yet) and `null` (no dataset) both mean free text. Only a
+    // non-empty list earns a dropdown - an empty one would be a select with nothing in it, which
+    // is the exact failure this replaced.
+    const subdivisions = country?.subdivisions ?? null;
 
-    const locale = document.documentElement.lang || 'en';
-    const cacheKey = `${countryCode}|${locale}`;
-
-    // Check cache (locale-scoped — fr returns Québec, ja returns 東京都)
-    if (cachedStates.has(cacheKey)) {
-      this.states = cachedStates.get(cacheKey) || [];
-      this.stateFieldType = this.states.length > 0 ? 'select' : 'text';
-      this.requestUpdate();
-      return;
-    }
-
-    // Load from API
-    try {
-      const response = await this.sdk.location.getStates(countryCode, locale);
-      const states = response?.data?.states || [];
-      cachedStates.set(cacheKey, states);
-      this.states = states;
-      this.stateFieldType = states.length > 0 ? 'select' : 'text';
-      this.requestUpdate();
-    } catch (error) {
-      console.warn('Failed to load states for', countryCode, error);
-      this.states = [];
-      this.stateFieldType = 'text';
-      this.requestUpdate();
-    }
+    this.states = subdivisions ?? [];
+    this.stateFieldType = this.states.length > 0 ? 'select' : 'text';
+    this.requestUpdate();
   }
 
   private handleInputChange(field: keyof AddressData, value: string, isAutofill = false): void {
@@ -498,14 +475,12 @@ export class AddressForm extends BaseComponent {
         this.pendingStateValue = this.address.state;
       }
 
-      // Load states asynchronously
-      this.loadStates(value).then(() => {
-        // If we had a pending state value from autofill, try to set it now
-        if (this.pendingStateValue && this.states.some(s => s.code === this.pendingStateValue)) {
-          this.handleInputChange('state', this.pendingStateValue);
-          this.pendingStateValue = undefined;
-        }
-      });
+      this.loadStates(value);
+      // If we had a pending state value from autofill, try to set it now.
+      if (this.pendingStateValue && this.states.some(s => s.code === this.pendingStateValue)) {
+        this.handleInputChange('state', this.pendingStateValue);
+        this.pendingStateValue = undefined;
+      }
 
       // Always clear state when country changes - old state is invalid for new country
       updatedAddress.state = '';

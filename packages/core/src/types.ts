@@ -606,6 +606,14 @@ export interface Country {
   phoneCode?: string;
   currency?: string;
   requiresState?: boolean;
+  /**
+   * The pickable subdivisions, or null when the API has no dataset for this country.
+   *
+   * null and `[]` are NOT interchangeable: null means "render a text input", while an empty array
+   * would claim the country genuinely has no subdivisions. Treating them alike is what produced a
+   * required dropdown with no options and a checkout nobody could complete.
+   */
+  subdivisions?: { code: string; name: string }[] | null;
   /** libaddressinput-derived label type: state | province | prefecture | do_si | oblast | emirate | department | county | parish | island | area */
   stateNameType?: string | null;
   /** PCRE regex for postal code validation (dr5hn-sourced; null if country has no postal system) */
