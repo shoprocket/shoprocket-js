@@ -10,6 +10,7 @@ import type {
   ShippingOptions,
   StartPaymentParams,
   StartPaymentResult,
+  StorefrontPaymentMethods,
 } from '../types';
 
 // Re-export types for consumers of the SDK
@@ -27,10 +28,14 @@ export type {
   CheckoutRejection,
   OrderPaymentState,
   PatchCartParams,
+  PaymentMethodIcon,
+  SelectedPaymentMethod,
   ShippingOption,
   ShippingOptions,
   StartPaymentParams,
   StartPaymentResult,
+  StorefrontPaymentMethod,
+  StorefrontPaymentMethods,
   UpdateCartItemParams,
 } from '../types';
 
@@ -114,9 +119,26 @@ export class CartService {
   }
 
   /**
+   * The payment methods this store offers, merged and ordered by the server: connected gateways
+   * first, then offline methods. Pass an entry's `select` straight back as `checkout({
+   * paymentMethod })`.
+   *
+   * `checkoutDisabled` distinguishes a paused or suspended store from one that simply has nothing
+   * set up - an empty list alone cannot tell those apart, and they want different words in front
+   * of the shopper.
+   */
+  async getPaymentMethods(): Promise<StorefrontPaymentMethods> {
+    const response = await this.api.get<any>('/payment-methods');
+    return response.data ?? response;
+  }
+
+  /**
    * Convert the cart into a pending order and reserve its stock. The order exists and holds stock
    * BEFORE the shopper is handed to a gateway, so an abandoned payment leaves something
    * recoverable rather than nothing at all. Take money with `startPayment()`.
+   *
+   * `paymentMethod` may be omitted only when the store offers exactly one method; with several the
+   * server refuses rather than guessing which one the shopper meant.
    *
    * Throws `CheckoutRejectedError` when the server refuses (empty cart, price drift, stock).
    */

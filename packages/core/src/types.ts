@@ -352,10 +352,42 @@ export interface UpdateCartItemParams {
 
 // ---- Checkout ----
 
+// ---- Payment methods ----
+
+/** Keyword, not a URL - the widget draws inline SVG inside its Shadow DOM. */
+export type PaymentMethodIcon = 'card' | 'paypal' | 'crypto' | 'bank';
+
+/**
+ * How a shopper names the method they picked. A union rather than a `gateway` +
+ * nullable `manualMethodId` pair, so an incoherent combination of the two is not representable.
+ */
+export type SelectedPaymentMethod =
+  | { kind: 'gateway'; gateway: string }
+  | { kind: 'manual'; manualMethodId: string };
+
+export interface StorefrontPaymentMethod {
+  /** Pass back verbatim as `checkout({ paymentMethod })`. */
+  select: SelectedPaymentMethod;
+  name: string;
+  description: string | null;
+  icon: PaymentMethodIcon;
+  /** This gateway is on sandbox credentials. Per-method: live Stripe can sit beside sandbox PayPal. */
+  testMode: boolean;
+}
+
+export interface StorefrontPaymentMethods {
+  methods: StorefrontPaymentMethod[];
+  /** Paused, suspended, or nothing set up - distinct from an empty list, which cannot say which. */
+  checkoutDisabled: boolean;
+  checkoutDisabledReason: string | null;
+}
+
 export interface CheckoutParams {
   /** Usually already on the cart via progressive collection; supplying it here overrides. */
   email?: string;
   customerName?: string;
+  /** From `getPaymentMethods()`. Omit only when the store offers exactly one method. */
+  paymentMethod?: SelectedPaymentMethod;
   /**
    * The total last shown to the shopper. When present the server refuses on mismatch, so nobody is
    * ever charged a figure they were not shown.
@@ -402,8 +434,12 @@ export interface CheckoutAccepted {
   reservationExpiresAt: string;
 }
 
+/**
+ * No `gateway` here: it was chosen at checkout and recorded on the order, so re-sending it could
+ * only contradict what was already decided. The API used to accept one and ignore it, which meant
+ * a client could ask for PayPal, get a 201, and be charged by someone else.
+ */
 export interface StartPaymentParams {
-  gateway?: string;
   /** Absolute https URL. Where the gateway returns the shopper on success. */
   returnUrl: string;
   /** Defaults to `returnUrl`. */
