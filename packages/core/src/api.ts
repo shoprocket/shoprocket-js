@@ -90,11 +90,11 @@ export class ApiClient {
   }
 
   private getUrl(endpoint: string): string {
-    // Build the full URL
     const baseUrl = `${this.config.apiUrl}/public/${this.config.publishableKey}`;
-    // Remove leading slash from endpoint
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    return `${baseUrl}/${cleanEndpoint}`;
+    // The store-bootstrap call passes '/', which must resolve to the bare base URL. Appending an
+    // empty segment would leave a trailing slash, and the API routes those as a distinct path.
+    return cleanEndpoint ? `${baseUrl}/${cleanEndpoint}` : baseUrl;
   }
 
   /** Retry on 5xx / network errors. Returns true if the error is retryable. */

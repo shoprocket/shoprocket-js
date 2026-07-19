@@ -1,5 +1,5 @@
 import { ApiClient } from '../api';
-import type { Category, CategoryListParams } from '../types';
+import type { Category, CategoryListParams, ListMeta } from '../types';
 
 // Re-export types for backward compatibility
 export type { Category, CategoryListParams } from '../types';
@@ -9,44 +9,24 @@ export class CategoriesService {
 
   constructor(private api: ApiClient) {}
 
+  /**
+   * List the store's categories.
+   *
+   * The API returns a FLAT list, ordered, of categories that actually have active products; the
+   * caller builds the tree from `parentId`. There is deliberately no server-side `isRoot` /
+   * `parentId` filter: a storefront needs the whole tree to render breadcrumbs and child pills
+   * anyway, so filtering server-side just costs an extra round trip to get the rest back.
+   */
   async list(params?: CategoryListParams): Promise<{
     data: Category[];
-    meta?: any;
-    links?: any;
+    meta?: ListMeta;
   }> {
     const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.perPage) queryParams.append('perPage', params.perPage.toString());
 
-    if (params) {
-      // Handle filters
-      if (params.filter) {
-        Object.entries(params.filter).forEach(([key, value]) => {
-          if (value !== undefined) {
-            if ((key === 'id' || key === 'slug') && Array.isArray(value)) {
-              // Multiple values: filter[key]=val1,val2 (comma-separated)
-              queryParams.append(`filter[${key}]`, value.join(','));
-            } else if (key === 'isRoot' && typeof value === 'boolean') {
-              // Boolean: filter[isRoot]=true
-              queryParams.append('filter[isRoot]', value.toString());
-            } else if (key === 'parentId') {
-              // Parent ID filter
-              queryParams.append('filter[parentId]', value.toString());
-            } else {
-              // Single value: filter[key]=value
-              queryParams.append(`filter[${key}]`, value.toString());
-            }
-          }
-        });
-      }
-
-      // Handle other params
-      if (params.include) queryParams.append('include', params.include);
-      if (params.sort) queryParams.append('sort', params.sort);
-      if (params.page) queryParams.append('page', params.page.toString());
-      if (params.perPage) queryParams.append('perPage', params.perPage.toString());
-      if (params.lang) queryParams.append('lang', params.lang);
-    }
-
-    const endpoint = `/categories?${queryParams.toString()}`;
+    const query = queryParams.toString();
+    const endpoint = query ? `/categories?${query}` : '/categories';
 
     const existing = this.inflight.get(endpoint);
     if (existing) return existing;

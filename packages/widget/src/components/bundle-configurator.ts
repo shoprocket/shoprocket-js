@@ -241,7 +241,7 @@ export class BundleConfigurator extends ShoprocketElement {
   }
 
   private renderComponent(component: BundleComponent): TemplateResult {
-    const media = component.product.media?.[0];
+    const media = component.product.images?.[0];
     const state = this.componentStates.get(component.id);
     const qty = state?.quantity ?? 0;
     const isSelected = qty > 0;

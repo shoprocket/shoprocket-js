@@ -1,4 +1,4 @@
-import type { Money, Media } from '@shoprocket/core';
+import type { Money, Media, MediaUrls } from '@shoprocket/core';
 import type { ShoprocketCore } from '@shoprocket/core';
 import { getConfig } from '../core/config';
 import { IMAGE_SIZES, RESPONSIVE_SIZES, WIDGET_EVENTS } from '../constants';
@@ -6,10 +6,22 @@ import { IMAGE_SIZES, RESPONSIVE_SIZES, WIDGET_EVENTS } from '../constants';
 /**
  * Get store currency from SDK or widget data
  */
+/**
+ * The store's currency, published once by the widget manager after the store bootstrap resolves.
+ *
+ * It is cached in a module variable rather than read on demand because formatting happens during
+ * synchronous render and `store.get()` is async - the previous version read `baseCurrencyCode` off
+ * the returned PROMISE, so it silently formatted every price as USD no matter what the store was
+ * set to. A wrong currency symbol on a price is not a cosmetic bug.
+ */
+let storeCurrency = 'USD';
+
+export function setStoreCurrency(currency: string | undefined | null): void {
+  if (currency) storeCurrency = currency;
+}
+
 function getStoreCurrency(): string {
-  // Try to get from stored data or default
-  const store = (window as any).Shoprocket?.store?.get?.();
-  return store?.baseCurrencyCode || 'USD';
+  return storeCurrency;
 }
 
 /**
@@ -56,32 +68,40 @@ export function formatPrice(price: Money | undefined | null | number): string {
 }
 
 /**
- * Format price with range support
+ * The cheapest and dearest variant price of a product, in integer cents.
+ *
+ * Price lives on VARIANTS, not on the product: the API has no product-level price because there
+ * isn't one - a product with a $24 small and a $26 medium has a range, and any single number the
+ * server picked would be a guess about what the card should say. Returns null when a product has
+ * no variants at all, which a caller must treat as "no price to show" rather than as zero.
  */
-export function formatPriceRange(product: { price: Money; priceMin?: number; priceMax?: number }): string {
-  const basePrice = product.price.amount;
-  const hasRange = product.priceMax && product.priceMax > basePrice;
-
-  if (hasRange) {
-    return `From ${formatPrice(product.price)}`;
-  }
-
-  return formatPrice(product.price);
+export function productPriceRange(
+  product: { variants?: Array<{ price: number }> }
+): { min: number; max: number } | null {
+  const prices = (product.variants ?? []).map(v => v.price).filter(p => typeof p === 'number');
+  if (prices.length === 0) return null;
+  return { min: Math.min(...prices), max: Math.max(...prices) };
 }
 
 /**
- * Format product price with variant support
+ * Format a product's price for a card or detail heading: a single price, or `From £x` when the
+ * variants disagree.
+ */
+export function formatPriceRange(product: { variants?: Array<{ price: number }> }): string {
+  const range = productPriceRange(product);
+  if (!range) return '';
+  return range.max > range.min ? `From ${formatPrice(range.min)}` : formatPrice(range.min);
+}
+
+/**
+ * Format product price with variant support. A selected variant's price wins over the range,
+ * because once a shopper has chosen one the range is no longer what they are buying.
  */
 export function formatProductPrice(
-  product: { price: Money; priceMin?: number; priceMax?: number },
-  selectedVariantPrice?: Money
+  product: { variants?: Array<{ price: number }> },
+  selectedVariantPrice?: number
 ): string {
-  // If a specific variant is selected, show its price
-  if (selectedVariantPrice) {
-    return formatPrice(selectedVariantPrice);
-  }
-
-  // Otherwise show price range if applicable
+  if (typeof selectedVariantPrice === 'number') return formatPrice(selectedVariantPrice);
   return formatPriceRange(product);
 }
 
@@ -109,54 +129,42 @@ export function formatNumber(value: number): string {
 }
 
 /**
- * Build media URL with transformations
+ * Pick a rendition URL off a media object.
+ *
+ * The API resolves every rendition server-side and ships them as `urls` ({thumb, card, card2x,
+ * gallery, gallery2x}), so the client no longer builds CDN paths by string concatenation. That
+ * matters beyond tidiness: the transform vocabulary and the CDN host are then free to change
+ * without every embedded widget in the wild constructing stale URLs.
+ *
+ * `url` is the untransformed original and is the fallback when a named rendition is absent.
  */
-export function getMediaUrl(_sdk: ShoprocketCore, media: Media | null | undefined, transformations?: string): string {
-  const config = getConfig();
-  const baseUrl = config.cdnUrl;
-
-  // Return placeholder if no media provided
-  if (!media) {
-    return `${baseUrl}/img/placeholder.svg`;
-  }
-
-  // If media has a direct URL, use it
-  if (media.url) {
-    return media.url;
-  }
-
-  // Otherwise construct the URL
-  const mediaUrl = `${baseUrl}/media`;
-  const transforms = transformations || media.transformations || IMAGE_SIZES.PLACEHOLDER;
-
-  // The path already includes the filename in the API response
-  const path = media.path || media.id;
-
-  return `${mediaUrl}/${transforms}/${path}`;
+export function getMediaUrl(
+  _sdk: ShoprocketCore,
+  media: Media | null | undefined,
+  rendition: keyof MediaUrls = 'card'
+): string {
+  if (!media) return `${getConfig().cdnUrl}/img/placeholder.svg`;
+  return media.urls?.[rendition] ?? media.url ?? `${getConfig().cdnUrl}/img/placeholder.svg`;
 }
 
 /**
- * Generate srcset for responsive images
- * Returns a srcset string with multiple image sizes for different viewport widths
+ * Responsive srcset from the server-resolved renditions. Only the pairs the API actually returned
+ * are emitted, so a media object missing a rendition degrades to a smaller srcset rather than to a
+ * broken URL.
  */
+const SRCSET_WIDTHS: Array<[keyof MediaUrls, number]> = [
+  ['thumb', 200],
+  ['card', 400],
+  ['card2x', 800],
+  ['gallery', 1000],
+  ['gallery2x', 2000],
+];
+
 export function getMediaSrcSet(_sdk: ShoprocketCore, media: Media | null | undefined): string {
-  const config = getConfig();
-  const baseUrl = config.cdnUrl;
-
-  // Return empty string if no media
-  if (!media || !media.path) {
-    return '';
-  }
-
-  const mediaUrl = `${baseUrl}/media`;
-  const path = media.path || media.id;
-
-  // Generate srcset entries for each responsive size
-  const srcsetEntries = Object.values(RESPONSIVE_SIZES).map(
-    ({ width, transform }) => `${mediaUrl}/${transform}/${path} ${width}w`
-  );
-
-  return srcsetEntries.join(', ');
+  if (!media?.urls) return '';
+  return SRCSET_WIDTHS.filter(([key]) => media.urls?.[key])
+    .map(([key, width]) => `${media.urls![key]} ${width}w`)
+    .join(', ');
 }
 
 /**
@@ -227,7 +235,7 @@ export function dispatchCartEvents(
         id: product.id,
         name: product.name,
         price: product.price,
-        media: product.media,
+        media: product.images,
         variantText
       }
     }

@@ -271,7 +271,7 @@ export class BuyButton extends ShoprocketElement {
       variantName: variantName,
       quantity: this.quantity,
       price: variantPrice,
-      media: this.productData.media?.[0] ? [this.productData.media[0]] : undefined,
+      media: this.productData.images?.[0] ? [this.productData.images[0]] : undefined,
       sourceUrl: window.location.href
     };
 

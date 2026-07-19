@@ -151,15 +151,15 @@ export class ProductListTemplates {
             ${!isSkeleton ? html`
             <!-- Always render img tag to ensure placeholder shows on error -->
             <img
-              src="${product.media?.[0] ? handlers.getMediaUrl(product.media[0]) : '/placeholder-not-found.jpg'}"
-              srcset="${product.media?.[0] ? handlers.getMediaSrcSet(product.media[0]) : ''}"
+              src="${product.images?.[0] ? handlers.getMediaUrl(product.images[0]) : '/placeholder-not-found.jpg'}"
+              srcset="${product.images?.[0] ? handlers.getMediaSrcSet(product.images[0]) : ''}"
               sizes="${getMediaSizes()}"
               alt="${product.name}"
               width="600"
               height="800"
               loading="${loadingStrategy}"
               fetchpriority="${fetchPriority || 'auto'}"
-              class="sr-product-image sr-product-image-primary ${product.media?.[1] ? 'has-hover' : ''}"
+              class="sr-product-image sr-product-image-primary ${product.images?.[1] ? 'has-hover' : ''}"
               @load="${(e: Event) => {
                 const img = e.target as HTMLImageElement;
                 const container = img.closest('.sr-product-image-container');
@@ -178,10 +178,10 @@ export class ProductListTemplates {
               }}"
             >
             <!-- Second image (shown on hover if available) -->
-            ${product.media?.[1] ? html`
+            ${product.images?.[1] ? html`
               <img
-                src="${handlers.getMediaUrl(product.media[1])}"
-                srcset="${handlers.getMediaSrcSet(product.media[1])}"
+                src="${handlers.getMediaUrl(product.images[1])}"
+                srcset="${handlers.getMediaSrcSet(product.images[1])}"
                 sizes="${getMediaSizes()}"
                 alt="${product.name} - Image 2"
                 width="600"

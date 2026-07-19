@@ -7,6 +7,27 @@
 // Common Types
 // ============================================================================
 
+/**
+ * Pagination sidecar returned alongside `data` by every list endpoint. Mirrors the API's
+ * `listMetaSchema` - keep the two in step.
+ */
+export interface ListMeta {
+  page: number;
+  perPage: number;
+  total: number;
+  /** 0 when nothing matched, so "no results" is unambiguous. */
+  totalPages: number;
+}
+
+/** `ListMeta` plus the facts a catalog grid needs about the whole matching set, not just the page. */
+export interface CatalogMeta extends ListMeta {
+  /** ISO-4217 code the prices in `data` are denominated in. */
+  currency: string;
+  /** Lowest/highest variant price across ALL matches, in integer cents. Null when empty. */
+  priceMin: number | null;
+  priceMax: number | null;
+}
+
 export interface Money {
   amount: number;
   currency: string;
@@ -21,16 +42,28 @@ export interface Money {
   saleName?: string;
 }
 
+/** Server-resolved rendition URLs. The client never constructs a CDN path itself. */
+export interface MediaUrls {
+  thumb?: string;
+  card?: string;
+  card2x?: string;
+  gallery?: string;
+  gallery2x?: string;
+}
+
 export interface Media {
   id: string;
+  /** The untransformed original; the fallback when a named rendition is absent. */
   url?: string;
-  path?: string;
-  filename?: string;
-  name?: string;
-  transformations?: string;
+  urls?: MediaUrls;
+  kind?: 'image' | 'video';
+  mime?: string;
+  width?: number | null;
+  height?: number | null;
   alt?: string;
-  isVideo?: boolean;
-  aspectRatio?: number;
+  position?: number;
+  /** Set when this image belongs to one specific variant rather than the product. */
+  variantId?: string | null;
 }
 
 // ============================================================================
@@ -141,14 +174,18 @@ export interface Product {
 export interface ProductListParams {
   page?: number;
   perPage?: number;
+  /** `featured` | `name` | `price` | `newest`, optionally suffixed `_asc` / `_desc`. */
   sort?: string;
+  /** Category slug or id. */
   category?: string | string[];
+  /** Hand-picked product ids or slugs, for a curated embed. */
   products?: string | string[];
   search?: string;
+  /** Whole currency units, converted to cents on the wire. */
   minPrice?: number;
   maxPrice?: number;
+  /** Opt-in only: omitted rather than sent as false. */
   inStock?: boolean;
-  include?: string;
 }
 
 // ============================================================================
@@ -180,18 +217,8 @@ export interface Category {
 }
 
 export interface CategoryListParams {
-  filter?: {
-    id?: string | string[];
-    parentId?: string;
-    isRoot?: boolean;
-    status?: string;
-    slug?: string | string[];
-  };
-  include?: string;
-  sort?: string;
   page?: number;
   perPage?: number;
-  lang?: string;
 }
 
 // ============================================================================

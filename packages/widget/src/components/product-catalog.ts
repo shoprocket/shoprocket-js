@@ -596,23 +596,19 @@ export class ProductCatalog extends ShoprocketElement {
         // For products mode, categories will be derived from loaded products
         // This happens in loadProducts() after products are fetched
         this.allCategories = [];
-      } else if (this.filterMode === 'categories' && this.categories) {
-        // Load specific categories from config
-        const categoryValues = this.categories.split(',').map(c => c.trim()).filter(c => c);
-        if (categoryValues.length > 0) {
-          // Detect if we have IDs (start with cat_) or slugs
-          const isId = categoryValues[0].startsWith('cat_');
-          const response = await this.sdk.categories.list({
-            filter: isId ? { id: categoryValues } : { slug: categoryValues },
-          });
-          this.allCategories = response.data || [];
-        }
       } else {
-        // Load all root categories if filterMode='all' or no filterMode
-        const response = await this.sdk.categories.list({
-          filter: { isRoot: true },
-        });
-        this.allCategories = response.data || [];
+        // The API returns the whole (flat) tree of non-empty categories in one call, so both the
+        // "specific categories" and "everything" cases are the same request plus a local filter.
+        const response = await this.sdk.categories.list();
+        const all = response.data || [];
+
+        if (this.filterMode === 'categories' && this.categories) {
+          const wanted = new Set(this.categories.split(',').map(c => c.trim()).filter(c => c));
+          this.allCategories = all.filter(c => wanted.has(c.slug) || wanted.has(c.id));
+        } else {
+          // filterMode='all' or unset: top-level categories only.
+          this.allCategories = all.filter(c => !c.parentId);
+        }
       }
     } catch (error) {
       console.warn('Failed to load categories:', error);
@@ -1091,7 +1087,7 @@ export class ProductCatalog extends ShoprocketElement {
       variantName: undefined, // No variant text for default variant
       quantity: 1,
       price: product.price, // Already in correct format from API
-      media: product.media?.[0] ? [product.media[0]] : undefined,
+      media: product.images?.[0] ? [product.images[0]] : undefined,
       sourceUrl: window.location.href
     };
 

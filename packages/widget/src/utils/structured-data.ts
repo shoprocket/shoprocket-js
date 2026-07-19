@@ -123,8 +123,8 @@ export function generateProductSchema(product: Product, sdk: ShoprocketCore, sto
 
   // Add images - REQUIRED by Google (must have at least one URL)
   // Use getMediaUrl() helper to properly extract image URLs (same logic as widget rendering)
-  const images = product.media && product.media.length > 0
-    ? product.media
+  const images = product.images && product.images.length > 0
+    ? product.images
         .slice(0, 5) // Google recommends max 5 images
         .map(m => getMediaUrl(sdk, m))
         .filter(url => url && !url.includes('placeholder.svg')) // Exclude placeholders
@@ -261,8 +261,8 @@ export function injectProductOgTags(product: Product, sdk: ShoprocketCore, store
     tags['og:description'] = stripHtmlAndTruncate(product.summary || product.description || '');
   }
 
-  if (product.media?.length) {
-    const imageUrl = getMediaUrl(sdk, product.media[0]);
+  if (product.images?.length) {
+    const imageUrl = getMediaUrl(sdk, product.images[0]);
     if (imageUrl && !imageUrl.includes('placeholder.svg')) {
       tags['og:image'] = imageUrl;
     }

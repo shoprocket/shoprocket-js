@@ -304,15 +304,15 @@ export class ProductDetail extends ShoprocketElement {
 
   private renderThumbnails = (product: Product | undefined): TemplateResult => {
     // Don't show thumbnails if no media or only one image
-    if (!product?.media || product.media.length <= 1) return html``;
+    if (!product?.media || product.images.length <= 1) return html``;
 
     return html`
       <div class="sr-product-thumbnails">
-        ${product.media.map((media: any, index: number) => html`
+        ${product.images.map((media: any, index: number) => html`
           <button
             class="sr-product-thumbnail ${index === this.selectedMediaIndex ? 'active' : ''}"
             @click="${() => { this.selectedMediaIndex = index; this.zoomActive = false; }}"
-            aria-label="View image ${index + 1} of ${product.media!.length}"
+            aria-label="View image ${index + 1} of ${product.images!.length}"
           >
             ${this.renderMediaContainer(
               media,
@@ -831,7 +831,7 @@ export class ProductDetail extends ShoprocketElement {
           if (variant) {
             productName = comp.product.name;
             variantName = variant.name || undefined;
-            media = comp.product.media?.[0];
+            media = comp.product.images?.[0];
             break;
           }
         }
@@ -924,8 +924,8 @@ export class ProductDetail extends ShoprocketElement {
     });
 
     // If variant has specific media, find its index and select it
-    if (this.selectedVariant?.mediaId && this.product.media) {
-      const mediaIndex = this.product.media.findIndex((m: any) => m.id === this.selectedVariant!.mediaId);
+    if (this.selectedVariant?.mediaId && this.product.images) {
+      const mediaIndex = this.product.images.findIndex((m: any) => m.id === this.selectedVariant!.mediaId);
       if (mediaIndex !== -1) {
         this.selectedMediaIndex = mediaIndex;
       }

@@ -1,5 +1,5 @@
 import { ApiClient } from '../api';
-import type { Product, ProductListParams } from '../types';
+import type { CatalogMeta, Product, ProductListParams } from '../types';
 
 // Re-export types for backward compatibility
 export type { Product, ProductListParams } from '../types';
@@ -9,56 +9,47 @@ export class ProductsService {
 
   constructor(private api: ApiClient) {}
 
+  /**
+   * List products.
+   *
+   * Query params are flat (`q`, `category`, `priceMin`…) rather than the `filter[key]` form the v3
+   * Laravel API used. Prices go over the wire in integer CENTS, matching the rest of the API; the
+   * component layer works in whole currency units, so the conversion happens here, once.
+   */
   async list(params?: ProductListParams): Promise<{
     data: Product[];
-    meta?: any;
+    meta?: CatalogMeta;
   }> {
-    const queryParams = new URLSearchParams();
+    const q = new URLSearchParams();
+    const set = (key: string, value: unknown) => {
+      if (value === undefined || value === null || value === '') return;
+      q.append(key, Array.isArray(value) ? value.join(',') : String(value));
+    };
 
     if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          if (key === 'category') {
-            const categoryValue = Array.isArray(value) ? value.join(',') : value.toString();
-            queryParams.append('filter[category]', categoryValue);
-          } else if (key === 'products') {
-            const productsValue = Array.isArray(value) ? value.join(',') : value.toString();
-            queryParams.append('filter[ids]', productsValue);
-          } else if (key === 'search') {
-            queryParams.append('filter[search]', value.toString());
-          } else if (key === 'sort') {
-            const sortValue = value.toString();
-            if (sortValue.endsWith('_desc')) {
-              queryParams.append('sort', '-' + sortValue.replace('_desc', ''));
-            } else if (sortValue.endsWith('_asc')) {
-              queryParams.append('sort', sortValue.replace('_asc', ''));
-            } else {
-              queryParams.append('sort', sortValue);
-            }
-          } else if (key === 'minPrice') {
-            queryParams.append('filter[priceMin]', (Number(value) * 100).toString());
-          } else if (key === 'maxPrice') {
-            queryParams.append('filter[priceMax]', (Number(value) * 100).toString());
-          } else if (key === 'inStock') {
-            queryParams.append('filter[inStock]', value ? 'true' : 'false');
-          } else if (key === 'include') {
-            queryParams.append('include', value.toString());
-          } else if (key === 'perPage') {
-            queryParams.append('perPage', value.toString());
-          } else {
-            queryParams.append(key, value.toString());
-          }
-        }
-      });
+      set('page', params.page);
+      set('perPage', params.perPage);
+      set('q', params.search);
+      set('category', params.category);
+      // A hand-picked embed: ids or slugs, both accepted server-side.
+      set('ids', params.products);
+      set('sort', ProductsService.wireSort(params.sort));
+      if (params.minPrice !== undefined) set('priceMin', Math.round(Number(params.minPrice) * 100));
+      if (params.maxPrice !== undefined) set('priceMax', Math.round(Number(params.maxPrice) * 100));
+      // Only ever sent as an opt-in: `inStock=false` would read as "show me out-of-stock only".
+      if (params.inStock) set('inStock', 'true');
     }
 
-    const endpoint = `/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await this.api.get<any>(endpoint);
+    const response = await this.api.get<any>(`/products${q.toString() ? `?${q}` : ''}`);
+    return { data: response.data ?? [], meta: response.meta };
+  }
 
-    return {
-      data: response.data || [],
-      meta: response.meta
-    };
+  /** Map the component layer's `price_asc` / `price_desc` onto the API's `price` / `-price`. */
+  private static wireSort(sort?: string): string | undefined {
+    if (!sort) return undefined;
+    if (sort.endsWith('_desc')) return `-${sort.slice(0, -5)}`;
+    if (sort.endsWith('_asc')) return sort.slice(0, -4);
+    return sort;
   }
 
   async get(productId: string, includes?: string[], options?: RequestInit): Promise<Product> {

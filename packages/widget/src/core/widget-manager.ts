@@ -1,6 +1,7 @@
 import { ShoprocketCore } from '@shoprocket/core';
 import type { BaseComponent } from './base-component';
 import type { LitElement } from 'lit';
+import { setStoreCurrency } from '../utils/formatters';
 import { CookieManager } from '../utils/cookie-manager';
 import { AnalyticsManager, EVENTS } from './analytics-manager';
 import { internalState } from './internal-state';
@@ -329,8 +330,12 @@ export class WidgetManager {
       let storeId: string | undefined;
       try {
         const store = await this.sdk.store.get() as any;
-        storeId = store?.id; // Get the numeric store ID
-        
+        storeId = store?.id;
+
+        // Publish the currency before anything renders - every price formatter reads it
+        // synchronously, so it has to be set here rather than fetched at format time.
+        setStoreCurrency(store?.currency);
+
         // Store in internal state
         internalState.setStore(store);
         internalState.setSdk(this.sdk);

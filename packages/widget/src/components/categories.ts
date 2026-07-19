@@ -277,24 +277,16 @@ export class CategoriesWidget extends ShoprocketElement {
     this.loading = true;
 
     try {
-      let response;
+      // One call returns the whole flat tree; which slice we show is a local decision.
+      const response = await this.sdk.categories.list();
+      const all = response.data || [];
 
       if (this.categories) {
-        // Load specific categories by slug (API supports filtering)
-        const slugs = this.categories.split(',').map(c => c.trim());
-        response = await this.sdk.categories.list({
-          filter: { slug: slugs },
-          include: 'children',
-        });
+        const wanted = new Set(this.categories.split(',').map(c => c.trim()).filter(c => c));
+        this.currentCategories = all.filter(c => wanted.has(c.slug) || wanted.has(c.id));
       } else {
-        // Load root categories
-        response = await this.sdk.categories.list({
-          filter: { isRoot: true },
-          include: 'children',
-        });
+        this.currentCategories = all.filter(c => !c.parentId);
       }
-
-      this.currentCategories = response.data || [];
       this.currentView = 'categories';
       this.navigationStack = [{ type: 'root' }];
     } catch (error) {
