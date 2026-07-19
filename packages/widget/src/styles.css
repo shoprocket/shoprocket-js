@@ -56,6 +56,107 @@
 /* Tell Tailwind where to look for classes */
 @source "./index.ts";
 
+/*
+ * DEFAULT THEME TOKENS - the widget's built-in fallback skin.
+ *
+ * These are the "Default" preset's values, copied verbatim from v3's `store_themes` table. Without
+ * them the widget consumed 16 design tokens it never defined, so a store with no theme rendered
+ * with no button fills, no borders and no radius - visibly broken rather than plainly styled.
+ *
+ * A theme is ONLY ever a set of custom properties (v3 compiles its `css_variables` JSON into
+ * exactly these); it never carries layout or structure. So shipping the defaults here makes the
+ * widget correct standalone, and a fetched theme stays a pure override layer on top. v3's own embed
+ * design doc asked for this ("Default theme inline for zero-latency first render") and it was the
+ * half of the plan that never got built.
+ *
+ * DELIBERATELY INSIDE A CASCADE LAYER. Theme CSS is injected unlayered into document.head as
+ * `.shoprocket[data-theme="x"]`, and ANY unlayered rule beats ANY layered one regardless of
+ * specificity. That is what guarantees a real theme always wins - do not lift these out of the
+ * layer to "make them apply", because it would invert the override and pin every store to Default.
+ */
+@layer shoprocket-base {
+  :host {
+    --primary: #111827;
+    --primary-foreground: #ffffff;
+    --secondary: #f3f4f6;
+    --secondary-foreground: #111827;
+    --background: #ffffff;
+    --foreground: #111827;
+    --muted: #f9fafb;
+    --muted-foreground: #6b7280;
+    --card: #ffffff;
+    --card-foreground: #111827;
+    --popover: #ffffff;
+    --popover-foreground: #111827;
+    --accent: #f3f4f6;
+    --accent-foreground: #111827;
+    --border: #e5e7eb;
+    --input: #e5e7eb;
+    --ring: #111827;
+    --destructive: #c10007;
+    --destructive-foreground: #ffffff;
+    --success: #15803d;
+    --success-foreground: #ffffff;
+    --warning: #a65f00;
+    --info: #1447e6;
+    --radius: 0.3125rem;
+  }
+
+  /*
+   * Dark values. Both selectors on purpose: `data-color-scheme` is the explicit opt-in the embed
+   * sets, and the media query covers `auto`. Mirrors how v3 emits its four variable blocks.
+   */
+  :host([data-color-scheme="dark"]) {
+    --primary: #f9fafb;
+    --primary-foreground: #111827;
+    --secondary: #374151;
+    --secondary-foreground: #f9fafb;
+    --background: #111827;
+    --foreground: #f9fafb;
+    --muted: #111827;
+    --muted-foreground: #9ca3af;
+    --card: #1f2937;
+    --card-foreground: #f9fafb;
+    --popover: #1f2937;
+    --popover-foreground: #f9fafb;
+    --accent: #374151;
+    --accent-foreground: #f9fafb;
+    --border: #374151;
+    --input: #374151;
+    --ring: #f9fafb;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --success: #10b981;
+    --success-foreground: #ffffff;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host([data-color-scheme="auto"]) {
+      --primary: #f9fafb;
+      --primary-foreground: #111827;
+      --secondary: #374151;
+      --secondary-foreground: #f9fafb;
+      --background: #111827;
+      --foreground: #f9fafb;
+      --muted: #111827;
+      --muted-foreground: #9ca3af;
+      --card: #1f2937;
+      --card-foreground: #f9fafb;
+      --popover: #1f2937;
+      --popover-foreground: #f9fafb;
+      --accent: #374151;
+      --accent-foreground: #f9fafb;
+      --border: #374151;
+      --input: #374151;
+      --ring: #f9fafb;
+      --destructive: #ef4444;
+      --destructive-foreground: #ffffff;
+      --success: #10b981;
+      --success-foreground: #ffffff;
+    }
+  }
+}
+
 /* Tailwind v4 Theme Extensions */
 @theme {
   /* Override Tailwind's default font so all utilities use the theme body font */
@@ -210,7 +311,7 @@
 
 /* Heading font — applies to all semantic headings automatically */
 h1, h2, h3, h4 {
-  font-family: var(--font-heading);
+  font-family: var(--font-heading, var(--font-body, inherit));
 }
 
 @layer components {
