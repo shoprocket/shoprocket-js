@@ -36,28 +36,6 @@ export class WidgetManager {
 
   // Public API namespaces
 
-  /**
-   * Chat namespace - control the live chat widget programmatically
-   */
-  public chat = {
-    /**
-     * Opens the chat panel
-     * @example Shoprocket.chat.open()
-     */
-    open: () => window.dispatchEvent(new CustomEvent('open-chat', { bubbles: true })),
-
-    /**
-     * Closes the chat panel
-     * @example Shoprocket.chat.close()
-     */
-    close: () => window.dispatchEvent(new CustomEvent('close-chat', { bubbles: true })),
-
-    /**
-     * Toggles the chat panel visibility
-     * @example Shoprocket.chat.toggle()
-     */
-    toggle: () => window.dispatchEvent(new CustomEvent('toggle-chat', { bubbles: true })),
-  };
 
   public cart = {
     /**
@@ -386,9 +364,6 @@ export class WidgetManager {
       // Auto-render floating cart button unless disabled
       this.autoRenderCart();
 
-      // Auto-render chat widget when enabled in Settings → Chat
-      this.autoRenderChat();
-
       // Listen for order completion to regenerate cart token
       this.setupOrderCompletionListener();
 
@@ -486,48 +461,6 @@ export class WidgetManager {
     this.mount(floatingCart, 'cart', options);
   }
 
-  /**
-   * Auto-render chat widget when the store has chat enabled in Settings → Chat.
-   * Opts out when data-no-chat is set on the loader script, or when an explicit
-   * chat element already exists on the page.
-   */
-  private autoRenderChat(): void {
-    const store = internalState.getStore() as any;
-    const chatConfig = store?.widgets?.chat;
-
-    if (!chatConfig?.enabled) return;
-
-    const existingChat = document.querySelector('shoprocket-chat, [data-shoprocket="chat"]');
-    if (existingChat) return;
-
-    const scriptTag = document.querySelector('script[src*="shoprocket"][data-no-chat]');
-    if (scriptTag) return;
-
-    const position = chatConfig.position ?? 'bottom-left';
-    const style = chatConfig.style ?? 'bubble';
-    const welcome = chatConfig.welcomeMessage ?? null;
-
-    const themedEmbed = document.querySelector('.shoprocket[data-theme]');
-    const theme = themedEmbed?.getAttribute('data-theme');
-    const mode = themedEmbed?.getAttribute('data-color-scheme');
-
-    const floatingChat = document.createElement('div');
-    floatingChat.setAttribute('data-shoprocket', 'chat');
-    floatingChat.setAttribute('data-position', position);
-    floatingChat.setAttribute('data-widget-style', style);
-    if (welcome) floatingChat.setAttribute('data-welcome', welcome);
-    document.body.appendChild(floatingChat);
-
-    const options: Record<string, string> = {
-      position,
-      widgetStyle: style,
-    };
-    if (welcome) options['welcome'] = welcome;
-    if (theme) options['theme'] = theme;
-    if (mode) options['colorScheme'] = mode;
-
-    this.mount(floatingChat, 'chat', options);
-  }
 
   /**
    * Create test mode banner if store is in test mode
@@ -562,7 +495,7 @@ export class WidgetManager {
     }
 
     // Find all mounted widget components
-    const widgets = document.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-product-view, shoprocket-buy-button, shoprocket-categories, shoprocket-product, shoprocket-account, shoprocket-chat');
+    const widgets = document.querySelectorAll('shoprocket-catalog, shoprocket-cart, shoprocket-product-view, shoprocket-buy-button, shoprocket-categories, shoprocket-product, shoprocket-account');
 
     // Replace each widget with its original data-shoprocket mount point
     widgets.forEach(widget => {

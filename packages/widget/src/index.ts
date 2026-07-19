@@ -180,10 +180,6 @@ const componentLoaders: Record<string, () => Promise<typeof ShoprocketElement>> 
     const { AccountWidget } = await import('./components/account');
     return AccountWidget;
   },
-  'chat': async () => {
-    const { ChatWidget } = await import('./components/chat');
-    return ChatWidget;
-  },
 };
 
 // Register lazy-loaded components

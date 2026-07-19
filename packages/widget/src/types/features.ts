@@ -120,7 +120,6 @@ export const DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
     'price'   // Product price on button
   ],
   // Chat widget
-  'chat': ['launcher', 'welcome-message'],
   // Categories widget
   'categories': [
     // Product list features (use products: prefix for product cards in category)
