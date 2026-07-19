@@ -419,6 +419,18 @@ export interface CheckoutParams {
   expectedTotal?: number;
   /** Retry with this set after showing the shopper the drifted prices. */
   acceptPriceChanges?: boolean;
+  /**
+   * The shopper ticked the terms checkbox.
+   *
+   * Required by a store whose `termsMode` is `required_checkbox`, and ENFORCED server-side - the
+   * checkout is refused with a `terms_required` rejection without it. Ticking the box in the UI is
+   * not enough on its own; this is what makes it a record.
+   */
+  agreeToTerms?: boolean;
+  /** The shopper opted into marketing email. Recorded on the customer, not the order. */
+  marketingOptIn?: boolean;
+  /** The shopper's note on the order. Ignored unless the store shows a notes field. */
+  notes?: string;
 }
 
 /** A line whose catalog price moved between add-to-cart and checkout. Surfaced, never absorbed. */
@@ -434,7 +446,9 @@ export type CheckoutRejection =
   | 'price_changed'
   | 'insufficient_stock'
   | 'already_converted'
-  | 'unavailable_item';
+  | 'unavailable_item'
+  /** The store requires terms acceptance and `agreeToTerms` was not sent. */
+  | 'terms_required';
 
 /**
  * A refused checkout. Thrown rather than returned so a caller cannot ignore it, and carries enough

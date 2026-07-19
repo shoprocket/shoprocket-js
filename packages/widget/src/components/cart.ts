@@ -2429,6 +2429,11 @@ export class CartWidget extends ShoprocketElement {
         // What the shopper was last shown. The server refuses on mismatch, so nobody is charged a
         // figure they never saw.
         expectedTotal: this.cart?.totals?.total,
+        // The server ENFORCES terms acceptance for a store that requires it, so this is not
+        // decoration - omitting it is a `terms_required` refusal, not a silently unrecorded tick.
+        agreeToTerms: this.termsAccepted || undefined,
+        marketingOptIn: this.marketingOptIn || undefined,
+        notes: this.orderNotes || undefined,
       });
 
       this.storeOrderId(accepted.orderId);
@@ -2500,6 +2505,12 @@ export class CartWidget extends ShoprocketElement {
       } else if (rejection === 'unavailable_item') {
         errorMessage = t('error.unavailable_item', 'An item in your cart is no longer available.');
         await this.loadCart();
+      } else if (rejection === 'terms_required') {
+        // Reachable when the seller turns the requirement on mid-session, so the checkbox the
+        // shopper is looking at was rendered before the rule existed. Point them at it rather than
+        // reporting a generic failure for something they can fix in one click.
+        errorMessage = t('error.terms_required', 'Please accept the terms and conditions to continue.');
+        this.termsAccepted = false;
       } else if (error.response?.data?.error?.message) {
         errorMessage = error.response.data.error.message;
       } else if (error.data?.error?.message) {
