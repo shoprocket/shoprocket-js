@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shoprocket widget - Cloudflare API (local)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 2rem; }
+    .banner { background: #fff4e5; border: 1px solid #ffb74d; border-radius: 6px; padding: 1rem; margin-bottom: 2rem; }
+    .banner code { background: #fff; padding: 2px 5px; border-radius: 3px; }
+    h2 { margin-top: 2.5rem; }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <strong>Local Cloudflare API target.</strong>
+    This page points the widget at <code>http://localhost:8787/v1</code> via the
+    <code>data-api-url</code> attribute on the loader tag, so it needs no rebuild to retarget.
+    Store: <strong>Aurora Coffee Co</strong>. Start the API first (<code>pnpm dev</code> in
+    <code>shoprocket-app</code>), then serve <code>dist/</code> and open this page.
+  </div>
+
+  <h1>Widget against the CF API</h1>
+
+  <h2>Catalog</h2>
+  <div data-shoprocket="catalog"></div>
+
+  <h2>Cart</h2>
+  <div data-shoprocket="cart"></div>
+
+  <script
+    src="/loader.js"
+    data-pk="pk_baRMth9vXDH0HAWBFFp7HXF0RvixUpts"
+    data-api-url="http://localhost:8787/v1"
+  ></script>
+</body>
+</html>

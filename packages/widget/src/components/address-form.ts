@@ -33,24 +33,62 @@ export interface Country {
   phoneCode?: string;
   currency?: string;
   requiresState?: boolean;
+  /** libaddressinput-derived label type: state | province | prefecture | do_si | oblast | emirate | department | county | parish | island | area */
+  stateNameType?: string | null;
+  /** PCRE regex for postal code validation (dr5hn-sourced; null if country has no postal system) */
+  postalRegex?: string | null;
+  /** Placeholder example postal code */
+  postalExample?: string | null;
 }
 
 export interface State {
   code: string;
+  /** Full ISO 3166-2 code (e.g. "JP-13", "CA-QC") */
+  iso3166_2?: string | null;
   name: string;
 }
 
 // Split caches: billing always gets all countries, shipping gets shippable-only
 let cachedAllCountries: Country[] = [];
 let cachedShippableCountries: Country[] = [];
+// States are locale-dependent now — key by "CC|locale" so fr/ja/en don't collide.
 const cachedStates = new Map<string, State[]>();
+
+/** Locate a country across both caches — preferred over duplicating the lookup. */
+function findCountry(countryCode: string): Country | undefined {
+  return cachedAllCountries.find(c => c.code === countryCode)
+    || cachedShippableCountries.find(c => c.code === countryCode);
+}
 
 /** Check if a country requires a state/province field */
 export function countryRequiresState(countryCode: string): boolean {
-  // Check all-countries cache first (has full data), then shippable cache
-  const country = cachedAllCountries.find(c => c.code === countryCode)
-    || cachedShippableCountries.find(c => c.code === countryCode);
+  const country = findCountry(countryCode);
   return country?.requiresState !== false;
+}
+
+/**
+ * Translate a country's `state_name_type` into a UI label.
+ *
+ * Values come from Google libaddressinput's taxonomy; we ship
+ * translations through the widget's i18n pipeline under the
+ * `address.state_type.*` namespace.
+ */
+export function stateLabelFor(countryCode: string): string {
+  const type = findCountry(countryCode)?.stateNameType;
+  switch (type) {
+    case 'prefecture': return t('address.state_type.prefecture', 'Prefecture');
+    case 'province':   return t('address.state_type.province', 'Province');
+    case 'oblast':     return t('address.state_type.oblast', 'Oblast');
+    case 'emirate':    return t('address.state_type.emirate', 'Emirate');
+    case 'department': return t('address.state_type.department', 'Department');
+    case 'county':     return t('address.state_type.county', 'County');
+    case 'parish':     return t('address.state_type.parish', 'Parish');
+    case 'island':     return t('address.state_type.island', 'Island');
+    case 'area':       return t('address.state_type.area', 'Area');
+    case 'do_si':      return t('address.state_type.province', 'Province');
+    case 'state':      return t('address.state_type.state', 'State');
+    default:           return t('address.state_type.default', 'State/Province');
+  }
 }
 
 /** Generate a UUID v4 session token for Google Places billing */
@@ -417,9 +455,12 @@ export class AddressForm extends BaseComponent {
     this.states = [];
     this.stateFieldType = 'text';
 
-    // Check cache
-    if (cachedStates.has(countryCode)) {
-      this.states = cachedStates.get(countryCode) || [];
+    const locale = document.documentElement.lang || 'en';
+    const cacheKey = `${countryCode}|${locale}`;
+
+    // Check cache (locale-scoped — fr returns Québec, ja returns 東京都)
+    if (cachedStates.has(cacheKey)) {
+      this.states = cachedStates.get(cacheKey) || [];
       this.stateFieldType = this.states.length > 0 ? 'select' : 'text';
       this.requestUpdate();
       return;
@@ -427,9 +468,9 @@ export class AddressForm extends BaseComponent {
 
     // Load from API
     try {
-      const response = await this.sdk.location.getStates(countryCode);
+      const response = await this.sdk.location.getStates(countryCode, locale);
       const states = response?.data?.states || [];
-      cachedStates.set(countryCode, states);
+      cachedStates.set(cacheKey, states);
       this.states = states;
       this.stateFieldType = states.length > 0 ? 'select' : 'text';
       this.requestUpdate();
@@ -725,11 +766,16 @@ export class AddressForm extends BaseComponent {
             .disabled="${this.disabled}"
             placeholder=" "
             autocomplete="postal-code"
+            pattern="${findCountry(this.address.country || '')?.postalRegex || ''}"
+            title="${(() => {
+              const ex = findCountry(this.address.country || '')?.postalExample;
+              return ex ? `${t('address.postal_example_prefix', 'Example')}: ${ex}` : '';
+            })()}"
             @input="${(e: Event) => this.handleInputChange('postalCode', (e.target as HTMLInputElement).value)}"
             @blur="${() => this.handleBlur('postalCode')}"
           >
           <label class="sr-field-label" for="postalCode">
-            Postal Code${this.isRequired('postalCode') ? html` <span class="sr-field-required">*</span>` : ''}
+            ${t('address.postal_code', 'Postal Code')}${this.isRequired('postalCode') ? html` <span class="sr-field-required">*</span>` : ''}
           </label>
           ${this.getFieldError('postalCode') ? html`
             <div class="sr-field-error-message">${this.getFieldError('postalCode')}</div>
@@ -820,7 +866,7 @@ export class AddressForm extends BaseComponent {
         `)}
       </select>
       <label class="sr-field-label" for="state">
-        State/Province${this.isRequired('state') ? html` <span class="sr-field-required">*</span>` : ''}
+        ${stateLabelFor(this.address.country || '')}${this.isRequired('state') ? html` <span class="sr-field-required">*</span>` : ''}
       </label>
       ${this.getFieldError('state') ? html`
         <div class="sr-field-error-message">${this.getFieldError('state')}</div>

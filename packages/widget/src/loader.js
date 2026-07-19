@@ -27,6 +27,10 @@
   var scriptUrl = currentScript.src;
   var publicKey = currentScript.getAttribute('data-pk');
 
+  // Optional runtime API URL override, so a storefront can be pointed at a local
+  // or staging API without rebuilding the bundle (VITE_API_URL is baked in).
+  var apiUrlOverride = currentScript.getAttribute('data-api-url');
+
   // V2 Bridge: Auto-detect legacy V2 embed format
   if (!publicKey) {
     var v2Element = document.querySelector('.sr-element[data-embed]');
@@ -64,7 +68,7 @@
   // This runs before bundle loads, catching the first API request
   (function() {
     try {
-      var apiOrigin = new URL(__SHOPROCKET_API_URL__).origin;
+      var apiOrigin = new URL(apiUrlOverride || __SHOPROCKET_API_URL__).origin;
 
       // Check if preconnect already exists
       if (!document.querySelector('link[rel="preconnect"][href="' + apiOrigin + '"]')) {
@@ -114,7 +118,10 @@
 
   bundleScript.setAttribute('data-shoprocket-bundle', 'true');
   bundleScript.setAttribute('data-pk', publicKey); // Pass the public key
-  
+  if (apiUrlOverride) {
+    bundleScript.setAttribute('data-api-url', apiUrlOverride);
+  }
+
   // Handle load success
   bundleScript.onload = function() {
     delete window.__ShoprocketInit;

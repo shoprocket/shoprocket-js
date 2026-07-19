@@ -24,8 +24,10 @@ export class LocationService {
 
   /**
    * Get list of states/provinces for a specific country
+   * @param locale - Language code for state-name translation; falls back to native script then English
    */
-  async getStates(countryCode: string): Promise<StatesResponse> {
-    return this.api.get<StatesResponse>(`/countries/${countryCode}/states`);
+  async getStates(countryCode: string, locale = 'en'): Promise<StatesResponse> {
+    const params = new URLSearchParams({ locale });
+    return this.api.get<StatesResponse>(`/countries/${countryCode}/states?${params.toString()}`);
   }
 }
