@@ -282,6 +282,10 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private paymentMethodsLoading = false;
 
+  /** Set when the store cannot take money at all (paused, suspended, nothing configured). */
+  @state()
+  private checkoutDisabledReason: string | null = null;
+
   private paymentMethodsLoaded = false;
 
   // Review step state
@@ -423,12 +427,14 @@ export class CartWidget extends ShoprocketElement {
     this.unsubscribeCartState = cartState.subscribe((state) => {
       // Update local properties from cart state
       this.cart = state.cart;
-      this.customerData = state.customer as CustomerData;
-      this.shippingAddress = state.shippingAddress as AddressData;
+      this.customerData = state.checkoutData as CustomerData;
+      this.shippingAddress = this.toFormAddress(state.shippingAddress);
       this.shippingOptions = state.shippingOptions;
-      this.selectedShippingRateId = state.selectedShippingRateId;
+      // The applied rate lives on the cart, not in a parallel local field - the server is what
+      // decides which rate is actually on the order.
+      this.selectedShippingRateId = state.cart?.shippingRateId ?? null;
       this.shippingOptionsLoading = state.shippingOptionsLoading;
-      this.billingAddress = state.billingAddress as AddressData;
+      this.billingAddress = this.toFormAddress(state.billingAddress);
       this.sameAsBilling = state.sameAsBilling;
 
       // Pre-select country from geo-detection if no address saved yet
@@ -976,7 +982,9 @@ export class CartWidget extends ShoprocketElement {
     if (this.checkoutDataLoaded && !forceReload) return;
     
     try {
-      await cartState.loadCheckoutData();
+      // Nothing to fetch: every cart response carries the persisted email and addresses, and
+      // cartState hydrates the form draft from it. This exists now only to trigger the rating
+      // below once, which is why it keeps its name and its guard.
       this.checkoutDataLoaded = true;
       // A returning customer's saved address loads without an address-change
       // event, so proactively rate it (no-op if already loaded for this address).
@@ -1002,19 +1010,18 @@ export class CartWidget extends ShoprocketElement {
     this.paymentMethodsLoading = true;
     try {
       const result = await this.sdk.cart.getPaymentMethods();
-      this.paymentMethods = result.paymentMethods;
+      this.paymentMethods = result.methods;
+      // A store that cannot take money says so, rather than presenting an empty list that reads
+      // as a loading failure.
+      this.checkoutDisabledReason = result.checkoutDisabled
+        ? (result.checkoutDisabledReason ?? null)
+        : null;
 
+      // Default to the first method, which the server has already ordered by the seller's
+      // preference. Nothing to restore from a retry: the order records the choice, and a retry
+      // re-enters through the same picker.
       if (!this.selectedPaymentMethod && this.paymentMethods.length) {
-        // Restore from order's gateway if retrying (cancel return, browser back, retry)
-        const orderGateway = this.cart?.order?.paymentGateway;
-        if (orderGateway) {
-          const match = this.paymentMethods.find((m: any) => m.gateway === orderGateway);
-          if (match) this.selectedPaymentMethod = match;
-        }
-        // Always default to first method if nothing selected (standard e-commerce UX)
-        if (!this.selectedPaymentMethod) {
-          this.selectedPaymentMethod = this.paymentMethods[0];
-        }
+        this.selectedPaymentMethod = this.paymentMethods[0];
       }
 
       this.paymentMethodsLoaded = true;
@@ -1084,8 +1091,9 @@ export class CartWidget extends ShoprocketElement {
     // Step 3: Load fresh cart data from API
     const cart = await this.loadCart();
 
-    // Restore checkout preferences (notes, terms, marketing) from the order data
-    this.restoreCheckoutPreferencesFromOrder(cart);
+    // Order notes, terms acceptance and marketing opt-in are NOT restored, because the API does
+    // not yet accept them at checkout - see the handover. They were read back off the order in v3;
+    // reinstating that needs the fields to exist on the order first.
 
     // Step 3: Handle payment cancelled separately from payment failure
     if (isPaymentCancelled) {
@@ -1093,16 +1101,13 @@ export class CartWidget extends ShoprocketElement {
 
       this.checkoutLoading = false;
 
-      // Cart is already an order — go to review step so user can retry immediately
+      // The order already exists (checkout ran before the redirect); the shopper backed out of the
+      // gateway. Land them on review so they can retry, or pick a different method.
       this.isCheckingOut = true;
       this.checkoutStep = 'review';
-      this.orderDetails = cart;
 
-      // Load checkout module, checkout data, and payment methods so review step renders fully
-      // Gateway matching is handled centrally by loadPaymentMethods()
       await Promise.all([
         this.ensureModule('checkoutWizard'),
-        this.loadCheckoutData(true),
         this.loadPaymentMethods()
       ]);
 
@@ -1116,71 +1121,55 @@ export class CartWidget extends ShoprocketElement {
       this.authenticatedDuringCheckout = true;
     }
 
-    // Step 4: Determine what to show based on API response (for payment-return URLs)
-    if (cart && cart.type === 'order' && cart.order) {
-      const order = cart.order;
+    // Step 4: ASK the server what happened.
+    //
+    // Being redirected back proves the shopper returned from the gateway, not that they paid: the
+    // webhook is the only writer of payment status (D31) and it lands before, after, or instead of
+    // this redirect. So the order is polled by id rather than inferred from the cart - the cart
+    // never becomes an order (D30), and reading `{type:'order'}` off it was exactly the
+    // cart/order conflation the rebuild rejected.
+    const storedOrderId = sessionStorage.getItem('shoprocket_order_id');
+    let order: any = null;
+    if (storedOrderId) {
+      try {
+        order = await this.sdk.cart.getOrderStatus(storedOrderId);
+      } catch (err) {
+        // A 404 here means the token no longer owns that order (expired, or a fresh token).
+        order = null;
+      }
+    }
+
+    if (order) {
       const status = order.paymentStatus;
 
-      if (status === 'paid' || status === 'completed' || status === 'processing') {
-        // SUCCESS: Payment completed
-        // Track purchase event for gateway payments
-        // Pass full cart (has items, totals) - sanitizer extracts order metadata from cart.order
-        this.track(EVENTS.PURCHASE, cart);
-
-        this.showOrderSuccessMessage = true;
-        this.orderDetails = cart;
-        this.schedulePostCheckoutRedirect();
-
-        // Clear stored order ID and auth flag
+      if (status === 'paid') {
+        this.track(EVENTS.PURCHASE, order);
         sessionStorage.removeItem('shoprocket_order_id');
         sessionStorage.removeItem('shoprocket_authenticated');
-
-        // Clear cart state and checkout data
-        cartState.clear();
-
-        // Reset the UI to show empty cart
-        this.cart = null;
-        this.exitCheckout();
-
-        // Regenerate cart token (order is complete, start fresh cart)
-        const newToken = CookieManager.regenerateCartToken();
-        internalState.setCartToken(newToken);
-        if (this.sdk) {
-          this.sdk.setCartToken(newToken);
-        }
-
-        // Force refresh of cart state to ensure clean slate
-        await this.loadCart();
+        await this.finalizePlacedOrder(order);
       } else if (status === 'pending') {
-        // PENDING: Payment is being processed (redirect returned before webhook confirmed)
-        // Show "processing" UI and start polling for status updates
+        // The browser beat the webhook back. Show "processing" and poll.
         this.paymentPending = true;
-        this.orderDetails = cart;
+        this.orderDetails = order;
         this.startPaymentPolling();
-      } else if (status === 'failed' || status === 'cancelled') {
-        // FAILURE: Payment failed/declined by gateway - allow retry
+      } else if (status === 'failed') {
         this.showOrderFailureMessage = true;
         this.isPaymentFailure = true;
         this.orderFailureReason = t('error.payment_declined', 'Payment was declined. Please try again or use a different payment method.');
-        this.orderDetails = cart;
+        this.orderDetails = order;
 
-        // Return to checkout review step to allow retry
+        // Back to review so the shopper can retry with another method.
         this.isCheckingOut = true;
         this.checkoutStep = 'review';
-
-        // Load checkout module, data, and payment methods so review step works
-        // Gateway matching is handled centrally by loadPaymentMethods()
         await Promise.all([
           this.ensureModule('checkoutWizard'),
-          this.loadCheckoutData(true),
           this.loadPaymentMethods()
         ]);
       } else {
-        // UNKNOWN: Status we don't recognize
-        console.warn('Unknown order status:', status);
+        console.warn('Unknown order payment status:', status);
         this.showOrderFailureMessage = true;
         this.orderFailureReason = t('error.payment_status_unknown', 'Unable to verify payment status. Please check your email for confirmation.');
-        this.orderDetails = cart;
+        this.orderDetails = order;
       }
     } else {
       // NOT FOUND: No order found or expired
@@ -1201,14 +1190,6 @@ export class CartWidget extends ShoprocketElement {
   }
 
   /** Restore checkout preferences from the order data returned by the API */
-  private restoreCheckoutPreferencesFromOrder(cart: any): void {
-    if (cart?.order) {
-      if (cart.order.customerNotes) this.orderNotes = cart.order.customerNotes;
-      if (cart.order.termsAccepted) this.termsAccepted = true;
-      if (cart.order.marketingOptIn !== undefined) this.marketingOptIn = cart.order.marketingOptIn;
-    }
-  }
-  
   private startPaymentPolling(): void {
     const orderId = sessionStorage.getItem('shoprocket_order_id') || this.cart?.id;
     if (!orderId) {
@@ -1551,8 +1532,13 @@ export class CartWidget extends ShoprocketElement {
     return eventMap[step]?.[type] || `checkout_${step}_${type}`;
   }
 
+  /**
+   * One online gateway means there is nothing to choose, so the step is skipped. A single MANUAL
+   * method is never skipped: paying offline is a commitment the shopper should make deliberately,
+   * and the instructions shown afterwards only make sense if they chose it.
+   */
   private get shouldSkipPaymentStep(): boolean {
-    return this.paymentMethods.length === 1 && this.paymentMethods[0]?.gateway !== 'manual';
+    return this.paymentMethods.length === 1 && this.paymentMethods[0]?.select?.kind !== 'manual';
   }
 
   private getCheckoutSteps(): Array<'customer' | 'shipping' | 'billing' | 'payment' | 'review'> {
@@ -1698,8 +1684,17 @@ export class CartWidget extends ShoprocketElement {
 
   private handleCustomerChange(e: CustomEvent): void {
     const { customer } = e.detail;
-    // Update cart state instead of local state
-    cartState.updateCheckoutData(customer);
+    // The API stores ONE `customerName`, not a first/last pair - a split name is a presentation
+    // choice that does not survive contact with most of the world's naming conventions, and the
+    // order only ever needs something to print. The form keeps both fields; they join here.
+    const customerName = [customer.firstName, customer.lastName]
+      .filter((part: string | undefined) => part && part.trim())
+      .join(' ')
+      .trim();
+    cartState.updateCheckoutData({
+      email: customer.email,
+      ...(customerName ? { customerName } : {}),
+    });
     this.customerErrors = {}; // Clear errors on change
     
     // Track customer data entry
@@ -1757,27 +1752,17 @@ export class CartWidget extends ShoprocketElement {
       // Store the email we're checking
       this.lastCheckedEmail = email;
       
+      // Recognising a returning shopper by email is NOT wired up. v3 had POST /cart/check-customer
+      // returning {exists, hasPassword}; the rebuilt API replaces it with POST /customer/otp, whose
+      // `recognised` flag says the same thing - but that is the customer-auth vertical and the
+      // OTP-only surface has no password concept at all, so the sign-in banner below it would be
+      // wrong even if this were wired. Left dormant deliberately rather than calling a method that
+      // no longer exists and erroring on every keystroke.
       try {
-        this.checkingCustomer = true;
-        // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
-        const result = await this.sdk.cart.checkCheckoutData(email);
-        
-        // Update state based on result
-        this.customerCheckResult = result;
-
-        // Track customer identification result
-        this.track(EVENTS.CHECKOUT_CUSTOMER_IDENTIFIED, {
-          email,
-          exists: result.exists,
-          has_password: result.hasPassword
-        });
-
-        // Don't auto-expand password field — show compact banner first
-        // User clicks "Sign in" in the banner to expand it
+        this.checkingCustomer = false;
+        this.customerCheckResult = null;
         this.showPasswordField = false;
         this.authDismissed = false;
-
-        // Reset login state when checking new email
         this.loginLinkSent = false;
         this.customerPassword = '';
       } catch (error) {
@@ -2136,10 +2121,31 @@ export class CartWidget extends ShoprocketElement {
     }
   }
 
+  /**
+   * Translate the address form's field names into the API's.
+   *
+   * `<shoprocket-address-form>` is a generic control with its own vocabulary (`country`, `state`)
+   * shared with the account screens, so the rename happens HERE, at the one boundary where a form
+   * address becomes a cart address, rather than by rewriting a component three screens depend on.
+   */
+  private toCartAddress(address: any): Record<string, string | null> {
+    const { country, state, ...rest } = address ?? {};
+    return {
+      ...rest,
+      ...(country !== undefined ? { countryCode: country || null } : {}),
+      ...(state !== undefined ? { region: state || null } : {}),
+    };
+  }
+
+  /** The inverse of `toCartAddress`: the API's names back into the form's. */
+  private toFormAddress(address: any): AddressData {
+    const { countryCode, region, ...rest } = address ?? {};
+    return { ...rest, country: countryCode ?? '', state: region ?? '' } as AddressData;
+  }
+
   private handleShippingAddressChange(e: CustomEvent): void {
     const { address } = e.detail;
-    // Update cart state instead of local state
-    cartState.updateShippingAddress(address);
+    cartState.updateShippingAddress(this.toCartAddress(address));
     this.shippingErrors = {}; // Clear errors on change
     
     // Track shipping address entry (only when complete)
@@ -2155,8 +2161,7 @@ export class CartWidget extends ShoprocketElement {
 
   private handleBillingAddressChange(e: CustomEvent): void {
     const { address } = e.detail;
-    // Update cart state instead of local state
-    cartState.updateBillingAddress(address);
+    cartState.updateBillingAddress(this.toCartAddress(address));
     this.billingErrors = {}; // Clear errors on change
     
     // Track billing address entry (only when complete and not same as shipping)
@@ -2260,8 +2265,15 @@ export class CartWidget extends ShoprocketElement {
    */
   private async syncPayPalButtons(): Promise<void> {
     const method = this.selectedPaymentMethod;
+    // DORMANT until the API serves PayPal. The in-context button flow (createOrder -> onApprove ->
+    // capture) is built and was working against the v3 Laravel API; the CF API has no PayPal
+    // gateway, no partner onboarding and no SDK config on the roster yet, so `method.paypal` is
+    // never present and this returns early. Do not delete it - the PayPal vertical wires the
+    // server side to this, and D34 records that the API bends to these buttons rather than the
+    // buttons being replaced by a hosted redirect.
     const shouldShow = this.checkoutStep === 'review'
-      && method?.gateway === 'paypal'
+      && method?.select?.kind === 'gateway'
+      && method.select.gateway === 'paypal'
       && !!method?.paypal;
 
     if (!shouldShow) {
@@ -2345,6 +2357,27 @@ export class CartWidget extends ShoprocketElement {
     }).render(container);
   }
 
+  /**
+   * An order exists and the basket is spent: show it, clear local cart state and rotate the cart
+   * token so the next visit starts a fresh cart rather than reusing one the server has already
+   * marked converted.
+   */
+  private async finalizePlacedOrder(order: any): Promise<void> {
+    this.showOrderSuccessMessage = true;
+    this.orderDetails = order;
+    this.schedulePostCheckoutRedirect();
+
+    cartState.clear();
+    this.cart = null;
+    this.exitCheckout();
+
+    const newToken = CookieManager.regenerateCartToken();
+    internalState.setCartToken(newToken);
+    this.sdk?.setCartToken(newToken);
+
+    await this.loadCart();
+  }
+
   private async handleCheckoutComplete(): Promise<void> {
     // Validate terms acceptance if required
     if (this.checkoutSettings?.termsMode === 'required_checkbox' && !this.termsAccepted) {
@@ -2375,126 +2408,44 @@ export class CartWidget extends ShoprocketElement {
       // Flush any pending cart state changes to the API before checkout
       await cartState.flush();
 
-      // Server validates everything: stock levels, prices, addresses, etc.
       const currentUrl = window.location?.href?.split('?')[0]?.split('#')[0] || '';
-
-      // Build checkout options from selected payment method
       const pm = this.selectedPaymentMethod;
-      const checkoutApiResponse = await this.sdk.cart.checkout({
-        gateway: pm?.gateway || 'stripe',
-        manualPaymentMethodId: pm?.manualMethodId || pm?.manual_method_id,
-        locale: 'en',
+
+      // Two calls, deliberately (D31). Checkout creates the order and reserves its stock; only
+      // then does a payment session open. The order is durable BEFORE the shopper leaves for a
+      // gateway, so an abandoned payment leaves something recoverable rather than nothing.
+      const accepted = await this.sdk.cart.checkout({
+        paymentMethod: pm?.select,
+        // What the shopper was last shown. The server refuses on mismatch, so nobody is charged a
+        // figure they never saw.
+        expectedTotal: this.cart?.totals?.total,
+      });
+
+      this.storeOrderId(accepted.orderId);
+
+      if (pm?.select?.kind === 'manual') {
+        // Offline: there is no session to open. The order rests unpaid and the shopper gets the
+        // instructions snapshotted onto it at checkout.
+        this.track(EVENTS.PURCHASE, { order: accepted, payment_type: 'offline' });
+        await this.finalizePlacedOrder(accepted);
+        this.checkoutLoading = false;
+        return;
+      }
+
+      const session = await this.sdk.cart.startPayment(accepted.orderId, {
         returnUrl: `${currentUrl}#!/payment-return`,
         cancelUrl: `${currentUrl}#!/payment-cancelled`,
-        agreeToTerms: this.termsAccepted || undefined,
-        marketingOptIn: this.marketingOptIn || undefined,
-        notes: this.orderNotes || undefined
       });
-      
-      // Handle wrapped API response format
-      const checkoutResponse = 'data' in checkoutApiResponse ? checkoutApiResponse.data : checkoutApiResponse;
-      const checkoutMeta = 'meta' in checkoutApiResponse ? checkoutApiResponse.meta : null;
-      
-      // Store order ID for later reference
-      const orderId = checkoutResponse.id || checkoutResponse.order_id;
-      if (orderId) {
-        this.storeOrderId(orderId);
-      }
 
-      // Handle different order types
-      if (checkoutMeta?.payment_url) {
-        // Order requires payment - redirect to gateway
-        // Track redirect
-        this.track(EVENTS.CHECKOUT_PAYMENT_REDIRECT, {
-          order_id: checkoutResponse.id,
-          payment_gateway: checkoutMeta.payment_gateway,
-          test_mode: checkoutMeta.test_mode
-        });
+      this.track(EVENTS.CHECKOUT_PAYMENT_REDIRECT, {
+        order_id: accepted.orderId,
+        payment_gateway: pm?.select?.kind === 'gateway' ? pm.select.gateway : null,
+        test_mode: pm?.testMode ?? false,
+      });
 
-        // Modify payment URL to include order ID in return URLs if possible
-        let paymentUrl = checkoutMeta.payment_url;
-
-        // For some gateways, we can update return URLs by modifying the payment URL
-        // This is gateway-specific - for now just store order ID and redirect
-        // Keep loading state active during redirect
-        // Don't set checkoutLoading = false, let the redirect happen with spinner visible
-        window.location.href = paymentUrl;
-
-        // Return early but don't clear loading state
-        // The finally block will be skipped by returning here without throwing
-        return; // Stop here, payment will be handled on return
-        
-      } else if (checkoutResponse.status === 'completed' || checkoutResponse.status === 'paid') {
-        // Free order, 100% discount, or instant payment method
-        // Track purchase
-        this.track(EVENTS.PURCHASE, { order: checkoutResponse });
-        
-        // Show success in the cart body
-        this.showOrderSuccessMessage = true;
-        this.orderDetails = checkoutResponse;
-        this.schedulePostCheckoutRedirect();
-
-        // Clear cart state and checkout data
-        cartState.clear();
-
-        // Reset the UI to show empty cart
-        this.cart = null;
-        this.exitCheckout();
-        
-        // Regenerate cart token for next order
-        const newToken = CookieManager.regenerateCartToken();
-        internalState.setCartToken(newToken);
-        
-        // Update SDK with new token
-        if (this.sdk) {
-          this.sdk.setCartToken(newToken);
-        }
-        
-        // Force refresh of cart state to ensure clean slate
-        await this.loadCart();
-
-        // Clear loading state for completed orders
-        this.checkoutLoading = false;
-
-      } else if (checkoutResponse.status === 'pending' && checkoutResponse.paymentMethod === 'offline') {
-        // Offline payment method (cash on delivery, bank transfer, etc.)
-        // Track as purchase but show special instructions
-        this.track(EVENTS.PURCHASE, { 
-          order: checkoutResponse,
-          payment_type: 'offline'
-        });
-        
-        // Show success with offline payment instructions
-        this.showOrderSuccessMessage = true;
-        this.orderDetails = checkoutResponse;
-        this.schedulePostCheckoutRedirect();
-        
-        // Clear cart and reset as with completed orders
-        cartState.clear();
-        this.cart = null;
-        this.exitCheckout();
-        
-        const newToken = CookieManager.regenerateCartToken();
-        internalState.setCartToken(newToken);
-        if (this.sdk) {
-          this.sdk.setCartToken(newToken);
-        }
-        await this.loadCart();
-
-        // Clear loading state for offline payment orders
-        this.checkoutLoading = false;
-      } else if (checkoutResponse.paymentStatus === 'pending' || checkoutResponse.status === 'pending') {
-        // Order exists with pending payment but no payment URL returned
-        // This happens when retrying checkout on an existing order
-        this.showOrderFailureMessage = true;
-        this.isPaymentFailure = true;
-        this.orderFailureReason = t('error.payment_retry', 'Unable to create a new payment session. Please try again.');
-        this.checkoutLoading = false;
-      } else {
-        // Truly unexpected response
-        console.warn('Unexpected checkout response:', checkoutResponse);
-        this.checkoutLoading = false;
-      }
+      // Leave the spinner up: the redirect is the next thing that happens.
+      window.location.href = session.redirectUrl;
+      return;
       
     } catch (error: any) {
       console.error('Checkout failed:', error);
@@ -2509,14 +2460,36 @@ export class CartWidget extends ShoprocketElement {
       // Extract error message — prefer specific validation errors over generic message
       let errorMessage = t('error.checkout_failed', 'Checkout failed. Please try again.');
 
-      // Check for cart validation errors (stock, price changes, etc.)
-      const validationErrors = error.details?.validation_errors
-        || error.response?.data?.error?.details?.validation_errors
-        || error.data?.error?.details?.validation_errors;
-
-      if (validationErrors?.length) {
-        // Use the specific validation error messages (deduplicated)
-        errorMessage = [...new Set(validationErrors.map((e: any) => e.message))].join('\n');
+      // A refused checkout is structured, not a generic failure: the server says WHY, and each
+      // reason wants different words and a different next action from the shopper.
+      const rejection = error?.detail?.rejection;
+      if (rejection === 'price_changed') {
+        const changes = error.detail.priceChanges ?? [];
+        errorMessage = changes.length
+          ? t('error.price_changed', 'Some prices changed while you were shopping:') +
+            '\n' +
+            changes
+              .map((ch: any) => `${ch.name}: ${this.formatPrice(ch.currentUnitPrice)}`)
+              .join('\n')
+          : t('error.price_changed_generic', 'Some prices changed while you were shopping.');
+      } else if (rejection === 'insufficient_stock') {
+        const issues = error.detail.stockIssues ?? [];
+        errorMessage = issues.length
+          ? issues
+              .map((s: any) =>
+                t('error.stock_line', '{name}: only {n} left', { name: s.name, n: String(s.available) }),
+              )
+              .join('\n')
+          : t('error.insufficient_stock', 'An item in your cart is no longer in stock.');
+        // Pull the real quantities back in so the cart stops showing what it cannot sell.
+        await this.loadCart();
+      } else if (rejection === 'empty_cart') {
+        errorMessage = t('error.empty_cart', 'Your cart is empty.');
+      } else if (rejection === 'already_converted') {
+        errorMessage = t('error.already_ordered', 'This order has already been placed.');
+      } else if (rejection === 'unavailable_item') {
+        errorMessage = t('error.unavailable_item', 'An item in your cart is no longer available.');
+        await this.loadCart();
       } else if (error.response?.data?.error?.message) {
         errorMessage = error.response.data.error.message;
       } else if (error.data?.error?.message) {
@@ -3016,6 +2989,7 @@ export class CartWidget extends ShoprocketElement {
       paymentMethods: this.paymentMethods,
       selectedPaymentMethod: this.selectedPaymentMethod,
       paymentMethodsLoading: this.paymentMethodsLoading,
+      checkoutDisabledReason: this.checkoutDisabledReason,
       paymentStepSkipped: this.shouldSkipPaymentStep,
       reviewItemsExpanded: this.reviewItemsExpanded,
       checkoutSettings: this.checkoutSettings,

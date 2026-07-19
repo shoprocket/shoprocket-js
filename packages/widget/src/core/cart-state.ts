@@ -12,9 +12,9 @@ import type { Cart, CartAddress, CartAddressInput, ShippingOption } from '@shopr
 import { internalState } from './internal-state';
 
 /**
- * The address form's working copy. Matches the API's cart address field-for-field (`region`,
- * `postalCode`, `countryCode`) rather than the v3 widget's `state`/`country`, so the draft can be
- * sent as-is with no rename layer in between.
+ * The address draft, in the API's field names (`region`, `postalCode`, `countryCode`) so it can be
+ * PATCHed as-is. The address FORM keeps its own `country`/`state` vocabulary - it is a generic
+ * control shared with the account screens - and cart.ts renames across that one boundary.
  */
 export type Address = CartAddressInput;
 

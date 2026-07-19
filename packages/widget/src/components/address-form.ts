@@ -749,7 +749,7 @@ export class AddressForm extends BaseComponent {
         <!-- State/Region (only show if country requires it) -->
         ${showStateField ? html`
           <div class="sr-field-group">
-            ${this.renderStateSelectField()}
+            ${this.stateFieldType === 'select' ? this.renderStateSelectField() : this.renderStateTextField()}
           </div>
         ` : ''}
       </div>
@@ -828,6 +828,36 @@ export class AddressForm extends BaseComponent {
       <label class="sr-field-label" for="country">
         Country${this.isRequired('country') ? html` <span class="sr-field-required">*</span>` : ''}
       </label>
+    `;
+  }
+
+  /**
+   * The subdivision as free text, for countries we have no list for.
+   *
+   * `stateFieldType` was always computed and never consulted - the field rendered as a select
+   * unconditionally, so a country with no subdivision data produced a REQUIRED dropdown with no
+   * options and a checkout nobody could complete. The v3 API always returned states, which is why
+   * that went unnoticed; the rebuilt API has no subdivision dataset at all.
+   */
+  private renderStateTextField(): TemplateResult {
+    return html`
+      <input
+        type="text"
+        id="state"
+        class="sr-field-input peer ${this.hasValue(this.address.state) ? 'has-value' : ''} ${this.getFieldError('state') ? 'sr-field-error' : ''}"
+        .value="${this.address.state || ''}"
+        .disabled="${this.disabled || !this.address.country}"
+        placeholder=" "
+        autocomplete="address-level1"
+        @input="${(e: Event) => this.handleInputChange('state', (e.target as HTMLInputElement).value)}"
+        @blur="${() => this.handleBlur('state')}"
+      >
+      <label class="sr-field-label" for="state">
+        ${stateLabelFor(this.address.country || '')}${this.isRequired('state') ? html` <span class="sr-field-required">*</span>` : ''}
+      </label>
+      ${this.getFieldError('state') ? html`
+        <div class="sr-field-error-message">${this.getFieldError('state')}</div>
+      ` : ''}
     `;
   }
 

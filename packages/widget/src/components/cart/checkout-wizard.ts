@@ -60,6 +60,8 @@ export interface CheckoutWizardContext {
   paymentMethods: any[];
   selectedPaymentMethod: any;
   paymentMethodsLoading: boolean;
+  /** Why the store cannot take money at all, when it cannot. Null when the roster is simply loading. */
+  checkoutDisabledReason: string | null;
   paymentStepSkipped: boolean;
 
   // Review step
@@ -691,16 +693,24 @@ function renderBillingContent(context: CheckoutWizardContext): TemplateResult {
   `;
 }
 
+/** Two selections name the same method. Mirrors the API's union - no cross-kind ambiguity. */
+function samePaymentMethod(a: any, b: any): boolean {
+  if (!a || !b || a.kind !== b.kind) return false;
+  return a.kind === 'gateway' ? a.gateway === b.gateway : a.manualMethodId === b.manualMethodId;
+}
+
 function getPaymentMethodIcon(method: any): TemplateResult {
-  const icon = method.icon || 'credit-card';
-  switch (icon) {
-    case 'credit-card':
+  // Keywords from the API's icon enum (card | paypal | crypto | bank). Drawn inline rather than
+  // fetched: the widget lives in a Shadow DOM on someone else's page, so a remote asset would cost
+  // a request and a CSP surface for a 24px glyph.
+  switch (method.icon) {
+    case 'card':
       return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`;
     case 'paypal':
       return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.654h6.17c2.046 0 3.464.508 4.21 1.51.322.43.524.903.616 1.442.096.563.098 1.235.006 2.058l-.007.052v.46l.359.203c.304.163.546.35.73.563.307.354.505.793.589 1.307.087.527.058 1.152-.084 1.857-.164.812-.432 1.523-.793 2.105a4.418 4.418 0 0 1-1.218 1.349 4.912 4.912 0 0 1-1.627.759c-.614.175-1.32.264-2.098.264H11.57a.947.947 0 0 0-.936.808l-.035.203-1.166 7.39-.027.15a.097.097 0 0 1-.096.082H7.076z"/></svg>`;
-    case 'bitcoin':
+    case 'crypto':
       return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M23.638 14.904c-1.602 6.43-8.113 10.34-14.542 8.736C2.67 22.05-1.244 15.525.362 9.105 1.962 2.67 8.475-1.243 14.9.358c6.43 1.605 10.342 8.115 8.738 14.548v-.002zm-6.35-4.613c.24-1.59-.974-2.45-2.64-3.03l.54-2.153-1.315-.33-.525 2.107c-.345-.087-.705-.167-1.064-.25l.526-2.127-1.32-.33-.54 2.165c-.285-.067-.565-.132-.84-.2l-1.815-.45-.35 1.407s.975.225.955.236c.535.136.63.486.615.766l-1.477 5.92c-.075.166-.24.406-.614.314.015.02-.96-.24-.96-.24l-.66 1.51 1.71.426.93.242-.54 2.19 1.32.327.54-2.17c.36.1.705.19 1.05.273l-.51 2.154 1.32.33.545-2.19c2.24.427 3.93.257 4.64-1.774.57-1.637-.03-2.58-1.217-3.196.854-.193 1.5-.76 1.68-1.93h.01zm-3.01 4.22c-.404 1.64-3.157.75-4.05.53l.72-2.9c.896.23 3.757.67 3.33 2.37zm.41-4.24c-.37 1.49-2.662.735-3.405.55l.654-2.64c.744.18 3.137.524 2.75 2.084v.006z"/></svg>`;
-    case 'banknote':
+    case 'bank':
       return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>`;
     default:
       return html`<svg class="sr-payment-method-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`;
@@ -713,9 +723,12 @@ function renderPaymentContent(context: CheckoutWizardContext): TemplateResult {
   }
 
   if (!context.paymentMethods.length) {
+    // The server distinguishes "paused/suspended" from "nothing set up" and says which; an empty
+    // list on its own reads to a shopper like a failure to load.
     return html`
       <div class="sr-payment-placeholder">
-        <p>${t('checkout.no_payment_methods', 'No payment methods available')}</p>
+        <p>${context.checkoutDisabledReason
+          ?? t('checkout.no_payment_methods', 'No payment methods available')}</p>
         <p>${t('checkout.contact_store', 'Please contact the store for assistance.')}</p>
       </div>
     `;
@@ -724,8 +737,7 @@ function renderPaymentContent(context: CheckoutWizardContext): TemplateResult {
   return html`
     <div class="sr-payment-methods">
       ${context.paymentMethods.map(method => {
-        const isSelected = context.selectedPaymentMethod?.gateway === method.gateway
-          && (context.selectedPaymentMethod?.manual_method_id) === (method.manual_method_id);
+        const isSelected = samePaymentMethod(context.selectedPaymentMethod?.select, method.select);
         return html`
           <button
             class="sr-payment-method-card ${isSelected ? 'sr-selected' : ''}"
