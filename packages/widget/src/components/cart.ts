@@ -1810,11 +1810,11 @@ export class CartWidget extends ShoprocketElement {
     
     try {
       this.sendingLoginLink = true;
-      // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
-      const result = await this.sdk.cart.sendAuth(this.customerData.email);
+      const result = await this.sdk.account.requestCode(this.customerData.email);
 
-      // API now returns camelCase via AuthStatusResource
-      if (result.authSent) {
+      // `sent: false` means the address has never shopped here, so there was nothing to
+      // authenticate into and no mail went out. Not an error - just no code to ask for.
+      if (result.sent) {
         this.loginLinkSent = true;
         // Don't auto-hide when showing OTP form - user needs time to enter code
         // The OTP form will clear loginLinkSent when verification is complete or resend is clicked
@@ -1914,11 +1914,17 @@ export class CartWidget extends ShoprocketElement {
     try {
       this.verifyingOtp = true;
       
-      // Call API to verify OTP
-      // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
-      const result = await this.sdk.cart.verifyAuth(this.customerData.email, this.otpCode);
+      // Call API to verify OTP. A wrong or expired code THROWS, so reaching the token here is
+      // itself the success signal - there is no boolean to consult.
+      const result = await this.sdk.account.verifyCode(this.customerData.email, this.otpCode);
 
-      if (result.authenticated) {
+      if (result.token) {
+        // The token comes back in the body ONCE and nothing re-issues it, so persist it before
+        // anything else can fail. The cookie is what survives the payment redirect, and it is what
+        // `widget-manager` restores the session from on the next page load.
+        CookieManager.setAccessToken(result.token);
+        this.sdk.setCustomerToken(result.token);
+
         this.authenticatedDuringCheckout = true;
         sessionStorage.setItem('shoprocket_authenticated', '1');
 
@@ -2105,11 +2111,9 @@ export class CartWidget extends ShoprocketElement {
     
     try {
       // Send new OTP without hiding the form
-      // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
-      const result = await this.sdk.cart.sendAuth(this.customerData.email);
+      const result = await this.sdk.account.requestCode(this.customerData.email);
 
-      // API now returns camelCase via AuthStatusResource
-      if (result.authSent) {
+      if (result.sent) {
         // Keep loginLinkSent true to stay on OTP form
         // Just focus the first input again
         this.updateComplete.then(() => {

@@ -186,7 +186,7 @@ export class WidgetManager {
       const token = response.accessToken;
       if (token) {
         CookieManager.setAccessToken(token);
-        sdk.setAuthToken(token);
+        sdk.setCustomerToken(token);
         // Server automatically links cart to user via headers
       }
       return response;
@@ -203,7 +203,7 @@ export class WidgetManager {
       const token = response.accessToken;
       if (token) {
         CookieManager.setAccessToken(token);
-        sdk.setAuthToken(token);
+        sdk.setCustomerToken(token);
         // Server automatically links cart to user via headers
       }
       return response;
@@ -226,7 +226,7 @@ export class WidgetManager {
       
       // Clear client-side auth
       CookieManager.clearAccessToken();
-      sdk.clearAuthToken();
+      sdk.clearCustomerToken();
 
       // Regenerate cart token for privacy
       const newToken = CookieManager.regenerateCartToken();
@@ -326,7 +326,7 @@ export class WidgetManager {
         // Set up auth token if present
         const accessToken = CookieManager.getAccessToken();
         if (accessToken) {
-          this.sdk.setAuthToken(accessToken);
+          this.sdk.setCustomerToken(accessToken);
         }
         
         if (store?.tracking) {

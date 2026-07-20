@@ -2,6 +2,13 @@ import type { ApiResponse } from './types';
 
 export type { ApiResponse } from './types';
 
+/**
+ * The header a customer session is presented on. NOT `Authorization: Bearer` - a cookie is
+ * unreliable cross-origin and the server reads this header and nothing else, so a bearer token
+ * here authenticates precisely nobody.
+ */
+export const CUSTOMER_TOKEN_HEADER = 'X-Customer-Token';
+
 export interface Attribution {
   utm_source?: string;
   utm_medium?: string;
@@ -26,7 +33,7 @@ export interface ApiConfig {
 
 export class ApiClient {
   private config: ApiConfig;
-  private authToken?: string;
+  private customerToken?: string;
   private attribution?: Attribution;
 
   constructor(config: ApiConfig) {
@@ -78,8 +85,8 @@ export class ApiClient {
       headers['X-Visitor-Id'] = this.config.visitorId;
     }
 
-    if (this.authToken) {
-      headers['Authorization'] = `Bearer ${this.authToken}`;
+    if (this.customerToken) {
+      headers[CUSTOMER_TOKEN_HEADER] = this.customerToken;
     }
 
     if (this.config.locale) {
@@ -165,14 +172,14 @@ export class ApiClient {
 
   private needsCartHeaders(endpoint: string): boolean {
     const e = endpoint.replace(/^\//, '');
-    return e.startsWith('cart') || e.startsWith('account') || e.startsWith('orders');
+    return e.startsWith('cart') || e.startsWith('customer') || e.startsWith('orders');
   }
 
   async get<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = this.getUrl(endpoint);
 
     // Only use CORS-safe headers for public read-only endpoints (no preflight).
-    // Cart/account/order endpoints need X-Cart-Token and Authorization.
+    // Cart/customer/order endpoints need X-Cart-Token and the customer session token.
     const headers: HeadersInit = {
       'Accept': 'application/json'
     };
@@ -184,7 +191,7 @@ export class ApiClient {
     if (this.needsCartHeaders(endpoint)) {
       if (this.config.cartToken) headers['X-Cart-Token'] = this.config.cartToken;
       if (this.config.visitorId) headers['X-Visitor-Id'] = this.config.visitorId;
-      if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
+      if (this.customerToken) headers[CUSTOMER_TOKEN_HEADER] = this.customerToken;
     }
 
     let lastError: any;
@@ -274,11 +281,11 @@ export class ApiClient {
     return this.config.apiUrl;
   }
 
-  setAuthToken(token: string): void {
-    this.authToken = token;
+  setCustomerToken(token: string): void {
+    this.customerToken = token;
   }
 
-  clearAuthToken(): void {
-    this.authToken = undefined;
+  clearCustomerToken(): void {
+    this.customerToken = undefined;
   }
 }

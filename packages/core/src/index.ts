@@ -142,15 +142,15 @@ export class ShoprocketCore {
   /**
    * Set auth token
    */
-  setAuthToken(token: string): void {
-    this.api.setAuthToken(token);
+  setCustomerToken(token: string): void {
+    this.api.setCustomerToken(token);
   }
 
   /**
    * Clear auth token
    */
-  clearAuthToken(): void {
-    this.api.clearAuthToken();
+  clearCustomerToken(): void {
+    this.api.clearCustomerToken();
   }
 }
 

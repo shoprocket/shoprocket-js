@@ -1,5 +1,6 @@
 import { html, type TemplateResult } from 'lit';
 import { t } from '../../utils/i18n';
+import { formatPrice } from '../../utils/formatters';
 import type { AccountOrdersContext } from './account-types';
 
 export function renderAccountOrders(ctx: AccountOrdersContext): TemplateResult {
@@ -28,7 +29,7 @@ function renderOrderList(ctx: AccountOrdersContext): TemplateResult {
         <button class="sr-account-order-card" @click=${() => ctx.onSelectOrder(order.id)}>
           <div class="sr-account-order-card-header">
             <span class="sr-account-order-number">#${order.orderNumber}</span>
-            <span class="sr-account-order-date">${formatDate(order.createdAt)}</span>
+            <span class="sr-account-order-date">${formatDate(order.placedAt)}</span>
           </div>
           <div class="sr-account-order-card-body">
             <div class="sr-account-order-statuses">
@@ -41,10 +42,7 @@ function renderOrderList(ctx: AccountOrdersContext): TemplateResult {
                 </span>
               ` : ''}
             </div>
-            <span class="sr-account-order-total">${order.total.formatted}</span>
-          </div>
-          <div class="sr-account-order-card-footer">
-            <span class="sr-account-order-items">${order.itemCount} ${order.itemCount === 1 ? t('account.item', 'item') : t('account.items', 'items')}</span>
+            <span class="sr-account-order-total">${formatPrice(order.total)}</span>
           </div>
         </button>
       `)}
@@ -88,7 +86,7 @@ function renderOrderDetail(ctx: AccountOrdersContext): TemplateResult {
 
       <div class="sr-account-order-detail-header">
         <h3 class="sr-account-order-detail-title">${t('account.order', 'Order')} #${order.orderNumber}</h3>
-        <span class="sr-account-order-date">${formatDate(order.createdAt)}</span>
+        <span class="sr-account-order-date">${formatDate(order.placedAt)}</span>
       </div>
 
       <div class="sr-account-order-statuses" style="margin-bottom: 1rem;">
@@ -183,7 +181,9 @@ function renderOrderDetail(ctx: AccountOrdersContext): TemplateResult {
   `;
 }
 
-function formatDate(iso: string): string {
+/** `placedAt` is null until an order is actually placed, so there is genuinely no date to show. */
+function formatDate(iso: string | null): string {
+  if (!iso) return '';
   try {
     return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   } catch {

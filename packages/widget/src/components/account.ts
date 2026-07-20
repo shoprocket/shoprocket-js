@@ -2,6 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import { t } from '../utils/i18n';
+import { CookieManager } from '../utils/cookie-manager';
 import type { CustomerProfile, CustomerOrder, CustomerOrderDetail, PaginationMeta } from '@shoprocket/core';
 import type { AccountLoginContext } from './account/account-types';
 import type { AccountOrdersContext } from './account/account-types';
@@ -82,7 +83,7 @@ export class AccountWidget extends ShoprocketElement {
 
   private async checkAuthAndLoad(): Promise<void> {
     try {
-      const profile = await this.sdk.account.getProfile();
+      const profile = await this.sdk.account.me();
       this.profile = profile;
       this.view = 'dashboard';
       await this.loadOrders();
@@ -96,9 +97,11 @@ export class AccountWidget extends ShoprocketElement {
   private async loadOrders(): Promise<void> {
     this.ordersLoading = true;
     try {
-      const result = await this.sdk.account.getOrders(this.ordersPage);
-      this.orders = result.data;
-      this.ordersMeta = result.meta;
+      // The API returns the whole history in one shot - there is no paged customer-orders route,
+      // so the pager renders a single page rather than pretending to know of more.
+      const orders = await this.sdk.account.getOrders();
+      this.orders = orders;
+      this.ordersMeta = { currentPage: 1, lastPage: 1, perPage: orders.length, total: orders.length };
     } catch (error) {
       console.error('Failed to load orders:', error);
     } finally {
@@ -107,32 +110,24 @@ export class AccountWidget extends ShoprocketElement {
   }
 
   // --- Login handlers ---
+  /**
+   * There is no separate "does this email exist" probe, and none is needed: requesting a code
+   * answers both questions in one round trip, because the server only sends to an address that has
+   * shopped here. Asking twice would just be a second chance to be rate-limited.
+   */
   private async handleCheckEmail(): Promise<void> {
     if (!this.loginEmail || !this.loginEmail.includes('@')) return;
-    this.authLoading = true;
-    this.authError = '';
-    try {
-      // @ts-ignore - TypeScript module resolution issues but method exists at runtime
-      const result = await this.sdk.cart.checkCheckoutData(this.loginEmail);
-      if (!result.exists) {
-        this.authError = t('account.no_account', 'No account found with this email.');
-      } else {
-        await this.handleSendOtp();
-      }
-    } catch {
-      this.authError = t('account.check_failed', 'Unable to check email. Please try again.');
-    } finally {
-      this.authLoading = false;
-    }
+    await this.handleSendOtp();
   }
 
   private async handleSendOtp(): Promise<void> {
     this.authLoading = true;
     this.authError = '';
     try {
-      // @ts-ignore
-      const result = await this.sdk.cart.sendAuth(this.loginEmail);
-      if (result.authSent) {
+      const result = await this.sdk.account.requestCode(this.loginEmail);
+      if (!result.sent) {
+        this.authError = t('account.no_account', 'No account found with this email.');
+      } else {
         this.loginMode = 'otp';
         this.otpCode = ['', '', '', '', '', ''];
         this.updateComplete.then(() => {
@@ -155,13 +150,11 @@ export class AccountWidget extends ShoprocketElement {
     this.authLoading = true;
     this.authError = '';
     try {
-      // @ts-ignore
-      const result = await this.sdk.cart.verifyAuth(this.loginEmail, code);
-      if (result.authenticated) {
-        await this.checkAuthAndLoad();
-      } else {
-        this.authError = result.message || t('account.invalid_code', 'Invalid code. Please try again.');
-      }
+      // A bad or expired code throws; reaching a token IS the success signal.
+      const result = await this.sdk.account.verifyCode(this.loginEmail, code);
+      CookieManager.setAccessToken(result.token);
+      this.sdk.setCustomerToken(result.token);
+      await this.checkAuthAndLoad();
     } catch (error: any) {
       this.authError = error.message || t('account.verify_failed', 'Verification failed. Please try again.');
     } finally {
@@ -261,10 +254,15 @@ export class AccountWidget extends ShoprocketElement {
 
   private async handleLogout(): Promise<void> {
     try {
-      await this.sdk.account.logout();
+      await this.sdk.account.signOut();
     } catch {
       // Continue with client-side cleanup even if server logout fails
     }
+    // Drop the local session regardless: a server that refused to sign us out is no reason to keep
+    // presenting a token, and `clearAccessToken` also rotates the visitor id so a shared device
+    // does not carry one shopper's identity into the next one's session.
+    CookieManager.clearAccessToken();
+    this.sdk.clearCustomerToken();
     this.profile = null;
     this.orders = [];
     this.selectedOrder = null;
@@ -362,7 +360,7 @@ export class AccountWidget extends ShoprocketElement {
     return html`
       ${this.profile ? html`
         <div class="sr-account-profile-header">
-          <div class="sr-account-avatar">${(this.profile.firstName?.[0] || this.profile.email[0] || '?').toUpperCase()}</div>
+          <div class="sr-account-avatar">${(this.profile.firstName?.[0] || this.profile.email?.[0] || '?').toUpperCase()}</div>
           <div class="sr-account-profile-info">
             <span class="sr-account-profile-name">${this.profile.firstName} ${this.profile.lastName}</span>
             <span class="sr-account-profile-email">${this.profile.email}</span>

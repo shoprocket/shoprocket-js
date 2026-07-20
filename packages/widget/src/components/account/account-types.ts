@@ -1,5 +1,4 @@
 import type { ShoprocketCore, CustomerProfile, CustomerOrder, CustomerOrderDetail, PaginationMeta } from '@shoprocket/core';
-import type { TemplateResult } from 'lit';
 
 export interface AccountLoginContext {
   sdk: ShoprocketCore;
