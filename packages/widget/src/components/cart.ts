@@ -2474,8 +2474,16 @@ export class CartWidget extends ShoprocketElement {
         test_mode: pm?.testMode ?? false,
       });
 
+      // The handoff is a union: only `redirect` navigates. PayPal answers with an order id and is
+      // driven by its own buttons, so it never reaches this path - if it somehow does, refuse
+      // rather than navigate to `undefined`. The order already exists and holds stock, so a
+      // refusal here is recoverable; a silent bad navigation is not.
+      if (session.handoff?.kind !== 'redirect') {
+        throw new Error(`Cannot redirect for a ${session.handoff?.kind ?? 'missing'} handoff`);
+      }
+
       // Leave the spinner up: the redirect is the next thing that happens.
-      window.location.href = session.redirectUrl;
+      window.location.href = session.handoff.redirectUrl;
       return;
       
     } catch (error: any) {

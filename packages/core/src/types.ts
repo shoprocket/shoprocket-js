@@ -566,11 +566,30 @@ export interface StartPaymentParams {
   cancelUrl?: string;
 }
 
+/**
+ * How the shopper is handed to the gateway. A union rather than a nullable `redirectUrl`, because
+ * the two gateways hand off in genuinely different ways: Stripe navigates the browser away, while
+ * PayPal's buttons resolve `createOrder` with an id and never leave the merchant's page. Making it
+ * a union forces the caller to branch instead of reading a field that happens to be undefined.
+ */
+export type PaymentHandoff =
+  | {
+      kind: 'redirect';
+      /** Navigate the shopper here. */
+      redirectUrl: string;
+    }
+  | {
+      kind: 'paypal_order';
+      /** Resolve the PayPal SDK's `createOrder` with this, then capture from `onApprove`. */
+      paypalOrderId: string;
+    };
+
 export interface StartPaymentResult {
   paymentId: string;
   status: string;
-  /** Send the shopper here. */
-  redirectUrl: string;
+  /** Which gateway this attempt is against - read from the order, not from the request. */
+  gateway: string;
+  handoff: PaymentHandoff;
   amount: number;
   currencyCode: string;
 }
