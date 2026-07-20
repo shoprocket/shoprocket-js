@@ -1,6 +1,17 @@
-import type { Cart } from '@shoprocket/core';
+import type { Cart, CartItem } from '@shoprocket/core';
 import type { CustomerData, CustomerFormErrors } from '../customer-form';
 import type { AddressData, AddressFormErrors } from '../address-form';
+
+/**
+ * A cart line plus the stock facts the widget learned CLIENT-side when the shopper added it
+ * (from the product page's own data). Presentation state for the quantity stepper's optimistic
+ * cap, NOT wire fields: the API never serves stock on a cart - the server re-checks availability
+ * at every mutation and at checkout, which is the enforcement that actually counts.
+ */
+export type LocalCartItem = CartItem & {
+  inventoryPolicy?: 'deny' | 'continue';
+  inventoryCount?: number;
+};
 
 /**
  * Checkout step types

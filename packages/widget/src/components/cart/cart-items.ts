@@ -50,11 +50,8 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
         <div class="sr-cart-item-image"
              @click="${() => context.navigateToProduct(item)}">
           <img
-            src="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=128,h=128,fit=cover')}"
-            srcset="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=128,h=128,fit=cover')} 1x,
-                    ${context.getMediaUrl((item as any).image || item.media?.[0], 'w=256,h=256,fit=cover')} 2x,
-                    ${context.getMediaUrl((item as any).image || item.media?.[0], 'w=384,h=384,fit=cover')} 3x"
-            alt="${item.productName}"
+            src="${item.imageUrl || context.getMediaUrl(null)}"
+            alt="${item.name}"
             width="128"
             height="128"
             @load="${(e: Event) => {
@@ -70,7 +67,7 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
           <div class="sr-cart-item-header">
             <div class="sr-cart-item-info">
               <h4 class="sr-cart-item-title"
-                  @click="${() => context.navigateToProduct(item)}">${item.productName}</h4>
+                  @click="${() => context.navigateToProduct(item)}">${item.name}</h4>
               ${item.variantName ? html`
                 <div class="sr-cart-item-variant">${item.variantName}</div>
               ` : ''}

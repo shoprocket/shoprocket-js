@@ -182,7 +182,7 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
   // `amountDue` is what the gateway will actually collect; `total` is still what the order costs.
   const amountDue = (context.cart?.totals as any)?.amountDue ?? 0;
   const hasGiftCard = !!giftCard;
-  const cartTotal = context.cart?.totals?.subtotal?.amount ?? 0;
+  const cartTotal = context.cart?.totals?.subtotal ?? 0;
   const minOrder = context.minimumOrderValue;
   const belowMinimum = minOrder != null && minOrder > 0 && cartTotal < minOrder;
 
@@ -190,7 +190,7 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
     <div class="sr-cart-subtotal">
       <span class="sr-cart-subtotal-label">${t('cart.subtotal', 'Subtotal')}</span>
       <span class="sr-cart-subtotal-amount">
-        ${keyed(context.cart?.totals?.subtotal?.amount, html`
+        ${keyed(context.cart?.totals?.subtotal, html`
           <span class="sr-cart-total-price price-changed">${context.formatPrice(context.cart?.totals?.subtotal)}</span>
         `)}
       </span>
@@ -201,7 +201,7 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
       <div class="sr-cart-estimated-total">
         <span class="sr-cart-estimated-total-label">${t('cart.estimated_total', 'Estimated total')}</span>
         <span class="sr-cart-estimated-total-amount">
-          ${keyed(context.cart?.totals?.total?.amount, html`
+          ${keyed(context.cart?.totals?.total, html`
             <span class="sr-cart-total-price price-changed">${context.formatPrice(context.cart?.totals?.total)}</span>
           `)}
         </span>
@@ -219,7 +219,7 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
     ` : ''}
     ${belowMinimum ? html`
       <p class="sr-minimum-order-notice">
-        ${t('cart.minimum_order', 'Minimum order amount is {{amount}}').replace('{{amount}}', context.formatPrice({ amount: minOrder, currency: context.cart?.currency || '', formatted: '' }))}
+        ${t('cart.minimum_order', 'Minimum order amount is {{amount}}').replace('{{amount}}', context.formatPrice({ amount: minOrder, currency: context.cart?.currencyCode || '', formatted: '' }))}
       </p>
     ` : ''}
     <button

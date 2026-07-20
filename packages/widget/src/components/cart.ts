@@ -2,7 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
-import type { Cart, ApiResponse, Money, CheckoutSettings, ShippingOption } from '@shoprocket/core';
+import type { Cart, ApiResponse, CheckoutSettings, ShippingOption } from '@shoprocket/core';
 import { loadingOverlay } from './loading-spinner';
 import { HashRouter, type HashState } from '../core/hash-router';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
@@ -23,6 +23,7 @@ import shoppingBasketIcon from '../assets/icons/shopping-basket.svg?raw';
 
 // Import types only (won't bundle the modules)
 import type { CartItemsContext } from './cart/cart-items';
+import type { LocalCartItem } from './cart/cart-types';
 import type { CartFooterContext } from './cart/cart-footer';
 import type { CartTriggerContext } from './cart/cart-trigger';
 import type { OrderResultContext } from './cart/order-result';
@@ -420,10 +421,10 @@ export class CartWidget extends ShoprocketElement {
       this.sameAsBilling = state.sameAsBilling;
 
       // Pre-select country from geo-detection if no address saved yet
-      if (!this.shippingAddress.country && state.cart?.visitorCountry) {
-        this.shippingAddress = { ...this.shippingAddress, country: state.cart.visitorCountry };
+      if (!this.shippingAddress.country && state.cart?.visitorCountryCode) {
+        this.shippingAddress = { ...this.shippingAddress, country: state.cart.visitorCountryCode };
         if (this.sameAsBilling) {
-          this.billingAddress = { ...this.billingAddress, country: state.cart.visitorCountry };
+          this.billingAddress = { ...this.billingAddress, country: state.cart.visitorCountryCode };
         }
       }
 
@@ -478,18 +479,9 @@ export class CartWidget extends ShoprocketElement {
     if (!this.showOrderSuccessMessage && !this.showOrderNotFound) {
       await this.loadCart();
 
-      // Detect if the loaded cart is actually an order (e.g. page refresh during payment)
-      // The backend returns orders within the edit window via GET /cart
-      // Skip if checkPaymentReturn() already handled this (e.g. payment-cancelled → review step)
-      if (!this.paymentPending && !this.showOrderFailureMessage && !this.isCheckingOut && this.cart?.type === 'order') {
-        const status = this.cart?.order?.paymentStatus;
-        if (status === 'paid' || status === 'processing' || status === 'completed') {
-          await this.handlePaymentConfirmed(this.cart.id);
-        }
-        // For failed/cancelled/pending orders on normal page load (no #!/payment-return),
-        // just show cart normally so customer can re-checkout.
-        // Failure messages are only shown during active payment return flow (checkPaymentReturn).
-      }
+      // A cart is never an order (the API copies a cart INTO an order at checkout, D30), so there
+      // is no "loaded cart is actually an order" case to detect here. A refresh mid-payment is
+      // covered by the silent poll below, keyed on the stored order id.
 
       // Silent background poll: if we have a stored order ID but haven't confirmed payment yet,
       // poll invisibly in case the user paid but the webhook hasn't arrived yet.
@@ -651,32 +643,38 @@ export class CartWidget extends ShoprocketElement {
   private handleAddItem = (event: CustomEvent): void => {
     const { item, stockInfo, bundleSelections } = event.detail;
     
-    // Initialize cart first if needed
+    // Initialize cart first if needed - a zero-value placeholder in the SERVED wire shape, held
+    // only until the API's response replaces it.
     if (!this.cart) {
-      // Use store currency when creating new cart
-      const currency = this.getStoreCurrency();
-      const locale = navigator.language || 'en-US';
-      const zeroPriceObj: Money = {
-        amount: 0,
-        currency,
-        formatted: new Intl.NumberFormat(locale, {
-          style: 'currency',
-          currency
-        }).format(0)
-      };
-      const newCart = {
+      const newCart: Cart = {
         id: 'temp-' + Date.now(),
+        currencyCode: this.getStoreCurrency(),
+        email: null,
         items: [],
+        shippingAddress: null,
+        billingAddress: null,
+        shippingRateId: null,
+        shippingMethodName: null,
+        discounts: [],
+        discountCode: null,
+        discountError: null,
+        giftCard: null,
+        giftCardError: null,
         totals: {
-          subtotal: zeroPriceObj,
-          tax: zeroPriceObj,
-          shipping: zeroPriceObj,
-          total: zeroPriceObj
+          subtotal: 0,
+          discountTotal: 0,
+          taxTotal: 0,
+          shippingTotal: 0,
+          total: 0,
+          giftCardTotal: 0,
+          amountDue: 0
         },
-        currency,
-        itemCount: 0
+        taxBreakdown: [],
+        itemCount: 0,
+        expiresAt: '',
+        updatedAt: ''
       };
-      cartState.setCart(newCart as any);
+      cartState.setCart(newCart);
       this.cart = newCart;
     }
     
@@ -689,7 +687,7 @@ export class CartWidget extends ShoprocketElement {
     const isBundle = item.productType === 'bundle';
 
     // Find existing item (do this once) — skip for bundles
-    const existingItem = isBundle ? undefined : this.cart.items.find((cartItem: any) =>
+    const existingItem: LocalCartItem | undefined = isBundle ? undefined : this.cart.items.find((cartItem: any) =>
       cartItem.productId === item.productId &&
       cartItem.variantId === item.variantId
     );
@@ -738,10 +736,23 @@ export class CartWidget extends ShoprocketElement {
         existingItem.inventoryCount = stockInfo.inventoryCount ?? stockInfo.availableQuantity;
       }
     } else {
-      // Add new item with a temporary ID and stock info
-      const newItem = {
-        ...item,
+      // Add a new line with a temporary ID, minted in the SERVED wire shape (the add event's
+      // detail is the product component's own vocabulary - productName, a Money price, a media
+      // array - and mapping it here keeps every renderer reading one shape). Replaced wholesale
+      // by the API's cart on response.
+      const unitPrice = typeof item.price === 'number' ? item.price : (item.price?.amount ?? 0);
+      const newItem: LocalCartItem = {
         id: 'temp-' + Date.now() + '-' + Math.random(),
+        productId: item.productId ?? null,
+        variantId: item.variantId ?? '',
+        name: item.productName ?? item.name ?? '',
+        variantName: item.variantName ?? null,
+        sku: null,
+        unitPrice,
+        quantity: item.quantity ?? 1,
+        subtotal: unitPrice * (item.quantity ?? 1),
+        position: this.cart.items.length,
+        imageUrl: item.media?.[0]?.urls?.thumb ?? item.media?.[0]?.url ?? null,
         ...(stockInfo && {
           inventoryPolicy: stockInfo.inventoryPolicy || (stockInfo.trackInventory ? 'deny' : 'continue'),
           inventoryCount: stockInfo.inventoryCount ?? stockInfo.availableQuantity
@@ -1413,8 +1424,8 @@ export class CartWidget extends ShoprocketElement {
       this.track(EVENTS.BEGIN_CHECKOUT, {
         cart: this.cart,
         items_count: this.cart?.items?.length || 0,
-        cart_value: this.cart?.totals?.total?.amount,
-        currency: this.cart?.currency
+        cart_value: this.cart?.totals?.total,
+        currency: this.cart?.currencyCode
       });
 
       // Track viewing first step with specific event
@@ -1422,7 +1433,7 @@ export class CartWidget extends ShoprocketElement {
         step_name: 'contact_information',
         step_number: 1,
         total_steps: this.sameAsBilling ? 4 : 5,
-        cart_value: this.cart?.totals?.total?.amount
+        cart_value: this.cart?.totals?.total
       });
     } finally {
       this.chunkLoading = false;
@@ -1444,7 +1455,7 @@ export class CartWidget extends ShoprocketElement {
       
       this.track(EVENTS.CHECKOUT_ABANDONED, {
         abandoned_at_step: stepNames[wasOnStep] || wasOnStep,
-        cart_value: this.cart?.totals?.total?.amount,
+        cart_value: this.cart?.totals?.total,
         items_count: this.cart?.items?.length || 0
       });
     }
@@ -1548,7 +1559,7 @@ export class CartWidget extends ShoprocketElement {
           step_number: steps.indexOf(previousStep) + 1,
           next_step: stepNames[nextStep],
           total_steps: steps.length,
-          cart_value: this.cart?.totals?.total?.amount,
+          cart_value: this.cart?.totals?.total,
           progress_percentage: Math.round(((steps.indexOf(nextStep) + 1) / steps.length) * 100)
         });
 
@@ -1561,7 +1572,7 @@ export class CartWidget extends ShoprocketElement {
           step_number: steps.indexOf(nextStep) + 1,
           from_step: stepNames[previousStep],
           total_steps: steps.length,
-          cart_value: this.cart?.totals?.total?.amount
+          cart_value: this.cart?.totals?.total
         });
       }
     }
@@ -1629,7 +1640,7 @@ export class CartWidget extends ShoprocketElement {
           to_step: stepNames[previousStep],
           step_number: steps.indexOf(previousStep) + 1,
           total_steps: steps.length,
-          cart_value: this.cart?.totals?.total?.amount
+          cart_value: this.cart?.totals?.total
         });
         
         // Move back to previous step
@@ -2175,7 +2186,7 @@ export class CartWidget extends ShoprocketElement {
       clientId: config.clientId,
       merchantId: config.merchantId,
       bnCode: config.bnCode,
-      currency: this.cart?.totals?.total?.currency || (this.cart as any)?.currency || 'USD',
+      currency: this.cart?.currencyCode || 'USD',
     });
 
     if (!paypal?.Buttons) {
@@ -2927,7 +2938,7 @@ export class CartWidget extends ShoprocketElement {
       handleMarketingOptInChange: (checked: boolean) => { this.marketingOptIn = checked; },
       handleOrderNotesChange: (value: string) => { this.orderNotes = value; },
       addressAutocompleteEnabled: !!this.getStore()?.features?.addressAutocomplete,
-      visitorCountry: this.cart?.visitorCountry || '',
+      visitorCountry: this.cart?.visitorCountryCode || '',
       sdk: this.sdk,
       handleBackButton: () => this.handleBackButton(),
       handleCustomerChange: (e) => this.handleCustomerChange(e),
@@ -2994,7 +3005,7 @@ export class CartWidget extends ShoprocketElement {
   private async updateQuantity(itemId: string, quantity: number): Promise<void> {
     if (quantity < 1) return;
     
-    const item = this.cart?.items.find((i: any) => i.id === itemId);
+    const item: LocalCartItem | undefined = this.cart?.items.find((i: any) => i.id === itemId);
     if (!item) return;
     
     // Track the pre-sequence quantity (only on first click in a rapid-click sequence)
@@ -3026,7 +3037,8 @@ export class CartWidget extends ShoprocketElement {
 
     // Optimistic update - immediately update quantity in UI (no totals recalc)
     item.quantity = quantity;
-    this.cart.itemCount = this.cart.items?.reduce((count, i) => count + i.quantity, 0) || 0;
+    // `item` came off this cart, so it is non-null here - the find above proved it.
+    this.cart!.itemCount = this.cart!.items.reduce((count, i) => count + i.quantity, 0) || 0;
     this.requestUpdate();
 
     // Cancel any pending update for this item

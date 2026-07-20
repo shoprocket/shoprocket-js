@@ -17,23 +17,6 @@ function taxBreakdownTooltip(breakdown: TaxBreakdownItem[] | undefined, context:
   return html`<sr-tooltip text="${text}" position="top" wrap><span class="sr-tax-info-icon">ⓘ</span></sr-tooltip>`;
 }
 
-/**
- * A totals figure as a plain minor-unit number, or null when the cart carries no such figure.
- *
- * Two shapes have to be read here: the CF API sends integer minor units under `discountTotal` /
- * `taxTotal` / `shippingTotal`, the older API sent Money objects under `discount` / `tax` /
- * `shipping`. Reading only the legacy shape is why the discount, tax and shipping lines silently
- * never rendered against the CF API - the key simply does not exist, so every guard was false and
- * the breakdown jumped from subtotal straight to total with the deductions unexplained.
- */
-function minor(...candidates: any[]): number | null {
-  for (const v of candidates) {
-    if (typeof v === 'number') return v;
-    if (v && typeof v.amount === 'number') return v.amount;
-  }
-  return null;
-}
-
 export interface CheckoutWizardContext {
   // Cart state
   cart: Cart | null;
@@ -212,13 +195,16 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
   }
 
   // Show cart summary during checkout (except review step which shows full breakdown in main content)
-  const subtotal = context.cart?.totals?.subtotal || { amount: 0, currency: 'USD', formatted: '$0.00' };
-  const discount = minor((context.cart?.totals as any)?.discountTotal, (context.cart?.totals as any)?.discount);
-  const hasDiscount = (discount ?? 0) > 0;
+  const subtotal = context.cart?.totals?.subtotal ?? 0;
+  const discount = context.cart?.totals?.discountTotal ?? 0;
+  const hasDiscount = discount > 0;
   const discountCode = context.cart?.discountCode;
   const giftCard = context.cart?.giftCard ?? null;
-  const discountDesc = context.cart?.discountType === 'percentage' && context.cart?.discountValue
-    ? `${Math.round(Number(context.cart.discountValue))}% off` : '';
+  // The seller's label for the applied discount ("Summer Sale"), shown beside the code badge
+  // unless it just repeats the code.
+  const applied = context.cart?.discounts?.find((d) => d.code && d.code === discountCode)
+    ?? context.cart?.discounts?.[0];
+  const discountDesc = applied && applied.name !== applied.code ? applied.name : '';
 
   return html`
     ${context.checkoutStep !== 'review' ? html`
@@ -236,7 +222,7 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
               : html`<span class="sr-coupon-desc">${t('cart.discount', 'Discount')}</span>`}
             ${discountDesc ? html`<span class="sr-coupon-desc">${discountDesc}</span>` : ''}
           </div>
-          <span class="sr-coupon-discount">-${context.formatPrice(discount as number)}</span>
+          <span class="sr-coupon-discount">-${context.formatPrice(discount)}</span>
         </div>
         <div class="sr-cart-estimated-total">
           <span class="sr-cart-estimated-total-label">${t('cart.estimated_total', 'Estimated total')}</span>
@@ -255,7 +241,7 @@ export function renderCheckoutFooter(context: CheckoutWizardContext): TemplateRe
         <div class="sr-cart-estimated-total">
           <span class="sr-cart-estimated-total-label">${t('cart.amount_due', 'Amount due')}</span>
           <span class="sr-cart-estimated-total-amount">
-            <span class="sr-cart-total-price">${context.formatPrice(minor((context.cart?.totals as any)?.amountDue) ?? 0)}</span>
+            <span class="sr-cart-total-price">${context.formatPrice(context.cart?.totals?.amountDue ?? 0)}</span>
           </span>
         </div>
       ` : ''}
@@ -599,6 +585,12 @@ function renderShippingOptions(context: CheckoutWizardContext): TemplateResult |
       <div class="sr-shipping-options-label">${t('checkout.shipping_method', 'Shipping method')}</div>
       ${context.shippingOptions.map(option => {
         const isSelected = context.selectedShippingRateId === option.id;
+        // "3 days" / "2-5 days", from the min/max pair the API serves. Either bound may be null.
+        const estMin = option.estimatedDaysMin;
+        const estMax = option.estimatedDaysMax;
+        const estDays = estMin != null && estMax != null && estMax !== estMin
+          ? `${estMin}-${estMax}`
+          : (estMin ?? estMax) != null ? String(estMin ?? estMax) : '';
         return html`
           <button
             type="button"
@@ -611,14 +603,14 @@ function renderShippingOptions(context: CheckoutWizardContext): TemplateResult |
               </div>
               <div class="sr-shipping-option-info">
                 <span class="sr-shipping-option-name">${option.name}</span>
-                ${option.estimatedDays ? html`
+                ${estDays ? html`
                   <span class="sr-shipping-option-meta">
-                    ${t('checkout.estimated_delivery', 'Est.')} ${option.estimatedDays} ${option.estimatedDays === '1' ? t('checkout.day', 'day') : t('checkout.days', 'days')}
+                    ${t('checkout.estimated_delivery', 'Est.')} ${estDays} ${estDays === '1' ? t('checkout.day', 'day') : t('checkout.days', 'days')}
                   </span>
                 ` : ''}
               </div>
               <span class="sr-shipping-option-price">
-                ${option.isFree ? t('checkout.free', 'Free') : option.costFormatted}
+                ${option.cost === 0 ? t('checkout.free', 'Free') : context.formatPrice(option.cost)}
               </span>
             </div>
           </button>
@@ -722,10 +714,14 @@ function renderPaymentContent(context: CheckoutWizardContext): TemplateResult {
 }
 
 function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
-  const t_: any = context.cart?.totals;
-  const reviewDiscount = minor(t_?.discountTotal, t_?.discount);
-  const reviewTax = minor(t_?.taxTotal, t_?.tax);
-  const reviewShipping = minor(t_?.shippingTotal, t_?.shipping);
+  const reviewDiscount = context.cart?.totals?.discountTotal ?? 0;
+  const reviewTax = context.cart?.totals?.taxTotal ?? 0;
+  const reviewShipping = context.cart?.totals?.shippingTotal ?? 0;
+  const taxLines = context.cart?.taxBreakdown ?? [];
+  // The seller's label for the applied discount, shown beside the code badge unless it repeats it.
+  const appliedDiscount = context.cart?.discounts?.find((d) => d.code && d.code === context.cart?.discountCode)
+    ?? context.cart?.discounts?.[0];
+  const appliedDiscountName = appliedDiscount && appliedDiscount.name !== appliedDiscount.code ? appliedDiscount.name : '';
 
   return html`
     <div class="sr-review-container">
@@ -761,8 +757,8 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
                   <div class="sr-order-item-details">
                     <div class="sr-order-item-image-container">
                       <img
-                        src="${context.getMediaUrl((item as any).image || item.media?.[0], 'w=64,h=64,fit=cover')}"
-                        alt="${item.productName}"
+                        src="${item.imageUrl || context.getMediaUrl(null)}"
+                        alt="${item.name}"
                         class="sr-order-item-image"
                         @load="${(e: Event) => {
                           const img = e.target as HTMLImageElement;
@@ -772,7 +768,7 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
                       >
                     </div>
                     <div class="sr-order-item-info">
-                      <span class="sr-order-item-name">${item.productName}</span>
+                      <span class="sr-order-item-name">${item.name}</span>
                       ${item.variantName ? html`
                         <span class="sr-order-item-variant">${item.variantName}</span>
                       ` : ''}
@@ -791,29 +787,29 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
               <span>Subtotal</span>
               <span>${context.formatPrice(context.cart?.totals?.subtotal)}</span>
             </div>
-            ${(reviewDiscount ?? 0) > 0 ? html`
+            ${reviewDiscount > 0 ? html`
               <div class="sr-order-total-line sr-discount-line">
                 <span>${context.cart?.discountCode ? html`
                   <span class="sr-coupon-badge-sm">${context.cart.discountCode}</span>
-                  ${context.cart.discountType === 'percentage' && context.cart.discountValue
-                    ? html` <span class="sr-discount-desc">${Math.round(Number(context.cart.discountValue))}% off</span>`
+                  ${appliedDiscountName
+                    ? html` <span class="sr-discount-desc">${appliedDiscountName}</span>`
                     : ''}
                 ` : t('cart.discount', 'Discount')}</span>
-                <span class="sr-discount-amount">-${context.formatPrice(reviewDiscount as number)}</span>
+                <span class="sr-discount-amount">-${context.formatPrice(reviewDiscount)}</span>
               </div>
             ` : ''}
-            ${(reviewTax ?? 0) > 0 && !context.cart?.taxInclusive ? html`
+            ${reviewTax > 0 && !context.cart?.taxInclusive ? html`
               <div class="sr-order-total-line">
-                <span>${context.cart?.taxBreakdown?.length === 1
-                  ? `${context.cart.taxBreakdown[0].name} (${formatTaxRate(context.cart.taxBreakdown[0])}%)`
-                  : html`Tax ${taxBreakdownTooltip(context.cart?.taxBreakdown, context)}`}</span>
-                <span>${context.formatPrice(reviewTax as number)}</span>
+                <span>${taxLines.length === 1
+                  ? `${taxLines[0]!.name} (${formatTaxRate(taxLines[0]!)}%)`
+                  : html`Tax ${taxBreakdownTooltip(taxLines, context)}`}</span>
+                <span>${context.formatPrice(reviewTax)}</span>
               </div>
             ` : ''}
-            ${(reviewShipping ?? 0) > 0 ? html`
+            ${reviewShipping > 0 ? html`
               <div class="sr-order-total-line">
                 <span>Shipping</span>
-                <span>${context.formatPrice(reviewShipping as number)}</span>
+                <span>${context.formatPrice(reviewShipping)}</span>
               </div>
             ` : ''}
             <div class="sr-order-total-final">
@@ -832,14 +828,14 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
               </div>
               <div class="sr-order-total-final">
                 <span>${t('cart.amount_due', 'Amount due')}</span>
-                <span class="sr-order-total-amount">${context.formatPrice(minor((context.cart?.totals as any)?.amountDue) ?? 0)}</span>
+                <span class="sr-order-total-amount">${context.formatPrice(context.cart?.totals?.amountDue ?? 0)}</span>
               </div>
             ` : ''}
-            ${(reviewTax ?? 0) > 0 && context.cart?.taxInclusive ? html`
+            ${reviewTax > 0 && context.cart?.taxInclusive ? html`
               <div class="sr-tax-inclusive-note">
-                <span>Includes ${context.formatPrice(reviewTax as number)} ${context.cart.taxBreakdown?.length === 1
-                  ? `${context.cart.taxBreakdown[0].name} (${formatTaxRate(context.cart.taxBreakdown[0])}%)`
-                  : context.cart.taxBreakdown?.[0]?.name || 'tax'} ${taxBreakdownTooltip(context.cart.taxBreakdown, context)}</span>
+                <span>Includes ${context.formatPrice(reviewTax)} ${taxLines.length === 1
+                  ? `${taxLines[0]!.name} (${formatTaxRate(taxLines[0]!)}%)`
+                  : taxLines[0]?.name || 'tax'} ${taxBreakdownTooltip(taxLines, context)}</span>
               </div>
             ` : ''}
           </div>
