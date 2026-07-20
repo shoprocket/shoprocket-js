@@ -43,22 +43,27 @@ export interface Money {
 }
 
 /**
- * One jurisdiction's share of the tax on an order, so a shopper can see WHY the tax is what it is
- * rather than one opaque figure.
+ * One named line of the tax total, so a shopper can see WHY the tax is what it is rather than one
+ * opaque figure. Served on the cart (`taxBreakdown`) and on the receipt (`taxes`) since D48.
  *
- * NOT SERVED YET. The API puts a flat `taxTotal` on the wire and nothing else, and that total is
- * currently always 0 because no rate source exists to resolve against. The rendering here is kept
- * against the day a rate source lands - the checkout screens degrade to the flat figure until then,
- * which is why every consumer treats this as optional.
+ * **Empty is meaningful**: a genuine 0% carries one line at rate 0; a destination the store had no
+ * rate for carries none - render the flat "Tax" label then.
  */
 export interface TaxBreakdownItem {
-  /** Jurisdiction name as the shopper should see it, e.g. "VAT" or "NY State Tax". */
+  /** What the shopper should see it called, e.g. "VAT" or "Sales Tax". */
   name: string;
-  /** Percentage, not a fraction: 20 means 20%. */
-  rate: number;
+  /**
+   * Thousandths of a percent: 8875 = 8.875%. The one rate unit every Shoprocket surface uses -
+   * divide by 1000 at render, which drops its own trailing zeros.
+   */
+  rateMilliPercent: number;
   /** Minor units, like every other amount on this surface. */
   amount: number;
-  formatted: string;
+}
+
+/** Format a breakdown line's rate for display: 8875 → "8.875", 20000 → "20". */
+export function formatTaxRate(line: Pick<TaxBreakdownItem, 'rateMilliPercent'>): string {
+  return String(line.rateMilliPercent / 1000);
 }
 
 /** Server-resolved rendition URLs. The client never constructs a CDN path itself. */
@@ -370,8 +375,8 @@ export interface Cart {
   giftCardError: GiftCardError | null;
   totals: CartTotals;
   /**
-   * Per-jurisdiction split of `totals.taxTotal`. Optional because the API does not serve it yet -
-   * see `TaxBreakdownItem`. Render the flat total when it is absent.
+   * The named lines making up `totals.taxTotal`, served since D48. Kept optional for tolerance of
+   * older responses; empty is meaningful (see `TaxBreakdownItem`) - render the flat label then.
    */
   taxBreakdown?: TaxBreakdownItem[];
   expiresAt: string;
@@ -630,6 +635,75 @@ export interface OrderPaymentState {
   paymentStatus: string;
   total: number;
   currencyCode: string;
+}
+
+/** A receipt line: the sale-time snapshot plus a display image resolved at read time. */
+export interface OrderReceiptItem {
+  id: string;
+  productId: string | null;
+  variantId: string | null;
+  name: string;
+  variantName: string | null;
+  sku: string | null;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+  position: number;
+  imageUrl: string | null;
+}
+
+/** An address as it appears on the receipt. */
+export interface OrderReceiptAddress {
+  id: string;
+  kind: 'billing' | 'shipping';
+  name: string | null;
+  company: string | null;
+  line1: string | null;
+  line2: string | null;
+  city: string | null;
+  region: string | null;
+  postalCode: string | null;
+  countryCode: string | null;
+  phone: string | null;
+}
+
+/**
+ * The shopper-safe view of one order (D48): what the order-success screen renders, fetched once on
+ * arrival via `cart.getOrder()`. Authorized by the cart token that produced the order, so it can
+ * only ever reach that one order - deliberately NOT the seller's full sale record (no tender
+ * ledger, no fulfilment detail, no internal notes).
+ */
+export interface OrderReceipt {
+  id: string;
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  currencyCode: string;
+  /** The email the order was placed under - where the confirmation went. */
+  email: string | null;
+  customerName: string | null;
+  items: OrderReceiptItem[];
+  subtotal: number;
+  discountTotal: number;
+  /** The code redeemed, so the receipt can say WHY the discount line exists. */
+  discountCode: string | null;
+  taxTotal: number;
+  /** The order's stored tax lines. Empty is meaningful - see `TaxBreakdownItem`. */
+  taxes: TaxBreakdownItem[];
+  /** Whether item prices already contained the tax ("Includes VAT" vs a tax row). */
+  taxInclusive: boolean;
+  shippingTotal: number;
+  shippingMethodName: string | null;
+  total: number;
+  /** What gift cards paid toward this order - tender, reported beside the total, never inside it. */
+  giftCardTotal: number;
+  /** What is still owed to settle the order. Zero once paid; real on a pending bank transfer. */
+  amountDue: number;
+  paymentMethodName: string | null;
+  /** The seller's how-to-pay text for offline methods - where a bank-transfer shopper looks. */
+  paymentInstructions: string | null;
+  addresses: OrderReceiptAddress[];
+  placedAt: string;
 }
 
 /**

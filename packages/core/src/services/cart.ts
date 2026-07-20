@@ -7,6 +7,7 @@ import type {
   CapturePaymentResult,
   CheckoutRejected,
   OrderPaymentState,
+  OrderReceipt,
   PatchCartParams,
   ShippingOptions,
   StartPaymentParams,
@@ -29,6 +30,8 @@ export type {
   CheckoutRejection,
   CapturePaymentResult,
   OrderPaymentState,
+  OrderReceipt,
+  OrderReceiptItem,
   PatchCartParams,
   PaymentMethodIcon,
   PaymentMethodSdk,
@@ -172,6 +175,19 @@ export class CartService {
    */
   async getOrderStatus(orderId: string): Promise<OrderPaymentState> {
     const response = await this.api.get<any>(`/orders/${orderId}/status`);
+    return response.data ?? response;
+  }
+
+  /**
+   * The shopper's receipt (D48): the full shopper-safe view of an order this cart token produced -
+   * items, totals, tax lines, payment instructions. Fetch ONCE for the success screen; keep
+   * `getOrderStatus` for polling, which is what it is shaped for.
+   *
+   * Must be called with the cart token that placed the order - fetch the receipt BEFORE minting a
+   * fresh token for the next basket, or the server will (correctly) refuse to serve it.
+   */
+  async getOrder(orderId: string): Promise<OrderReceipt> {
+    const response = await this.api.get<any>(`/orders/${orderId}`);
     return response.data ?? response;
   }
 
