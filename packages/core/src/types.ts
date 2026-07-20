@@ -379,6 +379,24 @@ export interface Cart {
    * older responses; empty is meaningful (see `TaxBreakdownItem`) - render the flat label then.
    */
   taxBreakdown?: TaxBreakdownItem[];
+  /** Sum of line quantities - what the cart badge shows. Optional for older responses. */
+  itemCount?: number;
+  /**
+   * True when any line needs physical delivery; false lets checkout skip the shipping steps
+   * entirely (a digital-only cart). Optional for older responses - undefined means "assume it
+   * ships", which is also how absent has always been treated.
+   */
+  requiresShipping?: boolean;
+  /**
+   * The store's live tax pricing mode - display copy only ("Includes VAT" vs a separate tax
+   * line). Same flag the order receipt carries. Optional for older responses.
+   */
+  taxInclusive?: boolean;
+  /**
+   * ISO-3166-1 alpha-2 of where the shopper appears to be (server geo), or null when unknown.
+   * A prefill hint for the address country field, never an authority.
+   */
+  visitorCountryCode?: string | null;
   expiresAt: string;
   updatedAt: string;
 }
