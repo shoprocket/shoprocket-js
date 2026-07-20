@@ -258,7 +258,16 @@ export interface CartTotals {
   discountTotal: number;
   taxTotal: number;
   shippingTotal: number;
+  /** subtotal - discountTotal + taxTotal + shippingTotal. */
   total: number;
+  /**
+   * What an applied gift card pays toward this order. A gift card is TENDER, not a discount, so it
+   * sits BELOW `total` rather than inside it: it does not change what the cart costs, only what is
+   * still owed. Keeping it out of `total` is what stops it shrinking the taxable base.
+   */
+  giftCardTotal: number;
+  /** `total - giftCardTotal`, floored at 0 - what is left to pay. Render THIS as the amount due. */
+  amountDue: number;
 }
 
 /**
@@ -332,6 +341,14 @@ export interface Cart {
   discountCode: string | null;
   /** Why the typed code is not applying, or null. Render this rather than failing silently. */
   discountError: DiscountError | null;
+  /**
+   * The gift card currently tendered against this cart, or null. Unlike `discountCode` there is no
+   * echo of what the shopper typed: a rejected gift card code is NOT stored on the cart, because
+   * unlike a coupon it is a bearer secret. Keep the typed value in local input state.
+   */
+  giftCard: AppliedGiftCard | null;
+  /** Why the submitted gift card code was refused, or null. Render it beside the field. */
+  giftCardError: GiftCardError | null;
   totals: CartTotals;
   expiresAt: string;
   updatedAt: string;
@@ -355,6 +372,29 @@ export interface DiscountError {
   message: string;
 }
 
+/**
+ * A gift card tendered against a cart. Identified by its last 4 - the code itself is a bearer
+ * secret and is never echoed back, so there is nothing here to re-submit or display in full.
+ */
+export interface AppliedGiftCard {
+  /** gc_… */
+  id: string;
+  last4: string;
+  /** What it pays toward THIS cart, in minor units. */
+  amount: number;
+  /** What is left on the card afterwards - the value the shopper keeps for next time. */
+  remainingBalance: number;
+}
+
+/**
+ * Why a tendered gift card code was refused. `reason` is one of a stable set (`not_found`,
+ * `inactive`, `expired`, `depleted`, `currency_mismatch`, `nothing_due`); `message` is for humans.
+ */
+export interface GiftCardError {
+  reason: string;
+  message: string;
+}
+
 /** Progressive checkout collection: write whatever the shopper has filled in so far. */
 export interface PatchCartParams {
   email?: string | null;
@@ -370,6 +410,14 @@ export interface PatchCartParams {
    * `discountError` - so read that rather than treating the response as a failure.
    */
   discountCode?: string | null;
+  /**
+   * A gift card code to tender, or null to remove the one held.
+   *
+   * Unlike `discountCode`, a code that does not qualify is NOT stored - it is refused and reported
+   * on the cart as `giftCardError`. A gift card code is a bearer secret, and holding a rejected one
+   * on a cart that anyone with the token can read back would leak spendable value.
+   */
+  giftCardCode?: string | null;
 }
 
 export interface AddToCartParams {

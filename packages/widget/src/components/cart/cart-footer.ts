@@ -27,6 +27,13 @@ export interface CartFooterContext {
   onCouponInput: (value: string) => void;
   onApplyCoupon: () => Promise<void>;
   onRemoveCoupon: () => Promise<void>;
+  giftCardCode: string;
+  giftCardError: string | null;
+  giftCardLoading: boolean;
+  showGiftCardField: boolean;
+  onGiftCardInput: (value: string) => void;
+  onApplyGiftCard: () => Promise<void>;
+  onRemoveGiftCard: () => Promise<void>;
 }
 
 /** Money in the shape formatPrice wants, from a plain minor-unit amount. */
@@ -101,8 +108,80 @@ function renderCouponSection(context: CartFooterContext): TemplateResult {
   `;
 }
 
+/**
+ * The gift card field, and the card currently tendered.
+ *
+ * Deliberately NOT modelled on the coupon field, because a gift card is tender rather than a
+ * discount and the server treats it differently: a refused code is NOT stored on the cart (it is a
+ * bearer secret), so there is nothing to echo back and the input must hold its own value. That is
+ * why the error is read straight off the response into local state rather than off `cart`.
+ *
+ * `remainingBalance` is the point of the feature - a shopper spending part of a card needs to see
+ * what they keep, or the card looks consumed.
+ */
+function renderGiftCardSection(context: CartFooterContext): TemplateResult {
+  const applied = context.cart?.giftCard ?? null;
+  const error = context.giftCardError;
+
+  if (applied) {
+    return html`
+      <div class="sr-giftcard-applied">
+        <div class="sr-giftcard-applied-info">
+          <span class="sr-giftcard-badge">
+            ${t('cart.gift_card_ending', 'Gift card ••••{{last4}}').replace('{{last4}}', applied.last4)}
+          </span>
+          ${applied.remainingBalance > 0 ? html`
+            <span class="sr-giftcard-remaining">
+              ${t('cart.gift_card_remaining', '{{amount}} left after this order')
+                .replace('{{amount}}', context.formatPrice(money(context, applied.remainingBalance)))}
+            </span>
+          ` : ''}
+        </div>
+        <span class="sr-giftcard-amount">-${context.formatPrice(money(context, applied.amount))}</span>
+        <button
+          class="sr-giftcard-remove-btn"
+          @click="${context.onRemoveGiftCard}"
+          aria-label="${t('cart.remove_gift_card', 'Remove gift card')}"
+          title="${t('cart.remove_gift_card', 'Remove gift card')}"
+        >
+          <svg class="sr-giftcard-remove-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+  }
+
+  return html`
+    <div class="sr-giftcard-form">
+      <input
+        type="text"
+        class="sr-giftcard-input ${error ? 'sr-field-error' : ''}"
+        placeholder="${t('cart.gift_card_placeholder', 'Gift card code')}"
+        .value="${context.giftCardCode}"
+        autocomplete="off"
+        @input="${(e: Event) => context.onGiftCardInput((e.target as HTMLInputElement).value)}"
+        @keydown="${(e: KeyboardEvent) => e.key === 'Enter' && context.giftCardCode && context.onApplyGiftCard()}"
+        ?disabled="${context.giftCardLoading}"
+      />
+      <button
+        class="sr-giftcard-apply"
+        @click="${context.onApplyGiftCard}"
+        ?disabled="${!context.giftCardCode || context.giftCardLoading}"
+      >
+        ${context.giftCardLoading ? loadingSpinner('sm') : t('cart.apply', 'Apply')}
+      </button>
+    </div>
+    ${error ? html`<p class="sr-giftcard-error">${error}</p>` : ''}
+  `;
+}
+
 export function renderCartFooter(context: CartFooterContext): TemplateResult {
   const hasDiscount = (context.cart?.discounts?.length ?? 0) > 0;
+  const giftCard = context.cart?.giftCard ?? null;
+  // `amountDue` is what the gateway will actually collect; `total` is still what the order costs.
+  const amountDue = (context.cart?.totals as any)?.amountDue ?? 0;
+  const hasGiftCard = !!giftCard;
   const cartTotal = context.cart?.totals?.subtotal?.amount ?? 0;
   const minOrder = context.minimumOrderValue;
   const belowMinimum = minOrder != null && minOrder > 0 && cartTotal < minOrder;
@@ -117,12 +196,23 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
       </span>
     </div>
     ${context.showCouponField ? renderCouponSection(context) : ''}
+    ${context.showGiftCardField ? renderGiftCardSection(context) : ''}
     ${hasDiscount ? html`
       <div class="sr-cart-estimated-total">
         <span class="sr-cart-estimated-total-label">${t('cart.estimated_total', 'Estimated total')}</span>
         <span class="sr-cart-estimated-total-amount">
           ${keyed(context.cart?.totals?.total?.amount, html`
             <span class="sr-cart-total-price price-changed">${context.formatPrice(context.cart?.totals?.total)}</span>
+          `)}
+        </span>
+      </div>
+    ` : ''}
+    ${hasGiftCard ? html`
+      <div class="sr-cart-amount-due">
+        <span class="sr-cart-amount-due-label">${t('cart.amount_due', 'Amount due')}</span>
+        <span class="sr-cart-amount-due-amount">
+          ${keyed(amountDue, html`
+            <span class="sr-cart-total-price price-changed">${context.formatPrice(money(context, amountDue))}</span>
           `)}
         </span>
       </div>

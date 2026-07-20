@@ -328,6 +328,17 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private couponLoading = false;
 
+  // Gift card state. Unlike the coupon, the typed code lives ONLY here: a refused gift card code is
+  // not stored on the cart (it is a bearer secret), so there is no server value to fall back on.
+  @state()
+  private giftCardCode = '';
+
+  @state()
+  private giftCardError: string | null = null;
+
+  @state()
+  private giftCardLoading = false;
+
   private get checkoutSettings(): CheckoutSettings | undefined {
     return this.getStore()?.checkout;
   }
@@ -390,6 +401,11 @@ export class CartWidget extends ShoprocketElement {
     this.couponCode = '';
     this.couponError = null;
     this.couponLoading = false;
+
+    // Gift card states
+    this.giftCardCode = '';
+    this.giftCardError = null;
+    this.giftCardLoading = false;
 
     // Checkout settings states
     this.termsAccepted = false;
@@ -2656,6 +2672,13 @@ export class CartWidget extends ShoprocketElement {
       onCouponInput: (value: string) => { this.couponCode = value; this.couponError = null; },
       onApplyCoupon: () => this.applyCoupon(),
       onRemoveCoupon: () => this.removeCoupon(),
+      giftCardCode: this.giftCardCode,
+      giftCardError: this.giftCardError,
+      giftCardLoading: this.giftCardLoading,
+      showGiftCardField: (this.checkoutSettings as any)?.showGiftCardField ?? true,
+      onGiftCardInput: (value: string) => { this.giftCardCode = value; this.giftCardError = null; },
+      onApplyGiftCard: () => this.applyGiftCard(),
+      onRemoveGiftCard: () => this.removeGiftCard(),
     };
 
     return this.cartModules.cartFooter.renderCartFooter(context);
@@ -2700,6 +2723,47 @@ export class CartWidget extends ShoprocketElement {
       this.couponError = null;
     } catch (err: any) {
       console.error('Failed to remove discount:', err);
+    }
+  }
+
+  /**
+   * Tender a gift card against the cart.
+   *
+   * Same PATCH /cart shape as the coupon, but the failure handling is deliberately different: the
+   * server does NOT store a refused gift card code, so `cart.giftCardError` is the only report of
+   * the refusal and it must be copied into local state here. Reading it off `this.cart` on a later
+   * render would find nothing.
+   *
+   * The input is cleared on success because the code is a bearer secret - there is no reason to
+   * leave it sitting on screen once it is spent. On refusal it stays, to be corrected.
+   */
+  private async applyGiftCard(): Promise<void> {
+    if (!this.giftCardCode.trim() || this.giftCardLoading) return;
+    this.giftCardLoading = true;
+    this.giftCardError = null;
+    try {
+      const cart = await this.sdk.cart.patch({ giftCardCode: this.giftCardCode.trim() });
+      cartState.setCart(cart);
+      if (cart.giftCardError) {
+        this.giftCardError = cart.giftCardError.message;
+      } else {
+        this.giftCardCode = '';
+      }
+    } catch (err: any) {
+      this.giftCardError = err?.message || t('cart.gift_card_invalid', 'Invalid gift card code');
+    } finally {
+      this.giftCardLoading = false;
+    }
+  }
+
+  private async removeGiftCard(): Promise<void> {
+    try {
+      const cart = await this.sdk.cart.patch({ giftCardCode: null });
+      cartState.setCart(cart);
+      this.giftCardCode = '';
+      this.giftCardError = null;
+    } catch (err: any) {
+      console.error('Failed to remove gift card:', err);
     }
   }
   

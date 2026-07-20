@@ -1172,6 +1172,109 @@ h1, h2, h3, h4 {
     color: var(--destructive, #ef4444);
   }
 
+  /* Gift Card - tender, not a discount, so the applied row carries a balance rather than a % off */
+  .sr-giftcard-form {
+    @apply flex gap-2 my-3;
+  }
+
+  .sr-giftcard-input {
+    @apply flex-1 px-3 py-2 border text-sm shadow-card;
+    background: var(--card);
+    color: var(--foreground);
+    border-color: var(--border);
+    border-radius: var(--radius);
+    min-width: 0;
+  }
+
+  .sr-giftcard-input::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  .sr-giftcard-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .sr-giftcard-input.sr-field-error {
+    border-color: var(--destructive, #ef4444);
+  }
+
+  .sr-giftcard-apply {
+    @apply px-3 py-2 border-none text-sm font-medium cursor-pointer whitespace-nowrap shadow-card;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-radius: var(--radius);
+  }
+
+  .sr-giftcard-apply:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .sr-giftcard-apply:disabled {
+    @apply cursor-not-allowed;
+    opacity: 0.5;
+  }
+
+  .sr-giftcard-applied {
+    @apply flex items-center justify-between gap-2 my-3 text-sm;
+  }
+
+  .sr-giftcard-applied-info {
+    @apply flex flex-col gap-0.5 min-w-0;
+  }
+
+  .sr-giftcard-badge {
+    @apply text-xs font-semibold px-2 py-0.5 self-start;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-radius: var(--radius);
+  }
+
+  .sr-giftcard-remaining {
+    @apply text-xs;
+    color: var(--muted-foreground);
+  }
+
+  .sr-giftcard-amount {
+    color: var(--success, #22c55e);
+    font-weight: 500;
+    margin-inline-start: auto;
+  }
+
+  .sr-giftcard-remove-btn {
+    @apply bg-transparent border-none cursor-pointer p-1 transition-colors;
+    color: var(--muted-foreground);
+  }
+
+  .sr-giftcard-remove-btn:hover {
+    color: var(--destructive);
+  }
+
+  .sr-giftcard-remove-icon {
+    @apply w-4 h-4;
+  }
+
+  .sr-giftcard-error {
+    @apply text-xs mt-1 mb-2;
+    color: var(--destructive, #ef4444);
+  }
+
+  /* Amount due - what is left to pay once a gift card has been tendered */
+  .sr-cart-amount-due {
+    @apply flex justify-between items-center pt-2 mt-2;
+    border-top: 1px solid var(--border);
+  }
+
+  .sr-cart-amount-due-label {
+    @apply text-sm font-medium;
+    color: var(--card-foreground);
+  }
+
+  .sr-cart-amount-due-amount {
+    @apply text-base font-semibold;
+    color: var(--card-foreground);
+  }
+
   .sr-minimum-order-notice {
     @apply text-xs text-center py-2;
     color: var(--destructive, #ef4444);
