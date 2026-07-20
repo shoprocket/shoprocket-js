@@ -42,6 +42,25 @@ export interface Money {
   saleName?: string;
 }
 
+/**
+ * One jurisdiction's share of the tax on an order, so a shopper can see WHY the tax is what it is
+ * rather than one opaque figure.
+ *
+ * NOT SERVED YET. The API puts a flat `taxTotal` on the wire and nothing else, and that total is
+ * currently always 0 because no rate source exists to resolve against. The rendering here is kept
+ * against the day a rate source lands - the checkout screens degrade to the flat figure until then,
+ * which is why every consumer treats this as optional.
+ */
+export interface TaxBreakdownItem {
+  /** Jurisdiction name as the shopper should see it, e.g. "VAT" or "NY State Tax". */
+  name: string;
+  /** Percentage, not a fraction: 20 means 20%. */
+  rate: number;
+  /** Minor units, like every other amount on this surface. */
+  amount: number;
+  formatted: string;
+}
+
 /** Server-resolved rendition URLs. The client never constructs a CDN path itself. */
 export interface MediaUrls {
   thumb?: string;
@@ -350,6 +369,11 @@ export interface Cart {
   /** Why the submitted gift card code was refused, or null. Render it beside the field. */
   giftCardError: GiftCardError | null;
   totals: CartTotals;
+  /**
+   * Per-jurisdiction split of `totals.taxTotal`. Optional because the API does not serve it yet -
+   * see `TaxBreakdownItem`. Render the flat total when it is absent.
+   */
+  taxBreakdown?: TaxBreakdownItem[];
   expiresAt: string;
   updatedAt: string;
 }
