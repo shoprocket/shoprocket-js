@@ -815,32 +815,6 @@ export interface EmbedConfig {
 }
 
 // ============================================================================
-// Auth Types
-// ============================================================================
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  name?: string;
-}
-
-export interface AuthResponse {
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
-  user?: {
-    id: string;
-    email: string;
-    name?: string;
-  };
-}
-
-// ============================================================================
 // Review Types
 // ============================================================================
 

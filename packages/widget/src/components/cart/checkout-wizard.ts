@@ -49,9 +49,7 @@ export interface CheckoutWizardContext {
   isGuest: boolean;
   checkingCustomer: boolean;
   customerCheckResult?: CustomerCheckResult;
-  showPasswordField: boolean;
   authDismissed: boolean;
-  customerPassword: string;
   signingIn: boolean;
   sendingLoginLink: boolean;
   loginLinkSent: boolean;
@@ -105,10 +103,7 @@ export interface CheckoutWizardContext {
   handleCustomerChange: (e: CustomEvent) => void;
   handleCustomerCheck: (e: CustomEvent) => void;
   handleGuestToggle: (e: CustomEvent) => void;
-  handlePasswordInput: (e: Event) => void;
   handleSendLoginLink: () => Promise<void>;
-  handlePasswordLogin: () => Promise<void>;
-  handleShowPasswordField: () => void;
   handleDismissAuth: () => void;
   handleOtpInput: (e: Event, index: number) => void;
   handleOtpKeydown: (e: KeyboardEvent, index: number) => void;
@@ -523,107 +518,32 @@ function renderCustomerContent(context: CheckoutWizardContext): TemplateResult {
         <span class="sr-spinner"></span>
         <span class="sr-checking-text">Checking email...</span>
       </div>
-    ` : context.customerCheckResult && context.customerCheckResult.exists ? html`
+    ` : context.customerCheckResult && context.customerCheckResult.exists && !context.authDismissed ? html`
+      <!--
+        A recognised shopper has exactly one way back in: a code to their inbox. There is no
+        password branch because customers do not have passwords - v3 dropped the column outright,
+        and this API never had one. See the customer-auth notes in the SDK's AccountService.
+      -->
       <div class="sr-auth-section">
-        ${(() => {
-          // API now returns camelCase via CustomerCheckResource
-          if (context.customerCheckResult!.exists && !context.customerCheckResult!.hasPassword) {
-            // Customer exists but no password (guest checkout previously)
-            return html`
-                <!-- Guest customer (no account) -->
-                ${!context.loginLinkSent ? html`
-                  <div class="sr-returning-notice">
-                    <svg class="sr-notice-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <div class="sr-notice-text">
-                      <p>Welcome back!</p>
-                      <button
-                        class="sr-auth-link"
-                        ?disabled="${context.sendingLoginLink}"
-                        @click="${context.handleSendLoginLink}"
-                      >
-                        ${context.sendingLoginLink ? html`
-                          <span class="sr-spinner"></span> ${t('action.sending', 'Sending...')}
-                        ` : t('checkout.load_saved_details', 'Load my saved details')}
-                      </button>
-                    </div>
-                  </div>
-                ` : ''}
-              `;
-
-          } else if (context.customerCheckResult!.exists && context.customerCheckResult!.hasPassword) {
-            // Customer exists with password (registered account)
-            // Compact banner — expands to password field on demand, dismissible
-            if (context.authDismissed) return '';
-
-            return html`
-                ${context.showPasswordField ? html`
-                  <!-- Expanded: password sign-in -->
-                  <div class="sr-auth-banner">
-                    <span class="sr-auth-banner-text">${t('checkout.welcome_back', 'Welcome back!')}</span>
-                    <button class="sr-auth-banner-dismiss" @click="${context.handleDismissAuth}" aria-label="${t('action.dismiss', 'Dismiss')}">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                    </button>
-                  </div>
-                  <div class="sr-field-group">
-                    <input
-                      type="password"
-                      id="password"
-                      class="sr-field-input peer ${context.customerPassword ? 'has-value' : ''}"
-                      .value="${context.customerPassword}"
-                      placeholder=" "
-                      autocomplete="current-password"
-                      @input="${context.handlePasswordInput}"
-                      @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && context.customerPassword && !context.signingIn) context.handlePasswordLogin(); }}"
-                    >
-                    <label class="sr-field-label" for="password">${t('field.password', 'Password')}</label>
-                  </div>
-
-                  <button
-                    class="sr-btn sr-btn-primary"
-                    ?disabled="${!context.customerPassword || context.signingIn}"
-                    @click="${context.handlePasswordLogin}"
-                  >
-                    ${context.signingIn ? html`
-                      <span class="sr-spinner"></span> ${t('action.signing_in', 'Signing in...')}
-                    ` : t('action.sign_in', 'Sign In')}
-                  </button>
-
-                  <div class="sr-auth-banner-alt">
-                    <button
-                      class="sr-auth-link"
-                      ?disabled="${context.sendingLoginLink}"
-                      @click="${context.handleSendLoginLink}"
-                    >
-                      ${context.sendingLoginLink ? t('action.sending', 'Sending...') : t('checkout.email_sign_in_code', 'Email me a sign-in code')}
-                    </button>
-                  </div>
-                ` : html`
-                  <!-- Collapsed: compact banner with inline actions -->
-                  <div class="sr-auth-banner">
-                    <span class="sr-auth-banner-text">
-                      <strong>${t('checkout.welcome_back', 'Welcome back!')}</strong><br>
-                      <button class="sr-auth-link" @click="${context.handleShowPasswordField}">${t('action.sign_in', 'Sign in')}</button>
-                      ${t('checkout.or', 'or')}
-                      <button
-                        class="sr-auth-link"
-                        ?disabled="${context.sendingLoginLink}"
-                        @click="${context.handleSendLoginLink}"
-                      >${context.sendingLoginLink ? t('action.sending', 'Sending...') : t('checkout.email_code', 'email me a code')}</button>
-                      ${t('checkout.to_load_details', 'to load saved details.')}
-                    </span>
-                    <button class="sr-auth-banner-dismiss" @click="${context.handleDismissAuth}" aria-label="${t('action.dismiss', 'Dismiss')}">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                    </button>
-                  </div>
-                `}
-              `;
-          }
-
-          // Shouldn't reach here but return empty for safety
-          return '';
-        })()}
+        ${!context.loginLinkSent ? html`
+          <div class="sr-returning-notice">
+            <svg class="sr-notice-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="sr-notice-text">
+              <p>${t('checkout.welcome_back', 'Welcome back!')}</p>
+              <button
+                class="sr-auth-link"
+                ?disabled="${context.sendingLoginLink}"
+                @click="${context.handleSendLoginLink}"
+              >
+                ${context.sendingLoginLink ? html`
+                  <span class="sr-spinner"></span> ${t('action.sending', 'Sending...')}
+                ` : t('checkout.load_saved_details', 'Load my saved details')}
+              </button>
+            </div>
+          </div>
+        ` : ''}
       </div>
     ` : ''}
   `;

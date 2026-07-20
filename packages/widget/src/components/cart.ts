@@ -116,7 +116,6 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private cart: Cart | null = null;
   
-  @state()
   
   @state()
   private recentlyAddedProduct: any = null;
@@ -224,17 +223,12 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private customerCheckResult?: {
     exists: boolean;
-    has_password: boolean;
   };
 
-  @state()
-  private showPasswordField = false;
 
   @state()
   private authDismissed = false;
 
-  @state()
-  private customerPassword = '';
 
   @state()
   private sendingLoginLink = false;
@@ -305,19 +299,6 @@ export class CartWidget extends ShoprocketElement {
   @state()
   private redirecting = false;
 
-  // Account creation state (post-checkout)
-  @state()
-  private accountPassword = '';
-
-  @state()
-  private creatingAccount = false;
-
-  @state()
-  private accountCreated = false;
-
-  @state()
-  private accountError = '';
-
   // Coupon code state
   @state()
   private couponCode = '';
@@ -343,8 +324,6 @@ export class CartWidget extends ShoprocketElement {
     return this.getStore()?.checkout;
   }
 
-  // Tracks if user authenticated during this checkout session (OTP or password)
-  private authenticatedDuringCheckout = false;
 
   private customerCheckTimeout?: NodeJS.Timeout;
 
@@ -384,18 +363,11 @@ export class CartWidget extends ShoprocketElement {
 
     // Auth states
     this.loginLinkSent = false;
-    this.showPasswordField = false;
     this.authDismissed = false;
-    this.customerPassword = '';
     this.otpCode = '';
     this.otpError = '';
 
     // Account creation states
-    this.accountPassword = '';
-    this.creatingAccount = false;
-    this.accountCreated = false;
-    this.accountError = '';
-    this.authenticatedDuringCheckout = false;
 
     // Coupon states
     this.couponCode = '';
@@ -430,11 +402,6 @@ export class CartWidget extends ShoprocketElement {
 
     // Initialize HashRouter first
     this.hashRouter = HashRouter.getInstance();
-
-    // Restore session state that survives page refreshes
-    if (sessionStorage.getItem('shoprocket_authenticated') === 'true') {
-      this.authenticatedDuringCheckout = true;
-    }
 
     // Check for payment return from gateway
     await this.checkPaymentReturn();
@@ -1132,11 +1099,6 @@ export class CartWidget extends ShoprocketElement {
       return;
     }
 
-    // Restore authentication flag from sessionStorage (survives payment redirect)
-    if (sessionStorage.getItem('shoprocket_authenticated') === '1') {
-      this.authenticatedDuringCheckout = true;
-    }
-
     // Step 4: ASK the server what happened.
     //
     // Being redirected back proves the shopper returned from the gateway, not that they paid: the
@@ -1161,7 +1123,6 @@ export class CartWidget extends ShoprocketElement {
       if (status === 'paid') {
         this.track(EVENTS.PURCHASE, order);
         sessionStorage.removeItem('shoprocket_order_id');
-        sessionStorage.removeItem('shoprocket_authenticated');
         await this.finalizePlacedOrder(order);
       } else if (status === 'pending') {
         // The browser beat the webhook back. Show "processing" and poll.
@@ -1333,7 +1294,6 @@ export class CartWidget extends ShoprocketElement {
 
     // Clean up sessionStorage
     sessionStorage.removeItem('shoprocket_order_id');
-    sessionStorage.removeItem('shoprocket_authenticated');
 
     // Clear cart state and reset
     cartState.clear();
@@ -1754,7 +1714,6 @@ export class CartWidget extends ShoprocketElement {
     
     // Reset states when email changes
     this.customerCheckResult = undefined;
-    this.showPasswordField = false;
     this.authDismissed = false;
     this.loginLinkSent = false;
     this.otpCode = '';
@@ -1768,19 +1727,17 @@ export class CartWidget extends ShoprocketElement {
       // Store the email we're checking
       this.lastCheckedEmail = email;
       
-      // Recognising a returning shopper by email is NOT wired up. v3 had POST /cart/check-customer
-      // returning {exists, hasPassword}; the rebuilt API replaces it with POST /customer/otp, whose
-      // `recognised` flag says the same thing - but that is the customer-auth vertical and the
-      // OTP-only surface has no password concept at all, so the sign-in banner below it would be
-      // wrong even if this were wired. Left dormant deliberately rather than calling a method that
-      // no longer exists and erroring on every keystroke.
+      // Recognising a returning shopper by email is still NOT wired up, and cannot be from here.
+      // v3 had POST /cart/check-customer, a probe that answered without side effects. This API
+      // folded recognition into POST /customer/otp, which answers `recognised` but SENDS A CODE to
+      // do it - so calling it on a debounced keystroke would email people while they are still
+      // typing. Recognition therefore has to wait for either a non-sending probe route or an
+      // explicit "sign in" click. Left dormant rather than made spammy.
       try {
         this.checkingCustomer = false;
         this.customerCheckResult = null;
-        this.showPasswordField = false;
         this.authDismissed = false;
         this.loginLinkSent = false;
-        this.customerPassword = '';
       } catch (error) {
         console.error('Customer check failed:', error);
       } finally {
@@ -1791,15 +1748,6 @@ export class CartWidget extends ShoprocketElement {
 
   private async handleSendLoginLink(): Promise<void> {
     if (!this.customerData.email || this.sendingLoginLink) return;
-
-    // Track method selection when user had both options
-    if (this.customerCheckResult?.hasPassword) {
-      this.track(EVENTS.CHECKOUT_AUTH_METHOD_SELECTED, {
-        email: this.customerData.email,
-        method: 'otp',
-        had_password_option: true
-      });
-    }
 
     // Track auth request
     this.track(EVENTS.CHECKOUT_AUTH_REQUESTED, {
@@ -1925,8 +1873,6 @@ export class CartWidget extends ShoprocketElement {
         CookieManager.setAccessToken(result.token);
         this.sdk.setCustomerToken(result.token);
 
-        this.authenticatedDuringCheckout = true;
-        sessionStorage.setItem('shoprocket_authenticated', '1');
 
         // Track successful auth
         this.track(EVENTS.CHECKOUT_AUTH_SUCCESS, {
@@ -2009,85 +1955,6 @@ export class CartWidget extends ShoprocketElement {
       firstInput?.focus();
     } finally {
       this.verifyingOtp = false;
-    }
-  }
-
-  private async handlePasswordLogin(): Promise<void> {
-    if (!this.customerPassword || !this.customerData.email || this.signingIn) return;
-
-    // Track method selection (password chosen over OTP)
-    this.track(EVENTS.CHECKOUT_AUTH_METHOD_SELECTED, {
-      email: this.customerData.email,
-      method: 'password',
-      had_password_option: true
-    });
-
-    try {
-      this.signingIn = true;
-
-      // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
-      const result = await this.sdk.cart.passwordLogin(this.customerData.email, this.customerPassword);
-
-      if (!result.authenticated) {
-        throw new Error(result.message || 'Invalid email or password.');
-      }
-
-      this.authenticatedDuringCheckout = true;
-      sessionStorage.setItem('shoprocket_authenticated', '1');
-
-      // Track successful auth
-      this.track(EVENTS.CHECKOUT_AUTH_SUCCESS, {
-        email: this.customerData.email,
-        step: 'customer',
-        method: 'password'
-      });
-
-      // Clear auth state
-      this.loginLinkSent = false;
-      this.customerPassword = '';
-      this.customerCheckResult = undefined;
-
-      // Reload checkout data with saved addresses
-      await this.loadCheckoutData(true);
-
-      // Advance to shipping
-      this.checkoutStep = 'shipping';
-
-      // Track auto-advance after authentication
-      this.track(EVENTS.CHECKOUT_CONTACT_COMPLETED, {
-        step_name: 'contact_information',
-        step_number: 1,
-        next_step: 'shipping_address',
-        total_steps: this.sameAsBilling ? 4 : 5,
-        auto_advance: true,
-        reason: 'authenticated_user'
-      });
-
-      this.track(EVENTS.CHECKOUT_SHIPPING_VIEWED, {
-        step_name: 'shipping_address',
-        step_number: 2,
-        from_step: 'contact_information',
-        total_steps: this.sameAsBilling ? 4 : 5
-      });
-    } catch (error: any) {
-      console.error('Password login failed:', error);
-
-      this.track(EVENTS.CHECKOUT_AUTH_FAILED, {
-        email: this.customerData.email,
-        step: 'customer',
-        method: 'password',
-        error: error.status === 429 ? 'rate_limited' : 'invalid_credentials'
-      });
-
-      let errorMessage = t('error.login_failed', 'Invalid email or password. Please try again.');
-      if (error.message && error.message !== 'API request failed') {
-        errorMessage = error.message;
-      }
-
-      this.showAnimatedError(errorMessage);
-      this.customerPassword = '';
-    } finally {
-      this.signingIn = false;
     }
   }
 
@@ -2783,10 +2650,6 @@ export class CartWidget extends ShoprocketElement {
   private defaultAccountCreationContext() {
     return {
       isAuthenticated: true, // Hide account creation on non-success screens
-      accountPassword: '',
-      creatingAccount: false,
-      accountCreated: false,
-      accountError: '',
       handleAccountPasswordInput: () => {},
       handleCreateAccount: async () => {}
     };
@@ -2824,50 +2687,6 @@ export class CartWidget extends ShoprocketElement {
       redirectUrl: this.checkoutSettings?.redirectUrl,
       redirecting: this.redirecting,
 
-      // Account creation - hide if authenticated or customer already has an account
-      isAuthenticated: this.authenticatedDuringCheckout || !!this.customerCheckResult?.hasPassword || !!this.cart?.isAuthenticated,
-      accountPassword: this.accountPassword,
-      creatingAccount: this.creatingAccount,
-      accountCreated: this.accountCreated,
-      accountError: this.accountError,
-      handleAccountPasswordInput: (e: Event) => {
-        this.accountPassword = (e.target as HTMLInputElement).value;
-        this.accountError = '';
-      },
-      handleCreateAccount: async () => {
-        if (this.accountPassword.length < 8) {
-          this.accountError = t('error.password_too_short', 'Password must be at least 8 characters.');
-          return;
-        }
-
-        try {
-          this.creatingAccount = true;
-          this.accountError = '';
-
-          const email = customerEmail || this.customerData.email;
-          // @ts-ignore - TypeScript has module resolution issues but method exists at runtime
-          const result = await this.sdk.cart.createAccount(email, this.accountPassword);
-
-          if (!result.authenticated) {
-            throw new Error(result.message || 'Failed to create account.');
-          }
-
-          this.accountCreated = true;
-          this.accountPassword = '';
-
-          this.track(EVENTS.CHECKOUT_ACCOUNT_CREATED, {
-            email,
-            method: 'post_checkout'
-          });
-        } catch (error: any) {
-          console.error('Account creation failed:', error);
-          this.accountError = error.message && error.message !== 'API request failed'
-            ? error.message
-            : t('error.account_creation_failed', 'Failed to create account. Please try again.');
-        } finally {
-          this.creatingAccount = false;
-        }
-      }
     };
 
     return this.cartModules.orderResult.renderOrderSuccess(this.orderDetails as OrderDetails, customerEmail, context);
@@ -3083,9 +2902,7 @@ export class CartWidget extends ShoprocketElement {
       isGuest: this.isGuest,
       checkingCustomer: this.checkingCustomer,
       customerCheckResult: this.customerCheckResult,
-      showPasswordField: this.showPasswordField,
       authDismissed: this.authDismissed,
-      customerPassword: this.customerPassword,
       signingIn: this.signingIn,
       sendingLoginLink: this.sendingLoginLink,
       loginLinkSent: this.loginLinkSent,
@@ -3121,10 +2938,7 @@ export class CartWidget extends ShoprocketElement {
       handleCustomerChange: (e) => this.handleCustomerChange(e),
       handleCustomerCheck: (e) => this.handleCustomerCheck(e),
       handleGuestToggle: (e: CustomEvent) => { this.isGuest = e.detail.isGuest; },
-      handlePasswordInput: (e: Event) => { this.customerPassword = (e.target as HTMLInputElement).value; },
       handleSendLoginLink: () => this.handleSendLoginLink(),
-      handlePasswordLogin: () => this.handlePasswordLogin(),
-      handleShowPasswordField: () => { this.showPasswordField = true; },
       handleDismissAuth: () => { this.authDismissed = true; },
       handleOtpInput: (e, i) => this.handleOtpInput(e, i),
       handleOtpKeydown: (e, i) => this.handleOtpKeydown(e, i),

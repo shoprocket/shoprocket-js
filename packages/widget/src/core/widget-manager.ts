@@ -176,39 +176,33 @@ export class WidgetManager {
    */
   public auth = {
     /**
-     * Login with email and password
-     * @example Shoprocket.auth.login('user@example.com', 'password')
+     * Email a one-time sign-in code.
+     *
+     * There is no password login, and no registration step: a shopper who has ever checked out
+     * with this address already has an account, and this is how they reach it. `sent: false` means
+     * the address has never bought here, so nothing was emailed.
+     *
+     * @example Shoprocket.auth.requestCode('user@example.com')
      */
-    login: async (email: string, password: string) => {
+    requestCode: async (email: string) => {
       const manager = window.Shoprocket as WidgetManager;
       const sdk = manager.getSdk();
-      const response = await sdk.auth.login({ email, password });
-      const token = response.accessToken;
-      if (token) {
-        CookieManager.setAccessToken(token);
-        sdk.setCustomerToken(token);
-        // Server automatically links cart to user via headers
-      }
-      return response;
+      return sdk.account.requestCode(email);
     },
-    
+
     /**
-     * Register a new user
-     * @example Shoprocket.auth.register('user@example.com', 'password', 'John Doe')
+     * Exchange a code for a session. Persists it, so subsequent calls are authenticated.
+     * @example Shoprocket.auth.verifyCode('user@example.com', '123456')
      */
-    register: async (email: string, password: string, name?: string) => {
+    verifyCode: async (email: string, code: string) => {
       const manager = window.Shoprocket as WidgetManager;
       const sdk = manager.getSdk();
-      const response = await sdk.auth.register({ email, password, name });
-      const token = response.accessToken;
-      if (token) {
-        CookieManager.setAccessToken(token);
-        sdk.setCustomerToken(token);
-        // Server automatically links cart to user via headers
-      }
-      return response;
+      const result = await sdk.account.verifyCode(email, code);
+      CookieManager.setAccessToken(result.token);
+      sdk.setCustomerToken(result.token);
+      return result;
     },
-    
+
     /**
      * Logout the current user
      * @example Shoprocket.auth.logout()
@@ -219,7 +213,7 @@ export class WidgetManager {
       
       try {
         // Call server logout to cleanup session
-        await sdk.auth.logout();
+        await sdk.account.signOut();
       } catch (error) {
         // Ignore server errors, continue with client cleanup
       }

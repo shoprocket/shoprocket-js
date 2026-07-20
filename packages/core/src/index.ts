@@ -8,7 +8,6 @@ import { SessionService } from './services/session';
 import { ProductsService } from './services/products';
 import { CartService } from './services/cart';
 import { StoreService } from './services/store';
-import { AuthService } from './services/auth';
 import { LocationService } from './services/location';
 import { CategoriesService } from './services/categories';
 import { EmbedsService } from './services/embeds';
@@ -33,7 +32,6 @@ export class ShoprocketCore {
   public products: ProductsService;
   public cart: CartService;
   public store: StoreService;
-  public auth: AuthService;
   public location: LocationService;
   public categories: CategoriesService;
   public embeds: EmbedsService;
@@ -63,7 +61,6 @@ export class ShoprocketCore {
     this.products = new ProductsService(this.api);
     this.cart = new CartService(this.api);
     this.store = new StoreService(this.api);
-    this.auth = new AuthService(this.api);
     this.location = new LocationService(this.api);
     this.categories = new CategoriesService(this.api);
     this.embeds = new EmbedsService(this.api);
@@ -140,14 +137,14 @@ export class ShoprocketCore {
   }
 
   /**
-   * Set auth token
+   * Set the customer session token
    */
   setCustomerToken(token: string): void {
     this.api.setCustomerToken(token);
   }
 
   /**
-   * Clear auth token
+   * Clear the customer session token
    */
   clearCustomerToken(): void {
     this.api.clearCustomerToken();
@@ -161,7 +158,6 @@ export * from './services/session';
 export * from './services/products';
 export * from './services/cart';
 export * from './services/store';
-export * from './services/auth';
 export * from './services/location';
 export * from './services/categories';
 export * from './services/embeds';

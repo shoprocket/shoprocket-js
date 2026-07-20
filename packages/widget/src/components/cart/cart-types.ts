@@ -8,11 +8,11 @@ import type { AddressData, AddressFormErrors } from '../address-form';
 export type CheckoutStep = 'customer' | 'shipping' | 'billing' | 'payment' | 'review';
 
 /**
- * Customer check result from API
+ * Whether this email has shopped here before. There is no password flag: customers do not have
+ * passwords, so recognition only ever unlocks "email me a code".
  */
 export interface CustomerCheckResult {
   exists: boolean;
-  has_password: boolean;
 }
 
 /**
