@@ -1,7 +1,7 @@
 import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
-import type { Product } from '@shoprocket/core';
+import { variantOptionValueIds, type Product } from '@shoprocket/core';
 import { formatProductPrice } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
@@ -253,13 +253,13 @@ export class BuyButton extends ShoprocketElement {
     // Get variant details if a specific variant was selected
     let variantName: string | undefined = undefined;
     let variantPrice = this.productData.price;
-    let variantInventory = this.productData.inventoryCount ?? 0;
+    let variantInventory = this.productData.inventoryQuantity ?? 0;
     if (this.variant && this.productData.variants) {
       const selectedVariant = this.productData.variants.find(v => v.id === this.variant);
       if (selectedVariant) {
         variantName = this.getVariantText(selectedVariant);
         variantPrice = selectedVariant.price;
-        variantInventory = selectedVariant.inventoryCount ?? 0;
+        variantInventory = selectedVariant.inventoryQuantity ?? 0;
       }
     }
 
@@ -275,8 +275,8 @@ export class BuyButton extends ShoprocketElement {
       sourceUrl: window.location.href
     };
 
-    // Include stock info for validation
-    const stockInfo = {
+    // Include stock info for validation (gift cards are stock-exempt server-side)
+    const stockInfo = this.productData.kind === 'gift_card' ? { trackInventory: false } : {
       trackInventory: this.productData.trackInventory ?? true,
       availableQuantity: variantInventory
     };
@@ -303,7 +303,7 @@ export class BuyButton extends ShoprocketElement {
     if (!this.productData?.options || !variant.optionValues) return undefined;
 
     const variantParts: string[] = [];
-    const variantOptionValues = variant.optionValues || variant.optionValueIds || [];
+    const variantOptionValues = variantOptionValueIds(variant);
 
     this.productData.options.forEach((option: any) => {
       const matchingValue = option.values?.find((v: any) =>
@@ -465,18 +465,19 @@ export class BuyButton extends ShoprocketElement {
     const targetVariantId = this.variant || this.productData.defaultVariantId;
 
     // Get inventory count for the target variant
-    let inventoryCount = this.productData.inventoryCount;
+    let inventoryQuantity = this.productData.inventoryQuantity;
     if (this.variant && this.productData.variants) {
       const targetVariant = this.productData.variants.find(v => v.id === this.variant);
-      inventoryCount = targetVariant?.inventoryCount;
+      inventoryQuantity = targetVariant?.inventoryQuantity;
     }
 
-    // Check if all available stock is already in cart (bundles don't track inventory at bundle level)
-    const isBundle = this.productData.productType === 'bundle';
+    // Check if all available stock is already in cart. Bundles don't track inventory at bundle
+    // level, and gift cards are stock-exempt (minted per unit server-side).
+    const isBundle = this.productData.productType === 'bundle' || this.productData.kind === 'gift_card';
     const stockStatus = !isBundle ? isAllStockInCart(
       this.productData.id,
       targetVariantId,
-      inventoryCount
+      inventoryQuantity
     ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
 
@@ -515,7 +516,7 @@ export class BuyButton extends ShoprocketElement {
               ${t('cart.item_added', 'Added')}
             </span>
           ` : isOutOfStock ? html`<span class="shrink-0">${t('product.out_of_stock', 'Out of Stock')}</span>` :
-            allStockInCart ? html`<span class="shrink-0">Max (${inventoryCount}) in cart</span>` :
+            allStockInCart ? html`<span class="shrink-0">Max (${inventoryQuantity}) in cart</span>` :
             this.action === 'view' ? html`<span class="shrink-0">View Product</span>` :
             needsOptions && !this.variant ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">${t('cart.add_to_cart', 'Add to Cart')}</span>`}
         </div>

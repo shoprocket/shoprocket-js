@@ -69,7 +69,7 @@ function getAvailability(product: Product): string {
   }
 
   // Check inventory count
-  const count = product.inventoryCount ?? 0;
+  const count = product.inventoryQuantity ?? 0;
   return count > 0 ? AVAILABILITY.IN_STOCK : AVAILABILITY.OUT_OF_STOCK;
 }
 

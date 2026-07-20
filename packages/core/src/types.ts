@@ -104,16 +104,39 @@ export interface ProductOption {
   }>;
 }
 
+/** A variant's option value AS SERVED: the API names both the option and the chosen value. */
+export interface VariantOptionValue {
+  optionId: string;
+  optionName: string;
+  valueId: string;
+  value: string;
+}
+
 export interface ProductVariant {
   id: string;
   name?: string;
   sku?: string;
   price: Money;
   mediaId?: string;
-  optionValues?: string[];
+  /** Served as objects; bare value-id strings are the legacy local shape, still tolerated. */
+  optionValues?: Array<VariantOptionValue | string>;
   optionValueIds?: string[];
-  inventoryCount?: number;
+  inventoryQuantity?: number;
   inventoryPolicy?: 'deny' | 'continue';
+}
+
+/**
+ * A variant's option VALUE IDS whichever shape it carries - the one comparison key every variant
+ * matcher should use. The API serves `optionValues` as objects; older local paths held bare id
+ * strings under `optionValues` or `optionValueIds`. Matching on the raw array is how the widget
+ * ended up with a variant picker that could never find a variant.
+ */
+export function variantOptionValueIds(variant: {
+  optionValues?: Array<VariantOptionValue | string>;
+  optionValueIds?: string[];
+}): string[] {
+  const vals = variant.optionValues ?? variant.optionValueIds ?? [];
+  return vals.map((v) => (typeof v === 'string' ? v : v.valueId));
 }
 
 export interface BundleComponentVariant {
@@ -121,7 +144,7 @@ export interface BundleComponentVariant {
   name?: string;
   price: Money;
   inStock: boolean;
-  inventoryCount?: number;
+  inventoryQuantity?: number;
   optionValues?: string[];
 }
 
@@ -165,6 +188,13 @@ export interface Product {
   id: string;
   name: string;
   slug: string;
+  /**
+   * What the product IS (D37, immutable after create). `gift_card` is exempt from stock gating
+   * everywhere - the server mints value per unit on payment and its inventory engine skips
+   * gift_card lines outright, so a client applying physical stock rules to one refuses a sale
+   * the platform would happily take.
+   */
+  kind?: 'physical' | 'gift_card';
   summary?: string;
   description?: string;
   fullDescription?: string;
@@ -178,7 +208,7 @@ export interface Product {
   defaultVariantId?: string;
   trackInventory: boolean;
   inStock?: boolean;
-  inventoryCount?: number;
+  inventoryQuantity?: number;
   hasVariants?: boolean;
   variantCount?: number;
   hasRequiredOptions?: boolean;

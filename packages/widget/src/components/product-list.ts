@@ -119,12 +119,15 @@ export class ProductListTemplates {
     const isAdded = !isSkeleton && addedToCartProducts.has(product.id);
     const isOutOfStock = !isSkeleton && product.inStock === false;
 
-    // Check if all available stock is already in cart (bundles don't track inventory at bundle level)
+    // Check if all available stock is already in cart. Bundles don't track inventory at bundle
+    // level, and gift cards are stock-exempt (the server mints per unit and skips them in
+    // inventory), so neither is ever gated here.
     const isBundle = product.productType === 'bundle';
-    const stockStatus = !isSkeleton && !isBundle ? isAllStockInCart(
+    const stockExempt = isBundle || product.kind === 'gift_card';
+    const stockStatus = !isSkeleton && !stockExempt ? isAllStockInCart(
       product.id,
       product.defaultVariantId,
-      product.inventoryCount
+      product.inventoryQuantity
     ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
     
@@ -224,7 +227,7 @@ export class ProductListTemplates {
               <span class="sr-button-content">
                 ${isSkeleton ? '' :
                   isOutOfStock ? html`<span class="sr-button-text">${t('product.out_of_stock', 'Out of Stock')}</span>` :
-                  allStockInCart ? html`<span class="sr-button-text">Max (${product.inventoryCount}) in cart</span>` :
+                  allStockInCart ? html`<span class="sr-button-text">Max (${product.inventoryQuantity}) in cart</span>` :
                   isAdded ? html`
                     <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>

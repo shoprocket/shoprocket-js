@@ -1091,10 +1091,10 @@ export class ProductCatalog extends ShoprocketElement {
       sourceUrl: window.location.href
     };
 
-    // Include stock info for validation
-    const stockInfo = {
+    // Include stock info for validation (gift cards are stock-exempt server-side)
+    const stockInfo = product.kind === 'gift_card' ? { trackInventory: false } : {
       trackInventory: product.trackInventory ?? true, // Default to true if not specified
-      availableQuantity: product.inventoryCount ?? 0
+      availableQuantity: product.inventoryQuantity ?? 0
     };
 
     // Dispatch event to cart component - it will handle everything

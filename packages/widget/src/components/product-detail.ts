@@ -2,7 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
-import type { Product, ProductVariant, ProductOption, BundleSelection, Review, ReviewStats } from '@shoprocket/core';
+import { variantOptionValueIds, type Product, type ProductVariant, type ProductOption, type BundleSelection, type Review, type ReviewStats } from '@shoprocket/core';
 import { loadingSpinner } from './loading-spinner';
 import { formatProductPrice, getMediaSizes, formatNumber } from '../utils/formatters';
 import { isAllStockInCart } from '../utils/cart-utils';
@@ -141,6 +141,19 @@ export class ProductDetail extends ShoprocketElement {
   /** True as soon as we know it's a bundle (even before config loads) */
   private get isBundleProduct(): boolean {
     return this.product?.productType === 'bundle';
+  }
+
+  /**
+   * The stock figure that gates buying, or undefined when stock does not gate this product at
+   * all. A gift card is ALWAYS exempt: the server mints value per unit at payment and its
+   * inventory engine skips gift_card lines outright, so stock-gating one client-side refuses a
+   * sale the platform would take. undefined flows through every consumer as "unlimited"
+   * (isAllStockInCart answers false, quantity caps fall back to 999).
+   */
+  private get gateInventory(): number | undefined {
+    if (this.product?.kind === 'gift_card') return undefined;
+    const v = this.selectedVariant ? this.selectedVariant.inventoryQuantity : this.product?.inventoryQuantity;
+    return v ?? undefined;
   }
 
   protected override async updated(changedProperties: Map<string, any>): Promise<void> {
@@ -428,9 +441,7 @@ export class ProductDetail extends ShoprocketElement {
 
     // Get max quantity based on stock
     const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
-    const totalInventory = this.selectedVariant ?
-      this.selectedVariant.inventoryCount :
-      this.product.inventoryCount;
+    const totalInventory = this.gateInventory;
 
     // Check how many are already in cart
     const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
@@ -515,9 +526,7 @@ export class ProductDetail extends ShoprocketElement {
 
     // Get max quantity
     const variantId = this.selectedVariant?.id || this.product?.defaultVariantId;
-    const totalInventory = this.selectedVariant ?
-      this.selectedVariant.inventoryCount :
-      this.product?.inventoryCount;
+    const totalInventory = this.gateInventory;
     const stockStatus = isAllStockInCart(this.product?.id || '', variantId, totalInventory);
     // Calculate available quantity (total - what's in cart)
     // If no inventory tracking, default to 999 max
@@ -588,10 +597,8 @@ export class ProductDetail extends ShoprocketElement {
     let totalInventory = 0;
     if (!this.isBundleProduct) {
       const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
-      totalInventory = this.selectedVariant ?
-        (this.selectedVariant.inventoryCount ?? 0) :
-        (this.product.inventoryCount ?? 0);
-      const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
+      totalInventory = this.gateInventory ?? 0;
+      const stockStatus = isAllStockInCart(this.product.id, variantId, this.gateInventory);
       stockAllInCart = stockStatus.allInCart;
     }
 
@@ -895,12 +902,11 @@ export class ProductDetail extends ShoprocketElement {
       sourceUrl: window.location.href
     };
 
-    // Include stock info for validation
-    const stockInfo = {
+    // Include stock info for validation. Gift cards send none - they are stock-exempt
+    // server-side, so the optimistic gate must not refuse them either.
+    const stockInfo = this.product.kind === 'gift_card' ? { trackInventory: false } : {
       trackInventory: this.product.trackInventory,
-      availableQuantity: this.selectedVariant ?
-        this.selectedVariant.inventoryCount :
-        this.product.inventoryCount
+      availableQuantity: this.gateInventory
     };
 
     // Dispatch event with full cart item data for optimistic update
@@ -930,7 +936,7 @@ export class ProductDetail extends ShoprocketElement {
     const selectedOptionValues = Object.values(this.selectedOptions);
 
     this.selectedVariant = this.product.variants.find((variant: ProductVariant) => {
-      const variantOptionValues = variant.optionValues || variant.optionValueIds || [];
+      const variantOptionValues = variantOptionValueIds(variant);
 
       // Check if variant has exactly the selected values (no more, no less)
       return variantOptionValues.length === selectedOptionValues.length &&
@@ -948,7 +954,7 @@ export class ProductDetail extends ShoprocketElement {
     // Auto-adjust quantity if it exceeds available stock for this variant
     if (this.selectedVariant) {
       const variantId = this.selectedVariant.id;
-      const totalInventory = this.selectedVariant.inventoryCount;
+      const totalInventory = this.gateInventory;
       const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
       const maxQuantity = totalInventory
         ? Math.max(0, totalInventory - stockStatus.quantityInCart)
@@ -972,9 +978,7 @@ export class ProductDetail extends ShoprocketElement {
 
     // Check if all stock is already in cart
     const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
-    const totalInventory = this.selectedVariant ?
-      this.selectedVariant.inventoryCount :
-      this.product.inventoryCount;
+    const totalInventory = this.gateInventory;
 
     const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
     if (stockStatus.allInCart) return false;
@@ -1001,7 +1005,7 @@ export class ProductDetail extends ShoprocketElement {
 
     // Find all variants that have this specific option value
     const variantsWithThisOption = product.variants.filter(variant => {
-      const variantValues = variant.optionValues || variant.optionValueIds || [];
+      const variantValues = variantOptionValueIds(variant);
       return variantValues.includes(valueId);
     });
 
@@ -1015,18 +1019,18 @@ export class ProductDetail extends ShoprocketElement {
 
     if (otherSelections.length === 0) {
       // No other selections, just check if any variant with this option has stock
-      return variantsWithThisOption.every(v => (v.inventoryCount ?? 0) === 0);
+      return variantsWithThisOption.every(v => (v.inventoryQuantity ?? 0) === 0);
     }
 
     // Find variants that match this option value AND all other current selections
     const fullyMatchingVariants = variantsWithThisOption.filter(variant => {
-      const variantValues = variant.optionValues || variant.optionValueIds || [];
+      const variantValues = variantOptionValueIds(variant);
       return otherSelections.every(valId => variantValues.includes(valId));
     });
 
     // If no fully matching variants or all have 0 inventory, it's out of stock
     if (fullyMatchingVariants.length === 0) return false; // Don't disable if no exact match yet
-    return fullyMatchingVariants.every(v => (v.inventoryCount ?? 0) === 0);
+    return fullyMatchingVariants.every(v => (v.inventoryQuantity ?? 0) === 0);
   }
   
   private renderStockStatus(product: Product | undefined): TemplateResult | string {
@@ -1034,7 +1038,7 @@ export class ProductDetail extends ShoprocketElement {
       return '';
     }
 
-    if (!product || !product.trackInventory) {
+    if (!product || !product.trackInventory || product.kind === 'gift_card') {
       return '';
     }
 
@@ -1047,11 +1051,11 @@ export class ProductDetail extends ShoprocketElement {
 
     if (this.selectedVariant) {
       // Use variant stock when variant is selected
-      stockQuantity = this.selectedVariant.inventoryCount ?? 0;
+      stockQuantity = this.selectedVariant.inventoryQuantity ?? 0;
       inStock = stockQuantity > 0;
     } else {
       // Use product stock data from API
-      stockQuantity = product.inventoryCount ?? 0;
+      stockQuantity = product.inventoryQuantity ?? 0;
       inStock = product.inStock ?? (stockQuantity > 0);
     }
 

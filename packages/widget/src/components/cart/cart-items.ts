@@ -137,13 +137,13 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
               </button>
               <span class="sr-cart-quantity-value">${item.quantity}</span>
               <sr-tooltip
-                text="${item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined && item.quantity >= item.inventoryCount ? t('product.max_quantity_in_cart', 'Maximum quantity ({count}) in cart', { count: item.inventoryCount }) : ''}"
+                text="${item.inventoryPolicy === 'deny' && item.inventoryQuantity !== undefined && item.quantity >= item.inventoryQuantity ? t('product.max_quantity_in_cart', 'Maximum quantity ({count}) in cart', { count: item.inventoryQuantity }) : ''}"
                 position="top"
               >
                 <button
                   class="sr-cart-quantity-button"
                   @click="${() => context.updateQuantity(item.id, item.quantity + 1)}"
-                  ?disabled="${item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined && item.quantity >= item.inventoryCount}"
+                  ?disabled="${item.inventoryPolicy === 'deny' && item.inventoryQuantity !== undefined && item.quantity >= item.inventoryQuantity}"
                   aria-label="${t('cart.increase_quantity', 'Increase quantity')}"
                 >
                   +

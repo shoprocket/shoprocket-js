@@ -694,7 +694,7 @@ export class CartWidget extends ShoprocketElement {
     
     // Validate stock if tracking inventory
     if (stockInfo?.trackInventory || stockInfo?.inventoryPolicy === 'deny') {
-      const availableQuantity = stockInfo.availableQuantity ?? stockInfo.inventoryCount ?? 0;
+      const availableQuantity = stockInfo.availableQuantity ?? stockInfo.inventoryQuantity ?? 0;
       
       // Check if out of stock
       if (availableQuantity === 0) {
@@ -733,7 +733,7 @@ export class CartWidget extends ShoprocketElement {
       // Update stock info if provided
       if (stockInfo) {
         existingItem.inventoryPolicy = stockInfo.inventoryPolicy || (stockInfo.trackInventory ? 'deny' : 'continue');
-        existingItem.inventoryCount = stockInfo.inventoryCount ?? stockInfo.availableQuantity;
+        existingItem.inventoryQuantity = stockInfo.inventoryQuantity ?? stockInfo.availableQuantity;
       }
     } else {
       // Add a new line with a temporary ID, minted in the SERVED wire shape (the add event's
@@ -755,7 +755,7 @@ export class CartWidget extends ShoprocketElement {
         imageUrl: item.media?.[0]?.urls?.thumb ?? item.media?.[0]?.url ?? null,
         ...(stockInfo && {
           inventoryPolicy: stockInfo.inventoryPolicy || (stockInfo.trackInventory ? 'deny' : 'continue'),
-          inventoryCount: stockInfo.inventoryCount ?? stockInfo.availableQuantity
+          inventoryQuantity: stockInfo.inventoryQuantity ?? stockInfo.availableQuantity
         })
       };
       this.cart.items.push(newItem);
@@ -3016,12 +3016,12 @@ export class CartWidget extends ShoprocketElement {
     // Check if we're increasing quantity and need stock validation
     if (quantity > item.quantity) {
       // Check if item has inventory policy and stock info
-      if (item.inventoryPolicy === 'deny' && item.inventoryCount !== undefined) {
-        if (quantity > item.inventoryCount) {
+      if (item.inventoryPolicy === 'deny' && item.inventoryQuantity !== undefined) {
+        if (quantity > item.inventoryQuantity) {
           // Show error notification
-          const message = item.inventoryCount === 0
+          const message = item.inventoryQuantity === 0
             ? t('product.out_of_stock', 'Out of Stock')
-            : t('product.max_quantity_in_cart', 'Maximum quantity ({count}) already in cart', { count: item.inventoryCount });
+            : t('product.max_quantity_in_cart', 'Maximum quantity ({count}) already in cart', { count: item.inventoryQuantity });
           
           window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
             detail: { message }

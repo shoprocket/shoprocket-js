@@ -10,7 +10,7 @@ import type { AddressData, AddressFormErrors } from '../address-form';
  */
 export type LocalCartItem = CartItem & {
   inventoryPolicy?: 'deny' | 'continue';
-  inventoryCount?: number;
+  inventoryQuantity?: number;
 };
 
 /**

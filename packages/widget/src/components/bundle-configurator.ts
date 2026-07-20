@@ -134,7 +134,7 @@ export class BundleConfigurator extends ShoprocketElement {
     if (!variant?.inStock) return false;
     const state = this.componentStates.get(component.id);
     const current = state?.quantity ?? 0;
-    if (variant.inventoryCount !== undefined && variant.inventoryCount > 0 && current >= variant.inventoryCount) return false;
+    if (variant.inventoryQuantity !== undefined && variant.inventoryQuantity > 0 && current >= variant.inventoryQuantity) return false;
     if (!this.bundleConfig?.allowDuplicates && current >= 1) return false;
     return true;
   }
