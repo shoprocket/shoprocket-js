@@ -7,13 +7,13 @@ import { loadingSpinner, loadingOverlay } from '../loading-spinner';
 import type { CheckoutStep, CustomerCheckResult } from './cart-types';
 import type { CustomerData, CustomerFormErrors } from '../customer-form';
 import type { AddressData, AddressFormErrors } from '../address-form';
-import type { Cart, CheckoutSettings, TaxBreakdownItem, ShippingOption } from '@shoprocket/core';
+import { formatTaxRate, type Cart, type CheckoutSettings, type TaxBreakdownItem, type ShippingOption } from '@shoprocket/core';
 import { t } from '../../utils/i18n';
 
-/** Renders an info icon with tooltip showing per-jurisdiction tax breakdown (only when multiple items) */
+/** Renders an info icon with tooltip showing the named tax lines (only when there are several) */
 function taxBreakdownTooltip(breakdown: TaxBreakdownItem[] | undefined, context: { formatPrice: (m: any) => string }): TemplateResult | string {
   if (!breakdown || breakdown.length < 2) return '';
-  const text = breakdown.map(t => `${t.name} (${t.rate}%): ${context.formatPrice({ amount: t.amount, currency: '', formatted: t.formatted })}`).join('\n');
+  const text = breakdown.map(line => `${line.name} (${formatTaxRate(line)}%): ${context.formatPrice(line.amount)}`).join('\n');
   return html`<sr-tooltip text="${text}" position="top" wrap><span class="sr-tax-info-icon">ⓘ</span></sr-tooltip>`;
 }
 
@@ -805,7 +805,7 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
             ${(reviewTax ?? 0) > 0 && !context.cart?.taxInclusive ? html`
               <div class="sr-order-total-line">
                 <span>${context.cart?.taxBreakdown?.length === 1
-                  ? `${context.cart.taxBreakdown[0].name} (${context.cart.taxBreakdown[0].rate}%)`
+                  ? `${context.cart.taxBreakdown[0].name} (${formatTaxRate(context.cart.taxBreakdown[0])}%)`
                   : html`Tax ${taxBreakdownTooltip(context.cart?.taxBreakdown, context)}`}</span>
                 <span>${context.formatPrice(reviewTax as number)}</span>
               </div>
@@ -838,7 +838,7 @@ function renderReviewContent(context: CheckoutWizardContext): TemplateResult {
             ${(reviewTax ?? 0) > 0 && context.cart?.taxInclusive ? html`
               <div class="sr-tax-inclusive-note">
                 <span>Includes ${context.formatPrice(reviewTax as number)} ${context.cart.taxBreakdown?.length === 1
-                  ? `${context.cart.taxBreakdown[0].name} (${context.cart.taxBreakdown[0].rate}%)`
+                  ? `${context.cart.taxBreakdown[0].name} (${formatTaxRate(context.cart.taxBreakdown[0])}%)`
                   : context.cart.taxBreakdown?.[0]?.name || 'tax'} ${taxBreakdownTooltip(context.cart.taxBreakdown, context)}</span>
               </div>
             ` : ''}

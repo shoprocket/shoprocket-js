@@ -27,7 +27,6 @@ import type { CartFooterContext } from './cart/cart-footer';
 import type { CartTriggerContext } from './cart/cart-trigger';
 import type { OrderResultContext } from './cart/order-result';
 import type { CheckoutWizardContext } from './cart/checkout-wizard';
-import type { OrderDetails } from './cart/cart-types';
 
 /**
  * Cart Widget Component - Shopping cart with slide-out panel
@@ -1282,33 +1281,14 @@ export class CartWidget extends ShoprocketElement {
     this.stopSilentPaymentPoll();
     this.paymentPending = false;
 
-    // Load full cart data for success screen
-    await this.loadCart();
+    // The receipt is what the success screen renders (D48) - it used to re-load the CART here,
+    // which after conversion is empty by construction, so the screen had nothing to show.
+    await this.finalizePlacedOrder({ id: orderId });
 
-    // Track purchase event
-    this.track(EVENTS.PURCHASE, this.cart);
-
-    this.showOrderSuccessMessage = true;
-    this.orderDetails = this.cart;
-    this.schedulePostCheckoutRedirect();
+    this.track(EVENTS.PURCHASE, this.orderDetails);
 
     // Clean up sessionStorage
     sessionStorage.removeItem('shoprocket_order_id');
-
-    // Clear cart state and reset
-    cartState.clear();
-    this.cart = null;
-    this.exitCheckout();
-
-    // Regenerate cart token for next order
-    const newToken = CookieManager.regenerateCartToken();
-    internalState.setCartToken(newToken);
-    if (this.sdk) {
-      this.sdk.setCartToken(newToken);
-    }
-
-    // Load fresh cart with new token
-    await this.loadCart();
   }
 
   private handlePaymentFailed(): void {
@@ -1669,6 +1649,11 @@ export class CartWidget extends ShoprocketElement {
       .trim();
     cartState.updateCheckoutData({
       email: customer.email,
+      // The split fields are kept locally so the step validation can read back exactly what the
+      // form wrote - they never go on the wire (see cart-state's syncToApi).
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      phone: customer.phone,
       ...(customerName ? { customerName } : {}),
     });
     this.customerErrors = {}; // Clear errors on change
@@ -2260,8 +2245,19 @@ export class CartWidget extends ShoprocketElement {
    * marked converted.
    */
   private async finalizePlacedOrder(order: any): Promise<void> {
+    // Fetch the receipt (D48) BEFORE rotating the cart token below - it is authorized by the token
+    // that placed the order, and the narrow status/checkout shapes we were fed have no items or
+    // totals to render. Fall back to what we have rather than failing the success screen.
+    const orderId = order?.id ?? order?.orderId;
+    let receipt: any = order;
+    if (orderId) {
+      try {
+        receipt = await this.sdk.cart.getOrder(orderId);
+      } catch { /* the narrow shape still shows the confirmation, just without the summary */ }
+    }
+
     this.showOrderSuccessMessage = true;
-    this.orderDetails = order;
+    this.orderDetails = receipt;
     this.schedulePostCheckoutRedirect();
 
     cartState.clear();
@@ -2668,8 +2664,7 @@ export class CartWidget extends ShoprocketElement {
       return loadingOverlay();
     }
 
-    const orderData = this.orderDetails?.data || this.orderDetails;
-    const customerEmail = orderData?.customer?.email || this.customerData.email;
+    const customerEmail = this.orderDetails?.email || this.customerData.email;
 
     const context: OrderResultContext = {
       formatPrice: (amount) => this.formatPrice(amount),
@@ -2689,7 +2684,7 @@ export class CartWidget extends ShoprocketElement {
 
     };
 
-    return this.cartModules.orderResult.renderOrderSuccess(this.orderDetails as OrderDetails, customerEmail, context);
+    return this.cartModules.orderResult.renderOrderSuccess(this.orderDetails, customerEmail, context);
   }
   
   /**

@@ -4,20 +4,27 @@
  * These are only needed after order submission, making them ideal for lazy loading
  */
 import { html, type TemplateResult } from 'lit';
-import type { Money, TaxBreakdownItem } from '@shoprocket/core';
-import type { OrderDetails } from './cart-types';
+import { formatTaxRate, type Money, type OrderReceipt, type TaxBreakdownItem } from '@shoprocket/core';
 import { loadingOverlay } from '../loading-spinner';
 import { t } from '../../utils/i18n';
 
-/** Renders an info icon with tooltip showing per-jurisdiction tax breakdown (only when multiple items) */
+/** Renders an info icon with tooltip showing the named tax lines (only when there are several) */
 function taxBreakdownTooltip(breakdown: TaxBreakdownItem[] | undefined, context: { formatPrice: (m: any) => string }): TemplateResult | string {
   if (!breakdown || breakdown.length < 2) return '';
-  const text = breakdown.map(t => `${t.name} (${t.rate}%): ${context.formatPrice({ amount: t.amount, currency: '', formatted: t.formatted })}`).join('\n');
+  const text = breakdown.map(line => `${line.name} (${formatTaxRate(line)}%): ${context.formatPrice(line.amount)}`).join('\n');
   return html`<sr-tooltip text="${text}" position="top" wrap><span class="sr-tax-info-icon">ⓘ</span></sr-tooltip>`;
 }
 
+/** "VAT (20%)" for a single-line breakdown, or the flat label + tooltip when there are several. */
+function taxLabel(breakdown: TaxBreakdownItem[] | undefined, context: { formatPrice: (m: any) => string }): TemplateResult | string {
+  const only = breakdown?.length === 1 ? breakdown[0] : undefined;
+  if (only) return `${only.name} (${formatTaxRate(only)}%)`;
+  return html`Tax ${taxBreakdownTooltip(breakdown, context)}`;
+}
+
 export interface OrderResultContext {
-  formatPrice: (money: Money | undefined) => string;
+  /** Accepts plain minor-unit numbers too - the receipt's amounts are integers, not Money objects. */
+  formatPrice: (money: Money | number | undefined) => string;
   handleContinueShopping: () => void;
   handleCheckOrderStatus: () => void;
   handleRetryPayment: () => void;
@@ -36,18 +43,20 @@ export interface OrderResultContext {
 }
 
 export function renderOrderSuccess(
-  orderDetails: OrderDetails | null,
+  orderDetails: Partial<OrderReceipt> | null,
   customerEmail: string,
   context: OrderResultContext
 ): TemplateResult {
-  const orderData = orderDetails?.data || orderDetails;
-
-  // All APIs now use consistent nested totals structure
-  const subtotal = orderData?.totals?.subtotal;
-  const shipping = orderData?.totals?.shipping;
-  const tax = orderData?.totals?.tax;
-  const discount = orderData?.totals?.discount;
-  const total = orderData?.totals?.total;
+  // The receipt (D48). May legitimately be a narrower shape (the /status poll or the checkout
+  // acceptance) when the receipt fetch failed - every field below is optional-chained so the
+  // confirmation still renders, just without the summary those shapes cannot carry.
+  const receipt = orderDetails;
+  const subtotal = receipt?.subtotal;
+  const shipping = receipt?.shippingTotal;
+  const tax = receipt?.taxTotal;
+  const discount = receipt?.discountTotal;
+  const giftCard = receipt?.giftCardTotal;
+  const total = receipt?.total;
 
   return html`
     <div class="sr-order-success">
@@ -74,27 +83,27 @@ export function renderOrderSuccess(
         </div>
       ` : ''}
 
-      ${orderData ? html`
+      ${receipt ? html`
         <div class="sr-order-details">
           <h3 class="sr-order-details-title">Order Summary</h3>
 
-          ${orderData.order?.number ? html`
+          ${receipt.orderNumber ? html`
             <div class="sr-order-number-row">
               <span class="sr-order-label">Order Number</span>
-              <span class="sr-order-number-value">${orderData.order.number}</span>
+              <span class="sr-order-number-value">${receipt.orderNumber}</span>
             </div>
           ` : ''}
 
-          ${orderData.items && orderData.items.length > 0 ? html`
+          ${receipt.items && receipt.items.length > 0 ? html`
             <div class="sr-order-items-section">
-              <div class="sr-items-header">Items (${orderData.items.length})</div>
-              ${orderData.items.map((item: any) => html`
+              <div class="sr-items-header">Items (${receipt.items.length})</div>
+              ${receipt.items.map((item) => html`
                 <div class="sr-order-line-item">
-                  ${item.image ? html`
+                  ${item.imageUrl ? html`
                     <img
                       class="sr-item-image"
-                      src="${context.getMediaUrl(item.image, '&w=80&h=80&fit=cover')}"
-                      alt="${item.productName}"
+                      src="${item.imageUrl}"
+                      alt="${item.name}"
                       @error="${context.handleImageError}"
                     />
                   ` : html`
@@ -105,29 +114,14 @@ export function renderOrderSuccess(
                     </div>
                   `}
                   <div class="sr-item-info">
-                    <div class="sr-item-name">${item.productName}</div>
+                    <div class="sr-item-name">${item.name}</div>
                     ${item.variantName ? html`
                       <div class="sr-item-variant">${item.variantName}</div>
                     ` : ''}
                     <div class="sr-item-qty">Qty: ${item.quantity}</div>
-                    ${item.bundleSelections?.length ? html`
-                      <div class="sr-cart-bundle-items" style="margin-top: 6px;">
-                        ${item.bundleSelections.map((sel: any) => {
-                          const hasVariant = sel.variantName && sel.variantName.replace(/[\s\/]/g, '').length > 0;
-                          return html`
-                          <div class="sr-cart-bundle-item">
-                            <span class="sr-cart-bundle-item-qty">${sel.quantity}x</span>
-                            <div class="sr-cart-bundle-item-info">
-                              <span class="sr-cart-bundle-item-name">${sel.productName}</span>
-                              ${hasVariant ? html`<span class="sr-cart-bundle-item-variant">${sel.variantName}</span>` : ''}
-                            </div>
-                          </div>
-                        `})}
-                      </div>
-                    ` : ''}
                   </div>
                   <div class="sr-item-price">
-                    ${context.formatPrice(item.subtotal || { amount: item.price * item.quantity, currency: orderData.currency, formatted: '' })}
+                    ${context.formatPrice(item.subtotal)}
                   </div>
                 </div>
               `)}
@@ -141,43 +135,59 @@ export function renderOrderSuccess(
             </div>
           ` : ''}
 
-          ${shipping && shipping.amount > 0 ? html`
+          ${shipping ? html`
             <div class="sr-order-row">
-              <span class="sr-order-label">Shipping</span>
+              <span class="sr-order-label">Shipping${receipt.shippingMethodName ? ` (${receipt.shippingMethodName})` : ''}</span>
               <span class="sr-order-value">${context.formatPrice(shipping)}</span>
             </div>
           ` : ''}
 
-          ${tax && tax.amount > 0 && !orderData?.taxInclusive ? html`
+          ${tax && !receipt.taxInclusive ? html`
             <div class="sr-order-row">
-              <span class="sr-order-label">${orderData?.taxBreakdown?.length === 1
-                ? `${orderData.taxBreakdown[0].name} (${orderData.taxBreakdown[0].rate}%)`
-                : html`Tax ${taxBreakdownTooltip(orderData?.taxBreakdown, context)}`}</span>
+              <span class="sr-order-label">${taxLabel(receipt.taxes, context)}</span>
               <span class="sr-order-value">${context.formatPrice(tax)}</span>
             </div>
           ` : ''}
 
-          ${discount && discount.amount > 0 ? html`
+          ${discount ? html`
             <div class="sr-order-row">
-              <span class="sr-order-label">Discount</span>
+              <span class="sr-order-label">Discount${receipt.discountCode ? ` (${receipt.discountCode})` : ''}</span>
               <span class="sr-discount-value">-${context.formatPrice(discount)}</span>
             </div>
           ` : ''}
 
           ${total ? html`
             <div class="sr-order-total-row">
-              <span class="sr-total-label">Total Paid</span>
+              <span class="sr-total-label">${receipt.amountDue ? 'Total' : 'Total Paid'}</span>
               <span class="sr-total-value">${context.formatPrice(total)}</span>
             </div>
           ` : ''}
-          ${tax && tax.amount > 0 && orderData?.taxInclusive ? html`
+          ${tax && receipt.taxInclusive ? html`
             <div class="sr-tax-inclusive-note">
-              <span>Includes ${context.formatPrice(tax)} ${orderData?.taxBreakdown?.length === 1
-                ? `${orderData.taxBreakdown[0].name} (${orderData.taxBreakdown[0].rate}%)`
-                : orderData?.taxBreakdown?.[0]?.name || 'tax'} ${taxBreakdownTooltip(orderData?.taxBreakdown, context)}</span>
+              <span>Includes ${context.formatPrice(tax)} ${receipt.taxes?.length === 1 && receipt.taxes[0]
+                ? `${receipt.taxes[0].name} (${formatTaxRate(receipt.taxes[0])}%)`
+                : receipt.taxes?.[0]?.name || 'tax'} ${taxBreakdownTooltip(receipt.taxes, context)}</span>
+            </div>
+          ` : ''}
+          ${giftCard ? html`
+            <div class="sr-order-row">
+              <span class="sr-order-label">Gift card</span>
+              <span class="sr-discount-value">-${context.formatPrice(giftCard)}</span>
+            </div>
+          ` : ''}
+          ${receipt.amountDue ? html`
+            <div class="sr-order-total-row">
+              <span class="sr-total-label">Amount due</span>
+              <span class="sr-total-value">${context.formatPrice(receipt.amountDue)}</span>
             </div>
           ` : ''}
         </div>
+        ${receipt.amountDue && receipt.paymentInstructions ? html`
+          <div class="sr-payment-instructions">
+            <h3 class="sr-order-details-title">${receipt.paymentMethodName || 'How to pay'}</h3>
+            <p class="sr-payment-instructions-text">${receipt.paymentInstructions}</p>
+          </div>
+        ` : ''}
       ` : ''}
 
       <button class="sr-btn sr-btn-primary sr-continue-btn" @click="${context.handleContinueShopping}">
