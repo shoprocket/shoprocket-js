@@ -22,6 +22,15 @@ export type Address = CartAddressInput;
 export interface CheckoutData {
   email?: string;
   customerName?: string;
+  /**
+   * Presentation-only state: the form renders split name fields and the step validation reads
+   * them back from here, but the API stores ONE `customerName` - these never go on the wire
+   * (see `syncToApi`). Without them the customer step validated fields nothing ever stored, and
+   * a guest could not pass it at all.
+   */
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
 }
 
 export interface CartState {
@@ -304,7 +313,10 @@ class CartStateManager {
     if (!this.sdk || !this.hasChanges()) return;
 
     try {
-      const payload: any = { ...this.state.checkoutData };
+      // The split name fields and phone are presentation state for the form + step validation;
+      // the server's cart stores one customerName, and the phone lands on the address instead.
+      const { firstName, lastName, phone, ...wireCheckoutData } = this.state.checkoutData;
+      const payload: any = { ...wireCheckoutData };
 
       if (Object.keys(this.state.shippingAddress).length) {
         payload.shippingAddress = this.state.shippingAddress;
