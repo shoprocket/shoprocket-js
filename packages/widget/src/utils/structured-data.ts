@@ -136,9 +136,11 @@ export function generateProductSchema(product: Product, sdk: ShoprocketCore, sto
     ? images
     : ['data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'];
 
-  // Add SKU if available
-  if (product.sku) {
-    schema.sku = product.sku;
+  // Add SKU if available. The wire carries sku per VARIANT, not on the product - use the
+  // default variant's, falling back to the first.
+  const sku = (product.variants?.find(v => v.id === product.defaultVariantId) ?? product.variants?.[0])?.sku;
+  if (sku) {
+    schema.sku = sku;
   }
 
   // Add brand (store name) if available
