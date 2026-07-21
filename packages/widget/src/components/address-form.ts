@@ -2,7 +2,7 @@ import { html, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { BaseComponent } from '../core/base-component';
 import { t } from '../utils/i18n';
-import type { PlacePrediction, FieldVisibility } from '@shoprocket/core';
+import type { PlacePrediction, FieldVisibility, Country, State } from '@shoprocket/core';
 
 export interface AddressData {
   line1: string;
@@ -27,26 +27,8 @@ export interface AddressFormErrors {
   phone?: string;
 }
 
-export interface Country {
-  code: string;
-  name: string;
-  phoneCode?: string;
-  currency?: string;
-  requiresState?: boolean;
-  /** libaddressinput-derived label type: state | province | prefecture | do_si | oblast | emirate | department | county | parish | island | area */
-  stateNameType?: string | null;
-  /** PCRE regex for postal code validation (dr5hn-sourced; null if country has no postal system) */
-  postalRegex?: string | null;
-  /** Placeholder example postal code */
-  postalExample?: string | null;
-}
-
-export interface State {
-  code: string;
-  /** Full ISO 3166-2 code (e.g. "JP-13", "CA-QC") */
-  iso3166_2?: string | null;
-  name: string;
-}
+// Country and State come from @shoprocket/core - the local duplicates lacked `subdivisions`
+// (which the countries endpoint serves) and drifted from the wire.
 
 // Split caches: billing always gets all countries, shipping gets shippable-only
 let cachedAllCountries: Country[] = [];

@@ -1,7 +1,7 @@
 import { LitElement, CSSResultGroup } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketCore } from '@shoprocket/core';
-import { formatPrice, getMediaUrl, getMediaSrcSet, handleImageError, dispatchCartEvents } from '../utils/formatters';
+import { formatPrice, getMediaUrl, getMediaSrcSet, handleImageError } from '../utils/formatters';
 import { sharedStyles, sharedStylesheet } from './shared-styles';
 import { baseStyles } from './base-styles';
 import { AnalyticsManager, EVENTS } from './analytics-manager';
@@ -131,10 +131,6 @@ export class BaseComponent extends LitElement {
 
   protected handleImageError(e: Event): void {
     handleImageError(this.sdk, e);
-  }
-  
-  protected dispatchCartEvents(product: any, variantId?: string, variantText?: string | null): void {
-    dispatchCartEvents(this, product, variantId, variantText);
   }
 
   protected formatPrice(price: Parameters<typeof formatPrice>[0]): string {

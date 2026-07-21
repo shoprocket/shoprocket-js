@@ -964,7 +964,7 @@ export class CartWidget extends ShoprocketElement {
       } catch (err) {
         console.error('Failed to load cart:', err);
         this.cart = null;
-        this.showInCartError(t('error.cart_load_failed', 'Failed to load cart data'));
+        this.showAnimatedError(t('error.cart_load_failed', 'Failed to load cart data'));
       }
     });
     return loadedCart;
@@ -1905,31 +1905,15 @@ export class CartWidget extends ShoprocketElement {
           from_step: 'contact_information',
           total_steps: this.sameAsBilling ? 4 : 5
         });
-      } else {
-        // Track failed auth
-        this.track(EVENTS.CHECKOUT_AUTH_FAILED, {
-          email: this.customerData.email,
-          step: 'customer',
-          method: 'otp',
-          error: 'invalid_code'
-        });
-        
-        // Invalid OTP
-        const errorMessage = result.message || t('error.invalid_code', 'Invalid verification code. Please try again.');
-        this.otpError = errorMessage;
-        this.showAnimatedError(errorMessage);
-        this.otpCode = ''; // Clear the code
-        
-        // Clear all input fields
-        const inputs = this.shadowRoot?.querySelectorAll('.sr-otp-input') as NodeListOf<HTMLInputElement>;
-        inputs.forEach(input => input.value = '');
-        
-        // Focus first input
-        const firstInput = this.shadowRoot?.querySelector('[data-otp-index="0"]') as HTMLInputElement;
-        firstInput?.focus();
       }
     } catch (error: any) {
       console.error('OTP verification failed:', error);
+      this.track(EVENTS.CHECKOUT_AUTH_FAILED, {
+        email: this.customerData.email,
+        step: 'customer',
+        method: 'otp',
+        error: 'invalid_code'
+      });
       // Handle API error response
       let errorMessage = t('error.verification_failed', 'Verification failed. Please try again.');
 

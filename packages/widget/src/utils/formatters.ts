@@ -1,7 +1,7 @@
 import type { Money, Media, MediaUrls } from '@shoprocket/core';
 import type { ShoprocketCore } from '@shoprocket/core';
 import { getConfig } from '../core/config';
-import { IMAGE_SIZES, RESPONSIVE_SIZES, WIDGET_EVENTS } from '../constants';
+import { IMAGE_SIZES, RESPONSIVE_SIZES } from '../constants';
 
 /**
  * Get store currency from SDK or widget data
@@ -207,37 +207,3 @@ export function handleImageError(_sdk: ShoprocketCore, e: Event): void {
   }
 }
 
-/**
- * Dispatch cart updated events after adding to cart
- */
-export function dispatchCartEvents(
-  element: EventTarget,
-  product: {
-    id: string;
-    name: string;
-    price?: number;
-    media?: any;
-  },
-  variantId?: string,
-  variantText?: string | null
-): void {
-  // Dispatch cart updated event
-  element.dispatchEvent(new CustomEvent('shoprocket:cart:updated', {
-    bubbles: true,
-    composed: true,
-    detail: { productId: product.id, variantId }
-  }));
-
-  // Dispatch product added event
-  window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.PRODUCT_ADDED, {
-    detail: { 
-      product: {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        media: product.images,
-        variantText
-      }
-    }
-  }));
-}
