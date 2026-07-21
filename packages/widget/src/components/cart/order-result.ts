@@ -4,7 +4,7 @@
  * These are only needed after order submission, making them ideal for lazy loading
  */
 import { html, type TemplateResult } from 'lit';
-import { formatTaxRate, type Money, type OrderReceipt, type TaxBreakdownItem } from '@shoprocket/core';
+import { formatTaxRate, type OrderReceipt, type TaxBreakdownItem } from '@shoprocket/core';
 import { loadingOverlay } from '../loading-spinner';
 import { t } from '../../utils/i18n';
 
@@ -23,8 +23,8 @@ function taxLabel(breakdown: TaxBreakdownItem[] | undefined, context: { formatPr
 }
 
 export interface OrderResultContext {
-  /** Accepts plain minor-unit numbers too - the receipt's amounts are integers, not Money objects. */
-  formatPrice: (money: Money | number | undefined) => string;
+  /** Integer cents in, formatted string out - the wire's one money shape. */
+  formatPrice: (amount: number | undefined) => string;
   handleContinueShopping: () => void;
   handleCheckOrderStatus: () => void;
   handleRetryPayment: () => void;

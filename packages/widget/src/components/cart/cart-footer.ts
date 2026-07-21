@@ -36,11 +36,6 @@ export interface CartFooterContext {
   onRemoveGiftCard: () => Promise<void>;
 }
 
-/** Money in the shape formatPrice wants, from a plain minor-unit amount. */
-function money(context: CartFooterContext, amount: number) {
-  return { amount, currency: (context.cart as any)?.currency || context.cart?.currencyCode || '', formatted: '' };
-}
-
 /**
  * The coupon field, and whatever is currently coming off the cart.
  *
@@ -78,7 +73,7 @@ function renderCouponSection(context: CartFooterContext): TemplateResult {
                     </button>
                   `}
             </div>
-            <span class="sr-coupon-discount">-${context.formatPrice(money(context, d.amount))}</span>
+            <span class="sr-coupon-discount">-${context.formatPrice(d.amount)}</span>
           </div>
         `)}
       </div>
@@ -133,11 +128,11 @@ function renderGiftCardSection(context: CartFooterContext): TemplateResult {
           ${applied.remainingBalance > 0 ? html`
             <span class="sr-giftcard-remaining">
               ${t('cart.gift_card_remaining', '{{amount}} left after this order')
-                .replace('{{amount}}', context.formatPrice(money(context, applied.remainingBalance)))}
+                .replace('{{amount}}', context.formatPrice(applied.remainingBalance))}
             </span>
           ` : ''}
         </div>
-        <span class="sr-giftcard-amount">-${context.formatPrice(money(context, applied.amount))}</span>
+        <span class="sr-giftcard-amount">-${context.formatPrice(applied.amount)}</span>
         <button
           class="sr-giftcard-remove-btn"
           @click="${context.onRemoveGiftCard}"
@@ -212,7 +207,7 @@ export function renderCartFooter(context: CartFooterContext): TemplateResult {
         <span class="sr-cart-amount-due-label">${t('cart.amount_due', 'Amount due')}</span>
         <span class="sr-cart-amount-due-amount">
           ${keyed(amountDue, html`
-            <span class="sr-cart-total-price price-changed">${context.formatPrice(money(context, amountDue))}</span>
+            <span class="sr-cart-total-price price-changed">${context.formatPrice(amountDue)}</span>
           `)}
         </span>
       </div>

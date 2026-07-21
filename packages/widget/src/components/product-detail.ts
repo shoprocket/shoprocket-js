@@ -4,7 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { ShoprocketElement, EVENTS } from '../core/base-component';
 import { variantOptionValueIds, type Product, type ProductVariant, type ProductOption, type BundleSelection, type Review, type ReviewStats } from '@shoprocket/core';
 import { loadingSpinner } from './loading-spinner';
-import { formatProductPrice, getMediaSizes, formatNumber } from '../utils/formatters';
+import { defaultVariantOf, formatProductPrice, getMediaSizes, formatNumber } from '../utils/formatters';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { TIMEOUTS, STOCK_THRESHOLDS, IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 import './tooltip'; // Register tooltip component
@@ -864,7 +864,7 @@ export class ProductDetail extends ShoprocketElement {
         productName: this.product.name,
         variantId,
         quantity: this.quantity || 1,
-        price: this.product.price,
+        price: defaultVariantOf(this.product)?.price ?? 0,
         media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined,
         sourceUrl: window.location.href,
         productType: 'bundle',
@@ -887,8 +887,8 @@ export class ProductDetail extends ShoprocketElement {
       return;
     }
 
-    // Get the full Money object for the selected variant or product
-    const selectedPrice = this.selectedVariant?.price || this.product.price;
+    // Integer cents off the chosen variant, else the default one - price lives on variants.
+    const selectedPrice = this.selectedVariant?.price ?? defaultVariantOf(this.product)?.price ?? 0;
 
     // Prepare cart item data for optimistic update
     const cartItemData = {
@@ -897,7 +897,7 @@ export class ProductDetail extends ShoprocketElement {
       variantId: variantId,
       variantName: this.getSelectedVariantText() || undefined,
       quantity: this.quantity,
-      price: selectedPrice, // Pass the full Money object from API
+      price: selectedPrice, // Integer cents, the wire's one money shape
       media: this.getSelectedMedia() ? [this.getSelectedMedia()] : undefined,
       sourceUrl: window.location.href
     };
@@ -995,9 +995,7 @@ export class ProductDetail extends ShoprocketElement {
   }
 
   private formatProductPrice(product: Product): string {
-    // Use the full Money object from selectedVariant or product
-    const selectedPrice = this.selectedVariant?.price;
-    return formatProductPrice(product, selectedPrice);
+    return formatProductPrice(product, this.selectedVariant?.price);
   }
   
   private isOptionValueOutOfStock(optionId: string, valueId: string, product: Product): boolean {

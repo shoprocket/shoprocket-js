@@ -7,6 +7,7 @@ import { HashRouter, type HashState } from '../core/hash-router';
 import { ProductListTemplates } from './product-list';
 import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import { injectProductSchema, removeProductSchema, injectProductOgTags, removeProductOgTags } from '../utils/structured-data';
+import { defaultVariantOf } from '../utils/formatters';
 import './catalog-filters'; // Register filter component
 import { t } from '../utils/i18n';
 
@@ -1083,10 +1084,10 @@ export class ProductCatalog extends ShoprocketElement {
     const cartItemData = {
       productId: product.id,
       productName: product.name,
-      variantId: product.defaultVariantId,
+      variantId: product.defaultVariantId ?? defaultVariantOf(product)?.id,
       variantName: undefined, // No variant text for default variant
       quantity: 1,
-      price: product.price, // Already in correct format from API
+      price: defaultVariantOf(product)?.price ?? 0, // Integer cents, off the default variant
       media: product.images?.[0] ? [product.images[0]] : undefined,
       sourceUrl: window.location.href
     };

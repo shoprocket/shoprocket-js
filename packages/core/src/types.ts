@@ -28,19 +28,9 @@ export interface CatalogMeta extends ListMeta {
   priceMax: number | null;
 }
 
-export interface Money {
-  amount: number;
-  currency: string;
-  formatted: string;
-  inclusive?: boolean;
-  note?: string;
-  // Sale fields (present on single-product response; list response TBD)
-  isOnSale?: boolean;
-  originalAmount?: number;
-  originalFormatted?: string;
-  discountPercentage?: number;
-  saleName?: string;
-}
+// `Money` (v3's `{amount, formatted, isOnSale…}` object) is GONE: the v3.5 wire carries every
+// amount as integer cents and the client formats with the store currency (`formatPrice`). Sale
+// display derives from `compareAtPrice` on the variant, not from flags inside a price object.
 
 /**
  * One named line of the tax total, so a shopper can see WHY the tax is what it is rather than one
@@ -116,7 +106,12 @@ export interface ProductVariant {
   id: string;
   name?: string;
   sku?: string;
-  price: Money;
+  /** Integer cents, as served. Currency lives on the store / catalog meta, not on each price. */
+  price: number;
+  /** Integer cents. Above `price` means the variant is on sale; the strike-through figure. */
+  compareAtPrice?: number | null;
+  /** Served: the variant product-level surfaces read when the shopper hasn't chosen one. */
+  isDefault?: boolean;
   mediaId?: string;
   /** Served as objects; bare value-id strings are the legacy local shape, still tolerated. */
   optionValues?: Array<VariantOptionValue | string>;
@@ -142,7 +137,8 @@ export function variantOptionValueIds(variant: {
 export interface BundleComponentVariant {
   id: string;
   name?: string;
-  price: Money;
+  /** Integer cents, matching the product wire this inert feature will eventually read. */
+  price: number;
   inStock: boolean;
   inventoryQuantity?: number;
   optionValues?: string[];
@@ -203,9 +199,11 @@ export interface Product {
   summary?: string;
   description?: string;
   fullDescription?: string;
-  price: Money;
-  priceMin?: number;
-  priceMax?: number;
+  /**
+   * There is NO product-level price on the wire: price lives on variants, and the catalog's
+   * filter bounds live on the list META (`CatalogMeta.priceMin/Max`). Render with
+   * `formatProductPrice` / `productPriceRange`, which read the variants.
+   */
   /** Served as `images` (ProductImage[] in @app/shared): ordered, optionally variant-bound. */
   images: Media[];
   variants?: ProductVariant[];

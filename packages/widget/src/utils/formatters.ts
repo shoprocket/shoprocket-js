@@ -1,7 +1,6 @@
-import type { Money, Media, MediaUrls } from '@shoprocket/core';
+import type { Media, MediaUrls } from '@shoprocket/core';
 import type { ShoprocketCore } from '@shoprocket/core';
 import { getConfig } from '../core/config';
-import { IMAGE_SIZES, RESPONSIVE_SIZES } from '../constants';
 
 /**
  * Get store currency from SDK or widget data
@@ -33,38 +32,48 @@ function getUserLocale(): string {
 }
 
 /**
- * Format price for display
+ * Format an integer-cent amount in the store's currency, in the shopper's locale.
+ *
+ * Cents in, string out - the wire's ONE money shape since the v3 Money object
+ * (`{amount, formatted, …}`) was deleted. Undefined/null format as zero so a still-loading
+ * total renders as a price, not as "undefined".
  */
-export function formatPrice(price: Money | undefined | null | number): string {
-  if (!price && price !== 0) {
-    const currency = getStoreCurrency();
-    return new Intl.NumberFormat(getUserLocale(), {
-      style: 'currency',
-      currency: currency
-    }).format(0);
-  }
-
-  // If it's just a number (subtotal), format it
-  if (typeof price === 'number') {
-    const currency = getStoreCurrency();
-    return new Intl.NumberFormat(getUserLocale(), {
-      style: 'currency',
-      currency: currency
-    }).format(price / 100); // Assuming amounts are in cents
-  }
-
-  // API always returns formatted price - use it directly
-  if ((price as Money).formatted) {
-    return (price as Money).formatted;
-  }
-
-  // Format if API didn't provide formatted string
-  const priceObj = price as Money;
-  const currency = priceObj.currency || getStoreCurrency();
+export function formatPrice(price: number | undefined | null): string {
   return new Intl.NumberFormat(getUserLocale(), {
     style: 'currency',
-    currency: currency
-  }).format(priceObj.amount / 100);
+    currency: getStoreCurrency(),
+  }).format((price ?? 0) / 100);
+}
+
+/**
+ * The variant a product-level surface (card, buy button, JSON-LD) should read when the shopper
+ * hasn't chosen one: the served `isDefault` flag first, else `defaultVariantId`, else the first.
+ */
+export function defaultVariantOf<T extends { id: string; isDefault?: boolean }>(product: {
+  variants?: T[];
+  defaultVariantId?: string;
+}): T | undefined {
+  const variants = product.variants ?? [];
+  return (
+    variants.find(v => v.isDefault) ??
+    variants.find(v => v.id === product.defaultVariantId) ??
+    variants[0]
+  );
+}
+
+/**
+ * The sale discount to badge a product card with, as a whole percentage - or null when nothing
+ * is on sale. Derived from the served `compareAtPrice` on the default variant; v3 shipped this
+ * inside the Money object (`isOnSale`/`discountPercentage`) and the wire no longer carries it.
+ */
+export function salePercentage(product: {
+  variants?: Array<{ id: string; price: number; compareAtPrice?: number | null; isDefault?: boolean }>;
+  defaultVariantId?: string;
+}): number | null {
+  const v = defaultVariantOf(product);
+  if (!v || typeof v.compareAtPrice !== 'number' || v.compareAtPrice <= v.price) return null;
+  const pct = Math.round((1 - v.price / v.compareAtPrice) * 100);
+  return pct > 0 ? pct : null;
 }
 
 /**

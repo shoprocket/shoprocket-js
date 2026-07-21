@@ -10,7 +10,7 @@
  */
 
 import type { Product, Store, ShoprocketCore } from '@shoprocket/core';
-import { getMediaUrl } from './formatters';
+import { defaultVariantOf, getMediaUrl } from './formatters';
 
 /**
  * Schema.org Product type
@@ -74,29 +74,22 @@ function getAvailability(product: Product): string {
 }
 
 /**
- * Format price for schema (must be string without currency symbol)
+ * Format price for schema (must be string without currency symbol).
+ *
+ * Reads the default variant, where the wire keeps the price - the same rule the sku field
+ * follows. A product with no variants at all has no price to declare.
  */
 function formatPrice(product: Product): string {
-  if (typeof product.price === 'number') {
-    // Price in cents, convert to decimal
-    return (product.price / 100).toFixed(2);
-  }
-
-  if (product.price && typeof product.price === 'object' && 'amount' in product.price) {
-    return (product.price.amount / 100).toFixed(2);
-  }
-
-  return '0.00';
+  const price = defaultVariantOf(product)?.price;
+  return typeof price === 'number' ? (price / 100).toFixed(2) : '0.00';
 }
 
 /**
- * Get currency code from product price
+ * Currency for the schema: the store's, as served on the store bootstrap. Prices on the wire are
+ * bare integer cents - the product carries no currency of its own.
  */
-function getCurrency(product: Product): string {
-  if (product.price && typeof product.price === 'object' && 'currency' in product.price) {
-    return product.price.currency.toUpperCase();
-  }
-  return 'USD'; // Default fallback
+function getCurrency(store?: Store): string {
+  return (store?.currency ?? 'USD').toUpperCase();
 }
 
 /**
@@ -110,7 +103,7 @@ export function generateProductSchema(product: Product, sdk: ShoprocketCore, sto
     offers: {
       '@type': 'Offer',
       price: formatPrice(product),
-      priceCurrency: getCurrency(product),
+      priceCurrency: getCurrency(store),
       availability: getAvailability(product),
       url: getProductUrl(product),
     },
@@ -256,7 +249,7 @@ export function injectProductOgTags(product: Product, sdk: ShoprocketCore, store
     'og:title': product.name,
     'og:url': getProductUrl(product),
     'product:price:amount': formatPrice(product),
-    'product:price:currency': getCurrency(product),
+    'product:price:currency': getCurrency(store),
   };
 
   if (product.summary || product.description) {

@@ -6,17 +6,13 @@
 
 export class AnalyticsSanitizer {
   /**
-   * Extract price in cents and currency from Money object
+   * Extract price in cents. The wire carries bare integer cents (the v3 Money object is gone),
+   * and no per-price currency - trackers read the store currency from their own config.
    */
   private static extractPrice(data: any): { price_cents: number; currency?: string } {
-    // Money object from API - the ONLY format we support
-    if (data?.price?.amount !== undefined) {
-      return { 
-        price_cents: data.price.amount,
-        currency: data.price.currency
-      };
+    if (typeof data?.price === 'number') {
+      return { price_cents: data.price };
     }
-    
     return { price_cents: 0 };
   }
 
@@ -61,16 +57,11 @@ export class AnalyticsSanitizer {
    * Extract total value from cart/order objects
    */
   private static extractTotal(data: any): { value_cents: number; currency?: string } {
-    // Try various total locations (all Money objects)
-    const totalObj = data?.totals?.total || data?.total;
-    
-    if (totalObj?.amount !== undefined) {
-      return {
-        value_cents: totalObj.amount,
-        currency: totalObj.currency
-      };
+    // Totals are integer cents on the wire (`totals.total` on carts, `total` on receipts).
+    const total = data?.totals?.total ?? data?.total;
+    if (typeof total === 'number') {
+      return { value_cents: total, currency: data?.currencyCode ?? data?.currency };
     }
-    
     return { value_cents: 0 };
   }
 
@@ -130,9 +121,9 @@ export class AnalyticsSanitizer {
 
     const { value_cents, currency } = this.extractTotal(orderData);
 
-    // Extract tax and shipping from Money objects
-    const tax_cents = orderData.tax?.amount ?? orderData.totals?.tax?.amount ?? 0;
-    const shipping_cents = orderData.shipping?.amount ?? orderData.totals?.shipping?.amount ?? 0;
+    // Tax and shipping are integer cents wherever they appear on the wire.
+    const tax_cents = orderData.taxTotal ?? orderData.totals?.taxTotal ?? 0;
+    const shipping_cents = orderData.shippingTotal ?? orderData.totals?.shippingTotal ?? 0;
 
     // Get order identifiers:
     // - order_id: Shoprocket internal ID (ord_xxx) for API lookups

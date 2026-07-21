@@ -737,10 +737,10 @@ export class CartWidget extends ShoprocketElement {
       }
     } else {
       // Add a new line with a temporary ID, minted in the SERVED wire shape (the add event's
-      // detail is the product component's own vocabulary - productName, a Money price, a media
+      // detail is the product component's own vocabulary - productName, a cents price, a media
       // array - and mapping it here keeps every renderer reading one shape). Replaced wholesale
       // by the API's cart on response.
-      const unitPrice = typeof item.price === 'number' ? item.price : (item.price?.amount ?? 0);
+      const unitPrice = typeof item.price === 'number' ? item.price : 0;
       const newItem: LocalCartItem = {
         id: 'temp-' + Date.now() + '-' + Math.random(),
         productId: item.productId ?? null,
@@ -922,15 +922,6 @@ export class CartWidget extends ShoprocketElement {
         // Handle both wrapped and unwrapped responses
         if (response && typeof response === 'object') {
           const cart = 'data' in response ? (response as ApiResponse<Cart>).data : (response as Cart);
-
-          // Ensure all items have subtotals calculated (if needed)
-          if (cart?.items) {
-            cart.items.forEach((item: any) => {
-              if (item.subtotal === undefined && item.price?.amount !== undefined) {
-                item.subtotal = item.price.amount * (item.quantity || 0);
-              }
-            });
-          }
 
           // Update cart state - this will trigger subscription and update UI
           cartState.setCart(cart);

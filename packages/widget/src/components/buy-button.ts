@@ -2,7 +2,7 @@ import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import { variantOptionValueIds, type Product } from '@shoprocket/core';
-import { formatProductPrice } from '../utils/formatters';
+import { defaultVariantOf, formatProductPrice } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import { isAllStockInCart } from '../utils/cart-utils';
@@ -247,12 +247,14 @@ export class BuyButton extends ShoprocketElement {
   private addToCart(): void {
     if (!this.productData) return;
 
-    // Use specified variant if provided, otherwise use default
-    const variantId = this.variant || this.productData.defaultVariantId;
+    // Use specified variant if provided, otherwise use default. Price lives on the variant -
+    // there is no product-level price on the wire.
+    const defaultVariant = defaultVariantOf(this.productData);
+    const variantId = this.variant || this.productData.defaultVariantId || defaultVariant?.id;
 
     // Get variant details if a specific variant was selected
     let variantName: string | undefined = undefined;
-    let variantPrice = this.productData.price;
+    let variantPrice = defaultVariant?.price ?? 0;
     let variantInventory = this.productData.inventoryQuantity ?? 0;
     if (this.variant && this.productData.variants) {
       const selectedVariant = this.productData.variants.find(v => v.id === this.variant);

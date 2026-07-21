@@ -102,13 +102,9 @@ export function renderCartItems(context: CartItemsContext): TemplateResult {
 
           <div class="sr-cart-item-footer">
             <div class="sr-cart-item-price">
-              ${keyed((item.subtotal?.amount ?? (item.price?.amount || 0) * (item.quantity || 0)), html`
+              ${keyed(item.subtotal ?? item.unitPrice * (item.quantity || 0), html`
                 <span class="sr-cart-item-subtotal price-changed">
-                  ${context.formatPrice(
-                    item.subtotal !== undefined
-                      ? item.subtotal
-                      : (item.price?.amount || 0) * (item.quantity || 0)
-                  )}
+                  ${context.formatPrice(item.subtotal ?? item.unitPrice * (item.quantity || 0))}
                 </span>
               `)}
             </div>

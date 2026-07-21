@@ -1,7 +1,7 @@
 import { html, type TemplateResult } from 'lit';
 import type { Product } from '@shoprocket/core';
 import type { FeatureKey } from '../types/features';
-import { formatProductPrice, getMediaSizes } from '../utils/formatters';
+import { formatProductPrice, getMediaSizes, salePercentage } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { t } from '../utils/i18n';
@@ -136,8 +136,11 @@ export class ProductListTemplates {
     // Badge logic
     const badges: TemplateResult[] = [];
     if (!isSkeleton) {
-      if (product.price?.isOnSale && product.price.discountPercentage) {
-        badges.push(html`<span class="sr-badge sr-badge-sale">-${Math.round(product.price.discountPercentage)}%</span>`);
+      // Derived from the served compareAtPrice; v3 carried sale flags inside the Money object,
+      // which the wire no longer has - this badge had been reading undefined and never rendering.
+      const salePct = salePercentage(product);
+      if (salePct) {
+        badges.push(html`<span class="sr-badge sr-badge-sale">-${salePct}%</span>`);
       }
       if (product.productType === 'digital') {
         badges.push(html`<span class="sr-badge sr-badge-digital">${t('product.digital', 'Digital')}</span>`);
