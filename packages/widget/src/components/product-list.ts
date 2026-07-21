@@ -1,7 +1,7 @@
 import { html, type TemplateResult } from 'lit';
 import type { Product } from '@shoprocket/core';
 import type { FeatureKey } from '../types/features';
-import { formatProductPrice, getMediaSrcSet, getMediaSizes } from '../utils/formatters';
+import { formatProductPrice, getMediaSizes } from '../utils/formatters';
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { t } from '../utils/i18n';
@@ -27,8 +27,10 @@ export class ProductListTemplates {
       handleAddToCart: (product: Product) => Promise<void>;
       formatPrice: (price: any) => string;
       getMediaUrl: (media: any) => string;
+      getMediaSrcSet: (media: any) => string;
       handleImageError: (e: Event) => void;
       isLoadingItem: (key: string) => boolean;
+      sdk: any;
     }
   ): TemplateResult {
     // Create skeleton products for initial loading
@@ -42,7 +44,7 @@ export class ProductListTemplates {
         id: `skeleton-${i}`,
         name: '',
         price: 0,
-        media: [null],
+        images: [null],
         inStock: true,
         quickAddEligible: true
       } as any));

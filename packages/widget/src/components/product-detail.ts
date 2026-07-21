@@ -336,7 +336,7 @@ export class ProductDetail extends ShoprocketElement {
 
   private renderThumbnails = (product: Product | undefined): TemplateResult => {
     // Don't show thumbnails if no media or only one image
-    if (!product?.media || product.images.length <= 1) return html``;
+    if (!product?.images || product.images.length <= 1) return html``;
 
     return html`
       <div class="sr-product-thumbnails">
@@ -1086,7 +1086,7 @@ export class ProductDetail extends ShoprocketElement {
 
   private getSelectedMedia(): any {
     const product = this.product;
-    return product?.media?.[this.selectedMediaIndex] || product?.media?.[0];
+    return product?.images?.[this.selectedMediaIndex] || product?.images?.[0];
   }
 
   private renderMediaContainer(media: any, size: string, alt: string, className: string = '', showSkeleton: boolean = false): TemplateResult {

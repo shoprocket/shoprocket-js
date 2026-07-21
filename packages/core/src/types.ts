@@ -148,12 +148,17 @@ export interface BundleComponentVariant {
   optionValues?: string[];
 }
 
+/**
+ * Bundles are NOT yet served by the v3.5 API (v3 had ProductBundleConfig/Component; the rebuild
+ * hasn't ported them). The widget feature is kept, inert, per the widget-ahead rule; field names
+ * here follow the product wire (`images`) so the eventual API lands without a rename.
+ */
 export interface BundleComponent {
   id: string;
   product: {
     id: string;
     name: string;
-    media: Media[];
+    images: Media[];
     options?: Array<{
       id: string;
       name: string;
@@ -201,7 +206,8 @@ export interface Product {
   price: Money;
   priceMin?: number;
   priceMax?: number;
-  media: Media[];
+  /** Served as `images` (ProductImage[] in @app/shared): ordered, optionally variant-bound. */
+  images: Media[];
   variants?: ProductVariant[];
   options?: ProductOption[];
   quickAddEligible?: boolean;
