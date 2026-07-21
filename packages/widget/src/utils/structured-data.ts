@@ -11,6 +11,7 @@
 
 import type { Product, Store, ShoprocketCore } from '@shoprocket/core';
 import { defaultVariantOf, getMediaUrl } from './formatters';
+import { productInStock } from './stock';
 
 /**
  * Schema.org Product type
@@ -60,17 +61,12 @@ function getProductUrl(product: Product): string {
 }
 
 /**
- * Get availability status based on inventory
+ * Availability, derived from the variants' sellable stock (D40). The v3 product-level
+ * `trackInventory`/`inventoryQuantity` were never served here, so this used to read
+ * `undefined ?? 0` and declare EVERY product out of stock to Google.
  */
 function getAvailability(product: Product): string {
-  // Check if tracking inventory
-  if (product.trackInventory === false) {
-    return AVAILABILITY.IN_STOCK;
-  }
-
-  // Check inventory count
-  const count = product.inventoryQuantity ?? 0;
-  return count > 0 ? AVAILABILITY.IN_STOCK : AVAILABILITY.OUT_OF_STOCK;
+  return productInStock(product) ? AVAILABILITY.IN_STOCK : AVAILABILITY.OUT_OF_STOCK;
 }
 
 /**
@@ -131,7 +127,7 @@ export function generateProductSchema(product: Product, sdk: ShoprocketCore, sto
 
   // Add SKU if available. The wire carries sku per VARIANT, not on the product - use the
   // default variant's, falling back to the first.
-  const sku = (product.variants?.find(v => v.id === product.defaultVariantId) ?? product.variants?.[0])?.sku;
+  const sku = defaultVariantOf(product)?.sku;
   if (sku) {
     schema.sku = sku;
   }

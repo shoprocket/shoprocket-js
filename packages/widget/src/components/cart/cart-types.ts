@@ -10,7 +10,8 @@ import type { AddressData, AddressFormErrors } from '../address-form';
  */
 export type LocalCartItem = CartItem & {
   inventoryPolicy?: 'deny' | 'continue';
-  inventoryQuantity?: number;
+  /** SELLABLE stock learned at add time (D40) - the cap the stepper enforces optimistically. */
+  sellableQuantity?: number;
 };
 
 /**

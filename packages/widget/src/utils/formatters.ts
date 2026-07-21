@@ -47,18 +47,14 @@ export function formatPrice(price: number | undefined | null): string {
 
 /**
  * The variant a product-level surface (card, buy button, JSON-LD) should read when the shopper
- * hasn't chosen one: the served `isDefault` flag first, else `defaultVariantId`, else the first.
+ * hasn't chosen one: the served `isDefault` flag first, else the first. (There is no
+ * product-level `defaultVariantId` on the wire - the flag lives on the variant.)
  */
-export function defaultVariantOf<T extends { id: string; isDefault?: boolean }>(product: {
+export function defaultVariantOf<T extends { isDefault?: boolean }>(product: {
   variants?: T[];
-  defaultVariantId?: string;
 }): T | undefined {
   const variants = product.variants ?? [];
-  return (
-    variants.find(v => v.isDefault) ??
-    variants.find(v => v.id === product.defaultVariantId) ??
-    variants[0]
-  );
+  return variants.find(v => v.isDefault) ?? variants[0];
 }
 
 /**
@@ -67,8 +63,7 @@ export function defaultVariantOf<T extends { id: string; isDefault?: boolean }>(
  * inside the Money object (`isOnSale`/`discountPercentage`) and the wire no longer carries it.
  */
 export function salePercentage(product: {
-  variants?: Array<{ id: string; price: number; compareAtPrice?: number | null; isDefault?: boolean }>;
-  defaultVariantId?: string;
+  variants?: Array<{ price: number; compareAtPrice?: number | null; isDefault?: boolean }>;
 }): number | null {
   const v = defaultVariantOf(product);
   if (!v || typeof v.compareAtPrice !== 'number' || v.compareAtPrice <= v.price) return null;

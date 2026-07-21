@@ -692,10 +692,11 @@ export class CartWidget extends ShoprocketElement {
       cartItem.variantId === item.variantId
     );
     
-    // Validate stock if tracking inventory
-    if (stockInfo?.trackInventory || stockInfo?.inventoryPolicy === 'deny') {
-      const availableQuantity = stockInfo.availableQuantity ?? stockInfo.inventoryQuantity ?? 0;
-      
+    // Optimistic stock gate: only when the policy denies overselling AND we actually know the
+    // sellable figure - an unresolved figure means "let the server decide", never "zero".
+    if (stockInfo?.inventoryPolicy === 'deny' && stockInfo.availableQuantity !== undefined) {
+      const availableQuantity = stockInfo.availableQuantity;
+
       // Check if out of stock
       if (availableQuantity === 0) {
         window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
@@ -732,8 +733,8 @@ export class CartWidget extends ShoprocketElement {
       existingItem.quantity += item.quantity;
       // Update stock info if provided
       if (stockInfo) {
-        existingItem.inventoryPolicy = stockInfo.inventoryPolicy || (stockInfo.trackInventory ? 'deny' : 'continue');
-        existingItem.inventoryQuantity = stockInfo.inventoryQuantity ?? stockInfo.availableQuantity;
+        existingItem.inventoryPolicy = stockInfo.inventoryPolicy;
+        existingItem.sellableQuantity = stockInfo.availableQuantity;
       }
     } else {
       // Add a new line with a temporary ID, minted in the SERVED wire shape (the add event's
@@ -754,8 +755,8 @@ export class CartWidget extends ShoprocketElement {
         position: this.cart.items.length,
         imageUrl: item.media?.[0]?.urls?.thumb ?? item.media?.[0]?.url ?? null,
         ...(stockInfo && {
-          inventoryPolicy: stockInfo.inventoryPolicy || (stockInfo.trackInventory ? 'deny' : 'continue'),
-          inventoryQuantity: stockInfo.inventoryQuantity ?? stockInfo.availableQuantity
+          inventoryPolicy: stockInfo.inventoryPolicy,
+          sellableQuantity: stockInfo.availableQuantity
         })
       };
       this.cart.items.push(newItem);
@@ -2991,12 +2992,12 @@ export class CartWidget extends ShoprocketElement {
     // Check if we're increasing quantity and need stock validation
     if (quantity > item.quantity) {
       // Check if item has inventory policy and stock info
-      if (item.inventoryPolicy === 'deny' && item.inventoryQuantity !== undefined) {
-        if (quantity > item.inventoryQuantity) {
+      if (item.inventoryPolicy === 'deny' && item.sellableQuantity !== undefined) {
+        if (quantity > item.sellableQuantity) {
           // Show error notification
-          const message = item.inventoryQuantity === 0
+          const message = item.sellableQuantity === 0
             ? t('product.out_of_stock', 'Out of Stock')
-            : t('product.max_quantity_in_cart', 'Maximum quantity ({count}) already in cart', { count: item.inventoryQuantity });
+            : t('product.max_quantity_in_cart', 'Maximum quantity ({count}) already in cart', { count: item.sellableQuantity });
           
           window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ERROR, {
             detail: { message }

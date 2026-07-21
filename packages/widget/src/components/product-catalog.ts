@@ -8,6 +8,7 @@ import { ProductListTemplates } from './product-list';
 import { LIMITS, TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import { injectProductSchema, removeProductSchema, injectProductOgTags, removeProductOgTags } from '../utils/structured-data';
 import { defaultVariantOf } from '../utils/formatters';
+import { productNeedsChoice, variantSellable } from '../utils/stock';
 import './catalog-filters'; // Register filter component
 import { t } from '../utils/i18n';
 
@@ -1073,8 +1074,10 @@ export class ProductCatalog extends ShoprocketElement {
   }
 
   private async handleAddToCart(product: Product): Promise<void> {
-    // Check if product needs options selected
-    if (!product.quickAddEligible || !product.defaultVariantId) {
+    // A product that needs a choice first (options, or several variants) can't be quick-added -
+    // derived, since the wire has no quickAddEligible flag. Same when no variant loaded at all.
+    const defaultVariant = defaultVariantOf(product);
+    if (productNeedsChoice(product) || !defaultVariant) {
       // Show product detail view
       this.handleProductClick(product);
       return;
@@ -1084,18 +1087,19 @@ export class ProductCatalog extends ShoprocketElement {
     const cartItemData = {
       productId: product.id,
       productName: product.name,
-      variantId: product.defaultVariantId ?? defaultVariantOf(product)?.id,
+      variantId: defaultVariant.id,
       variantName: undefined, // No variant text for default variant
       quantity: 1,
-      price: defaultVariantOf(product)?.price ?? 0, // Integer cents, off the default variant
+      price: defaultVariant.price, // Integer cents, off the default variant
       media: product.images?.[0] ? [product.images[0]] : undefined,
       sourceUrl: window.location.href
     };
 
-    // Include stock info for validation (gift cards are stock-exempt server-side)
-    const stockInfo = product.kind === 'gift_card' ? { trackInventory: false } : {
-      trackInventory: product.trackInventory ?? true, // Default to true if not specified
-      availableQuantity: product.inventoryQuantity ?? 0
+    // Stock facts for the cart's optimistic gate: SELLABLE, per D40 (gift cards are
+    // stock-exempt server-side, so they send the never-gating policy).
+    const stockInfo = product.kind === 'gift_card' ? { inventoryPolicy: 'continue' as const } : {
+      inventoryPolicy: defaultVariant.inventoryPolicy ?? 'deny' as const,
+      availableQuantity: variantSellable(defaultVariant) ?? undefined
     };
 
     // Dispatch event to cart component - it will handle everything

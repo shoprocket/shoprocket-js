@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import { ShoprocketElement } from '../core/base-component';
 import { variantOptionValueIds, type Product } from '@shoprocket/core';
 import { defaultVariantOf, formatProductPrice } from '../utils/formatters';
+import { gateQuantityOf, productInStock, productNeedsChoice, variantPurchasable, variantSellable } from '../utils/stock';
 import { loadingSpinner } from './loading-spinner';
 import { TIMEOUTS, WIDGET_EVENTS } from '../constants';
 import { isAllStockInCart } from '../utils/cart-utils';
@@ -236,8 +237,9 @@ export class BuyButton extends ShoprocketElement {
       return;
     }
 
-    // For "buy" action: check if product needs variant selection
-    if (this.productData.hasVariants || this.productData.hasRequiredOptions) {
+    // For "buy" action: check if product needs variant selection (derived - the wire carries
+    // no hasVariants/hasRequiredOptions flags, so reading them treated every product as simple)
+    if (productNeedsChoice(this.productData)) {
       this.openProductModal();
     } else {
       this.addToCart();
@@ -250,20 +252,19 @@ export class BuyButton extends ShoprocketElement {
     // Use specified variant if provided, otherwise use default. Price lives on the variant -
     // there is no product-level price on the wire.
     const defaultVariant = defaultVariantOf(this.productData);
-    const variantId = this.variant || this.productData.defaultVariantId || defaultVariant?.id;
+    const variantId = this.variant || defaultVariant?.id;
 
     // Get variant details if a specific variant was selected
     let variantName: string | undefined = undefined;
-    let variantPrice = defaultVariant?.price ?? 0;
-    let variantInventory = this.productData.inventoryQuantity ?? 0;
+    let targetVariant = defaultVariant;
     if (this.variant && this.productData.variants) {
       const selectedVariant = this.productData.variants.find(v => v.id === this.variant);
       if (selectedVariant) {
         variantName = this.getVariantText(selectedVariant);
-        variantPrice = selectedVariant.price;
-        variantInventory = selectedVariant.inventoryQuantity ?? 0;
+        targetVariant = selectedVariant;
       }
     }
+    const variantPrice = targetVariant?.price ?? 0;
 
     // Prepare cart item data for optimistic update (matching catalog pattern)
     const cartItemData = {
@@ -277,10 +278,11 @@ export class BuyButton extends ShoprocketElement {
       sourceUrl: window.location.href
     };
 
-    // Include stock info for validation (gift cards are stock-exempt server-side)
-    const stockInfo = this.productData.kind === 'gift_card' ? { trackInventory: false } : {
-      trackInventory: this.productData.trackInventory ?? true,
-      availableQuantity: variantInventory
+    // Stock facts for the cart's optimistic gate: SELLABLE, per D40 (gift cards are
+    // stock-exempt server-side, so they send the never-gating policy).
+    const stockInfo = this.productData.kind === 'gift_card' ? { inventoryPolicy: 'continue' as const } : {
+      inventoryPolicy: targetVariant?.inventoryPolicy ?? 'deny' as const,
+      availableQuantity: targetVariant ? variantSellable(targetVariant) ?? undefined : undefined
     };
 
     // Dispatch event to cart component - it will handle optimistic update and API call
@@ -430,9 +432,24 @@ export class BuyButton extends ShoprocketElement {
 
   private canAddToCart(): boolean {
     if (!this.productData) return false;
-    if (this.productData.inStock === false) return false;
+    if (!this.isTargetInStock()) return false;
     if (this.adding || this.success) return false;
     return true;
+  }
+
+  /**
+   * In-stock for what this button would actually add: the pinned variant when one is set, else
+   * the product as a whole. Derived from variant sellable stock (D40) - the product-level
+   * `inStock` this used to read was never served, so the button never disabled.
+   */
+  private isTargetInStock(): boolean {
+    if (!this.productData) return false;
+    if (this.productData.kind === 'gift_card') return true;
+    if (this.variant) {
+      const target = this.productData.variants?.find(v => v.id === this.variant);
+      return target ? variantPurchasable(target) : true;
+    }
+    return productInStock(this.productData);
   }
 
   protected override render() {
@@ -460,26 +477,21 @@ export class BuyButton extends ShoprocketElement {
       `;
     }
 
-    const isOutOfStock = this.productData.inStock === false;
-    const needsOptions = this.productData.hasVariants || this.productData.hasRequiredOptions;
+    const isOutOfStock = !this.isTargetInStock();
+    const needsOptions = productNeedsChoice(this.productData);
 
-    // Get the variant we'll be adding (specified or default)
-    const targetVariantId = this.variant || this.productData.defaultVariantId;
-
-    // Get inventory count for the target variant
-    let inventoryQuantity = this.productData.inventoryQuantity;
-    if (this.variant && this.productData.variants) {
-      const targetVariant = this.productData.variants.find(v => v.id === this.variant);
-      inventoryQuantity = targetVariant?.inventoryQuantity;
-    }
-
-    // Check if all available stock is already in cart. Bundles don't track inventory at bundle
-    // level, and gift cards are stock-exempt (minted per unit server-side).
-    const isBundle = this.productData.productType === 'bundle' || this.productData.kind === 'gift_card';
-    const stockStatus = !isBundle ? isAllStockInCart(
+    // The variant we'd be adding (pinned or default), and the SELLABLE figure that caps it
+    // (D40) - undefined means stock never gates (gift card, policy continue, unresolved).
+    const targetVariant = this.variant
+      ? this.productData.variants?.find(v => v.id === this.variant)
+      : defaultVariantOf(this.productData);
+    const gateQuantity = this.productData.productType !== 'bundle'
+      ? gateQuantityOf(this.productData, targetVariant)
+      : undefined;
+    const stockStatus = gateQuantity !== undefined ? isAllStockInCart(
       this.productData.id,
-      targetVariantId,
-      inventoryQuantity
+      targetVariant?.id,
+      gateQuantity
     ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
 
@@ -518,7 +530,7 @@ export class BuyButton extends ShoprocketElement {
               ${t('cart.item_added', 'Added')}
             </span>
           ` : isOutOfStock ? html`<span class="shrink-0">${t('product.out_of_stock', 'Out of Stock')}</span>` :
-            allStockInCart ? html`<span class="shrink-0">Max (${inventoryQuantity}) in cart</span>` :
+            allStockInCart ? html`<span class="shrink-0">Max (${gateQuantity}) in cart</span>` :
             this.action === 'view' ? html`<span class="shrink-0">View Product</span>` :
             needsOptions && !this.variant ? html`<span class="shrink-0">Select Options</span>` : html`<span class="shrink-0">${t('cart.add_to_cart', 'Add to Cart')}</span>`}
         </div>

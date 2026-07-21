@@ -5,6 +5,7 @@ import { ShoprocketElement, EVENTS } from '../core/base-component';
 import { variantOptionValueIds, type Product, type ProductVariant, type ProductOption, type BundleSelection, type Review, type ReviewStats } from '@shoprocket/core';
 import { loadingSpinner } from './loading-spinner';
 import { defaultVariantOf, formatProductPrice, getMediaSizes, formatNumber } from '../utils/formatters';
+import { gateQuantityOf, productInStock, productNeedsChoice, variantPurchasable, variantSellable } from '../utils/stock';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { TIMEOUTS, STOCK_THRESHOLDS, IMAGE_SIZES, WIDGET_EVENTS } from '../constants';
 import './tooltip'; // Register tooltip component
@@ -151,9 +152,8 @@ export class ProductDetail extends ShoprocketElement {
    * (isAllStockInCart answers false, quantity caps fall back to 999).
    */
   private get gateInventory(): number | undefined {
-    if (this.product?.kind === 'gift_card') return undefined;
-    const v = this.selectedVariant ? this.selectedVariant.inventoryQuantity : this.product?.inventoryQuantity;
-    return v ?? undefined;
+    if (!this.product) return undefined;
+    return gateQuantityOf(this.product, this.selectedVariant);
   }
 
   protected override async updated(changedProperties: Map<string, any>): Promise<void> {
@@ -362,7 +362,7 @@ export class ProductDetail extends ShoprocketElement {
     // Show skeleton if product is loading but we know it has required options
     if (!product?.options) {
       // Check if we have metadata indicating variants exist (from catalog listing)
-      const hasVariants = product?.hasRequiredOptions || product?.quickAddEligible === false;
+      const hasVariants = product ? productNeedsChoice(product) : false;
 
       if (hasVariants) {
         // Render conservative skeleton: 1 row with 4 button placeholders
@@ -440,7 +440,7 @@ export class ProductDetail extends ShoprocketElement {
     }
 
     // Get max quantity based on stock
-    const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
+    const variantId = this.selectedVariant?.id || defaultVariantOf(this.product)?.id;
     const totalInventory = this.gateInventory;
 
     // Check how many are already in cart
@@ -525,7 +525,7 @@ export class ProductDetail extends ShoprocketElement {
     }
 
     // Get max quantity
-    const variantId = this.selectedVariant?.id || this.product?.defaultVariantId;
+    const variantId = this.selectedVariant?.id || (this.product && defaultVariantOf(this.product)?.id);
     const totalInventory = this.gateInventory;
     const stockStatus = isAllStockInCart(this.product?.id || '', variantId, totalInventory);
     // Calculate available quantity (total - what's in cart)
@@ -555,30 +555,15 @@ export class ProductDetail extends ShoprocketElement {
     // If we can add, always show "Add to Cart"
     if (canAdd) return t('cart.add_to_cart', 'Add to Cart');
 
-    // If out of stock
-    if (product.inStock === false) return t('product.out_of_stock', 'Out of Stock');
+    // If out of stock (derived from variant sellable stock - no product-level flag is served)
+    if (!productInStock(product)) return t('product.out_of_stock', 'Out of Stock');
 
-    // During loading, determine text based on catalog data
-    const hasRequiredOptions = product.hasRequiredOptions === true;
-    const hasVariants = product.hasVariants === true ||
-                       (product.variantCount && product.variantCount > 1);
-
-    // If loading full product and has options/variants, check if we have full data
-    if ((hasRequiredOptions || hasVariants) && !this.product) {
-      // Still loading, but we can make educated guess
-      if (product.quickAddEligible === true) {
-        return t('cart.add_to_cart', 'Add to Cart');
-      }
-      return hasRequiredOptions ? t('product.select_options', 'Select Options') : t('cart.add_to_cart', 'Add to Cart');
+    // Can't add yet because a choice is still needed
+    if (productNeedsChoice(product)) {
+      return t('product.select_options', 'Select Options');
     }
 
-    // If product has no required options or variants, or is quick add eligible
-    if (!hasRequiredOptions || product.quickAddEligible === true) {
-      return 'Add to Cart';
-    }
-
-    // Has required options that need selection
-    return t('product.select_options', 'Select Options');
+    return t('cart.add_to_cart', 'Add to Cart');
   }
   
   private renderAddToCartButton = (): TemplateResult => {
@@ -596,7 +581,7 @@ export class ProductDetail extends ShoprocketElement {
     let stockAllInCart = false;
     let totalInventory = 0;
     if (!this.isBundleProduct) {
-      const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
+      const variantId = this.selectedVariant?.id || defaultVariantOf(this.product)?.id;
       totalInventory = this.gateInventory ?? 0;
       const stockStatus = isAllStockInCart(this.product.id, variantId, this.gateInventory);
       stockAllInCart = stockStatus.allInCart;
@@ -616,7 +601,7 @@ export class ProductDetail extends ShoprocketElement {
             Added to Cart
           </span>
         ` : isLoading ? html`<span class="sr-loading-spinner">${loadingSpinner('sm')}</span>` :
-            this.product.inStock === false ? 'Out of Stock' :
+            !productInStock(this.product) ? t('product.out_of_stock', 'Out of Stock') :
             stockAllInCart ? `Max (${totalInventory}) in cart` :
             this.getButtonText(this.product, canAdd)}
       </button>
@@ -838,7 +823,7 @@ export class ProductDetail extends ShoprocketElement {
 
     // Bundle add-to-cart flow
     if (this.isBundle) {
-      const variantId = this.product.defaultVariantId || this.product.variants?.[0]?.id;
+      const variantId = defaultVariantOf(this.product)?.id;
       if (!variantId) return;
 
       // Build human-readable bundle selections for optimistic cart display
@@ -874,21 +859,22 @@ export class ProductDetail extends ShoprocketElement {
       window.dispatchEvent(new CustomEvent(WIDGET_EVENTS.CART_ADD_ITEM, {
         detail: {
           item: cartItemData,
-          stockInfo: { trackInventory: false },
+          stockInfo: { inventoryPolicy: 'continue' as const },
           bundleSelections: this.bundleSelections
         }
       }));
       return;
     }
 
-    const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
+    const chosenVariant = this.selectedVariant ?? defaultVariantOf(this.product);
+    const variantId = chosenVariant?.id;
     if (!variantId) {
       this.showError(t('error.select_options_required', 'Please select all options before adding to cart.'));
       return;
     }
 
     // Integer cents off the chosen variant, else the default one - price lives on variants.
-    const selectedPrice = this.selectedVariant?.price ?? defaultVariantOf(this.product)?.price ?? 0;
+    const selectedPrice = chosenVariant?.price ?? 0;
 
     // Prepare cart item data for optimistic update
     const cartItemData = {
@@ -902,11 +888,12 @@ export class ProductDetail extends ShoprocketElement {
       sourceUrl: window.location.href
     };
 
-    // Include stock info for validation. Gift cards send none - they are stock-exempt
-    // server-side, so the optimistic gate must not refuse them either.
-    const stockInfo = this.product.kind === 'gift_card' ? { trackInventory: false } : {
-      trackInventory: this.product.trackInventory,
-      availableQuantity: this.gateInventory
+    // Stock facts for the cart's optimistic gate: SELLABLE, per D40. Gift cards send the
+    // never-gating policy - they are stock-exempt server-side, so the optimistic gate must not
+    // refuse them either.
+    const stockInfo = this.product.kind === 'gift_card' ? { inventoryPolicy: 'continue' as const } : {
+      inventoryPolicy: chosenVariant?.inventoryPolicy ?? 'deny' as const,
+      availableQuantity: chosenVariant ? variantSellable(chosenVariant) ?? undefined : undefined
     };
 
     // Dispatch event with full cart item data for optimistic update
@@ -970,14 +957,16 @@ export class ProductDetail extends ShoprocketElement {
   private canAddToCart(): boolean {
     if (!this.product) return false;
 
-    // Check if out of stock
-    if (this.product.inStock === false) return false;
+    // Out of stock, derived from variant sellable stock (the shopper's chosen variant when
+    // there is one, else any variant being buyable). Gift cards are stock-exempt (they mint).
+    const stockExempt = this.product.kind === 'gift_card';
+    if (!stockExempt && (this.selectedVariant ? !variantPurchasable(this.selectedVariant) : !productInStock(this.product))) return false;
 
     // For bundles, check bundle validity
     if (this.isBundle) return this.bundleValid;
 
     // Check if all stock is already in cart
-    const variantId = this.selectedVariant?.id || this.product.defaultVariantId;
+    const variantId = this.selectedVariant?.id || defaultVariantOf(this.product)?.id;
     const totalInventory = this.gateInventory;
 
     const stockStatus = isAllStockInCart(this.product.id, variantId, totalInventory);
@@ -999,7 +988,7 @@ export class ProductDetail extends ShoprocketElement {
   }
   
   private isOptionValueOutOfStock(optionId: string, valueId: string, product: Product): boolean {
-    if (!product.trackInventory || !product.variants) return false;
+    if (product.kind === 'gift_card' || !product.variants) return false;
 
     // Find all variants that have this specific option value
     const variantsWithThisOption = product.variants.filter(variant => {
@@ -1016,8 +1005,8 @@ export class ProductDetail extends ShoprocketElement {
       .map(([, valId]) => valId);
 
     if (otherSelections.length === 0) {
-      // No other selections, just check if any variant with this option has stock
-      return variantsWithThisOption.every(v => (v.inventoryQuantity ?? 0) === 0);
+      // No other selections, just check if any variant with this option has sellable stock
+      return variantsWithThisOption.every(v => !variantPurchasable(v));
     }
 
     // Find variants that match this option value AND all other current selections
@@ -1026,9 +1015,9 @@ export class ProductDetail extends ShoprocketElement {
       return otherSelections.every(valId => variantValues.includes(valId));
     });
 
-    // If no fully matching variants or all have 0 inventory, it's out of stock
+    // If no fully matching variants or none is sellable, it's out of stock
     if (fullyMatchingVariants.length === 0) return false; // Don't disable if no exact match yet
-    return fullyMatchingVariants.every(v => (v.inventoryQuantity ?? 0) === 0);
+    return fullyMatchingVariants.every(v => !variantPurchasable(v));
   }
   
   private renderStockStatus(product: Product | undefined): TemplateResult | string {
@@ -1036,29 +1025,24 @@ export class ProductDetail extends ShoprocketElement {
       return '';
     }
 
-    if (!product || !product.trackInventory || product.kind === 'gift_card') {
+    if (!product || product.kind === 'gift_card') {
       return '';
     }
+
+    // The SELLABLE figure for the variant this page is about (chosen, else default) - the
+    // number the shopper may actually buy (D40). null means the stock never caps this variant
+    // (policy `continue`, or unresolved on this read): show nothing rather than a made-up count.
+    const displayVariant = this.selectedVariant ?? defaultVariantOf(product);
+    if (!displayVariant) return '';
+    const sellable = variantSellable(displayVariant);
+    if (sellable === null) return '';
+    const stockQuantity = sellable;
 
     // Simple low stock threshold (future: from theme/config)
     const lowStockThreshold = STOCK_THRESHOLDS.LOW;
 
-    // Determine stock based on selected variant or product total
-    let stockQuantity: number;
-    let inStock: boolean;
-
-    if (this.selectedVariant) {
-      // Use variant stock when variant is selected
-      stockQuantity = this.selectedVariant.inventoryQuantity ?? 0;
-      inStock = stockQuantity > 0;
-    } else {
-      // Use product stock data from API
-      stockQuantity = product.inventoryQuantity ?? 0;
-      inStock = product.inStock ?? (stockQuantity > 0);
-    }
-
     // Always show out of stock
-    if (!inStock || stockQuantity === 0) {
+    if (stockQuantity === 0) {
       return html`
         <div class="sr-stock-status sr-out-of-stock">
           Out of Stock

@@ -1,7 +1,8 @@
 import { html, type TemplateResult } from 'lit';
 import type { Product } from '@shoprocket/core';
 import type { FeatureKey } from '../types/features';
-import { formatProductPrice, getMediaSizes, salePercentage } from '../utils/formatters';
+import { defaultVariantOf, formatProductPrice, getMediaSizes, salePercentage } from '../utils/formatters';
+import { gateQuantityOf, productInStock, productNeedsChoice } from '../utils/stock';
 import { loadingSpinner } from './loading-spinner';
 import { isAllStockInCart } from '../utils/cart-utils';
 import { t } from '../utils/i18n';
@@ -44,9 +45,7 @@ export class ProductListTemplates {
         id: `skeleton-${i}`,
         name: '',
         price: 0,
-        images: [null],
-        inStock: true,
-        quickAddEligible: true
+        images: [null]
       } as any));
     } else {
       displayProducts = products;
@@ -114,22 +113,24 @@ export class ProductListTemplates {
     const loadingStrategy = index === 0 ? 'eager' : 'lazy';
     const fetchPriority = index === 0 ? 'high' : undefined;
 
-    // Let the API determine if quick add is eligible - it knows about variants, options, etc.
-    const needsOptions = !isSkeleton && product.quickAddEligible === false;
+    // Derived from options/variants - the wire has no quickAddEligible flag (reading it here
+    // left needsOptions always false, so multi-variant cards quick-added instead of opening).
+    const needsOptions = !isSkeleton && productNeedsChoice(product);
     const loadingKey = needsOptions ? `viewProduct-${product.id}` : `addToCart-${product.id}`;
     const isLoading = !isSkeleton && handlers.isLoadingItem(loadingKey);
     const isAdded = !isSkeleton && addedToCartProducts.has(product.id);
-    const isOutOfStock = !isSkeleton && product.inStock === false;
+    const isOutOfStock = !isSkeleton && !productInStock(product);
 
-    // Check if all available stock is already in cart. Bundles don't track inventory at bundle
-    // level, and gift cards are stock-exempt (the server mints per unit and skips them in
-    // inventory), so neither is ever gated here.
-    const isBundle = product.productType === 'bundle';
-    const stockExempt = isBundle || product.kind === 'gift_card';
-    const stockStatus = !isSkeleton && !stockExempt ? isAllStockInCart(
+    // Check if all available SELLABLE stock is already in cart (D40). Bundles don't track
+    // inventory at bundle level, and gift cards are stock-exempt inside gateQuantityOf.
+    const defaultVariant = !isSkeleton ? defaultVariantOf(product) : undefined;
+    const gateQuantity = !isSkeleton && product.productType !== 'bundle'
+      ? gateQuantityOf(product, defaultVariant)
+      : undefined;
+    const stockStatus = gateQuantity !== undefined ? isAllStockInCart(
       product.id,
-      product.defaultVariantId,
-      product.inventoryQuantity
+      defaultVariant?.id,
+      gateQuantity
     ) : { allInCart: false };
     const allStockInCart = stockStatus.allInCart;
     
@@ -232,7 +233,7 @@ export class ProductListTemplates {
               <span class="sr-button-content">
                 ${isSkeleton ? '' :
                   isOutOfStock ? html`<span class="sr-button-text">${t('product.out_of_stock', 'Out of Stock')}</span>` :
-                  allStockInCart ? html`<span class="sr-button-text">Max (${product.inventoryQuantity}) in cart</span>` :
+                  allStockInCart ? html`<span class="sr-button-text">Max (${gateQuantity}) in cart</span>` :
                   isAdded ? html`
                     <svg class="sr-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>

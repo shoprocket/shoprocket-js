@@ -116,7 +116,20 @@ export interface ProductVariant {
   /** Served as objects; bare value-id strings are the legacy local shape, still tolerated. */
   optionValues?: Array<VariantOptionValue | string>;
   optionValueIds?: string[];
+  /**
+   * Units PHYSICALLY ON HAND (D40). Units already committed to placed orders are still counted
+   * here until they ship, so this is NOT what a shopper may buy - never gate or display
+   * availability off it. Read `sellableQuantity`.
+   */
   inventoryQuantity?: number;
+  /**
+   * What may actually be sold right now: on-hand minus every active commitment (D40). Advisory -
+   * product reads are cached ~30s and checkout re-checks - so it is the number to DISPLAY and
+   * optimistically gate on. `null` means "not resolved on this read": treat as unlimited, never
+   * as zero.
+   */
+  sellableQuantity?: number | null;
+  /** `continue` means overselling is allowed: stock never gates this variant client-side. */
   inventoryPolicy?: 'deny' | 'continue';
 }
 
@@ -206,16 +219,16 @@ export interface Product {
    */
   /** Served as `images` (ProductImage[] in @app/shared): ordered, optionally variant-bound. */
   images: Media[];
+  /**
+   * There are NO product-level stock or variant-rollup fields on the wire: stock lives on
+   * variants (`sellableQuantity`/`inventoryPolicy`, D40) and the default variant carries
+   * `isDefault`. The v3 fields (`inStock`, `trackInventory`, `inventoryQuantity`,
+   * `defaultVariantId`, `quickAddEligible`, `hasVariants`…) were never served here and every
+   * read of them silently defaulted. Derive with `productInStock` / `productNeedsChoice` /
+   * `defaultVariantOf` instead.
+   */
   variants?: ProductVariant[];
   options?: ProductOption[];
-  quickAddEligible?: boolean;
-  defaultVariantId?: string;
-  trackInventory: boolean;
-  inStock?: boolean;
-  inventoryQuantity?: number;
-  hasVariants?: boolean;
-  variantCount?: number;
-  hasRequiredOptions?: boolean;
   categories?: Array<{
     id: string;
     slug: string;
